@@ -7,6 +7,7 @@ DOMAIN: Final = "nio_telematics"
 PLATFORMS: Final = ["sensor"]
 
 API_BASE_URL: Final = "https://open-api-eu.nio.com"
+AUTHORIZE_BASE_URL: Final = "https://open-eu.nio.com"
 AUTHORIZE_PATH: Final = "/oauth2/authorize"
 TOKEN_PATH: Final = "/api/2/oauth/token"
 TELEMATICS_PATH: Final = "/api/1/telematics"

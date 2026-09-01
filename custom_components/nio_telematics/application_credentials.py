@@ -20,7 +20,13 @@ from homeassistant.helpers.config_entry_oauth2_flow import (
     LocalOAuth2ImplementationWithPkce,
 )
 
-from .const import API_BASE_URL, AUTHORIZE_PATH, OAUTH_SCOPES, TOKEN_PATH
+from .const import (
+    API_BASE_URL,
+    AUTHORIZE_BASE_URL,
+    AUTHORIZE_PATH,
+    OAUTH_SCOPES,
+    TOKEN_PATH,
+)
 from .oauth import unwrap_token_response
 
 
@@ -97,7 +103,7 @@ async def async_get_auth_implementation(
         hass,
         auth_domain,
         credential.client_id,
-        authorize_url=f"{API_BASE_URL}{AUTHORIZE_PATH}",
+        authorize_url=f"{AUTHORIZE_BASE_URL}{AUTHORIZE_PATH}",
         token_url=f"{API_BASE_URL}{TOKEN_PATH}",
         client_secret=credential.client_secret,
         code_verifier_length=128,
