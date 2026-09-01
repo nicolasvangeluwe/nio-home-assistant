@@ -18,8 +18,9 @@ Authorization Code + PKCE, NIO's HTTP Basic token exchange, wrapped token
 response, and automatic refresh through Home Assistant's OAuth session. The
 official reference exposes vehicle telemetry by VIN and does not document a
 vehicle-list endpoint, so setup validates a manually entered VIN after consent.
-Tests in a Home Assistant environment, branding, repository URLs, and release
-automation must be completed before installation through HACS.
+Automated tests, hassfest, and HACS repository validation run on every push.
+Real-credential testing and a tagged release must still be completed before the
+integration is ready for normal installation through HACS.
 
 Never commit a Client ID, Client Secret, VIN, access token, refresh token, or
 diagnostic payload containing personal vehicle data.
