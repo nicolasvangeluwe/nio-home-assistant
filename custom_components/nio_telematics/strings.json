@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "vehicle": {
+        "title": "Add your NIO vehicle",
+        "description": "Enter the vehicle identity after authorizing Home Assistant with NIO.",
+        "data": {
+          "vehicle_name": "Vehicle name",
+          "vin": "VIN"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This vehicle is already configured."
+    },
+    "error": {
+      "invalid_vin": "Enter a valid 17-character VIN."
+    }
+  },
+  "application_credentials": {
+    "description": "Create or open your application in the [NIO Open Telematics developer console]({console_url}), then enter its Client ID and Client Secret."
+  },
+  "entity": {
+    "sensor": {
+      "battery_state_of_charge": {"name": "Battery state of charge"},
+      "remaining_range": {"name": "Remaining range"},
+      "charging_state": {"name": "Charging state"},
+      "charging_target": {"name": "Charging target"},
+      "maximum_soc": {"name": "Maximum state of charge"},
+      "high_voltage_battery_current": {"name": "High-voltage battery current"},
+      "data_timestamp": {"name": "Data timestamp"}
+    }
+  }
+}
