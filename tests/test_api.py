@@ -22,7 +22,7 @@ def response(status: int, payload: dict, headers: dict | None = None) -> MagicMo
     return result
 
 
-async def test_soc_request_uses_historical_window_and_newest_record(
+async def test_soc_request_uses_ten_minute_window_and_newest_record(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr("custom_components.nio_telematics.api.time.time", lambda: 2_000_000)
@@ -57,10 +57,40 @@ async def test_soc_request_uses_historical_window_and_newest_record(
         "/vehicles/LJNABC12345678901/soc_status/changes"
     )
     assert request.kwargs["params"] == {
-        "start_time": 1_913_600_000,
-        "end_time": 2_000_000_000,
+        "start_time": 1_999_400,
+        "end_time": 2_000_000,
     }
     assert "Authorization" not in request.kwargs["headers"]
+
+
+async def test_soc_request_retries_ten_minute_window_in_milliseconds(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr("custom_components.nio_telematics.api.time.time", lambda: 2_000_000)
+    oauth_session = MagicMock()
+    oauth_session.async_request = AsyncMock(
+        side_effect=[
+            response(200, {"result_code": "invalid_param"}),
+            response(
+                200,
+                {
+                    "result_code": "success",
+                    "data": [{"soc": 41, "sample_timestamp": 2_000_000_000}],
+                },
+            ),
+        ]
+    )
+    client = NioApiClient(oauth_session, API_BASE_URL)
+
+    status = await client.async_get_soc_status("LJNABC12345678901")
+
+    assert status.soc == 41
+    assert oauth_session.async_request.await_count == 2
+    request = oauth_session.async_request.await_args
+    assert request.kwargs["params"] == {
+        "start_time": 1_999_400_000,
+        "end_time": 2_000_000_000,
+    }
 
 
 async def test_latest_vehicle_status_uses_snapshot_endpoint() -> None:

@@ -39,7 +39,7 @@ _SAFE_RESPONSE_HEADERS = {
     "x-ratelimit-reset",
 }
 _MILLISECONDS_PER_SECOND = 1_000
-_SOC_HISTORY_WINDOW_MILLISECONDS = 24 * 60 * 60 * _MILLISECONDS_PER_SECOND
+_SOC_CHANGE_WINDOW_SECONDS = 10 * 60
 
 
 def _redact_debug_value(value: Any, *, key: str = "") -> Any:
@@ -78,6 +78,10 @@ class NioPermissionError(NioApiError):
     """The OAuth grant lacks a required scope."""
 
 
+class NioInvalidParameterError(NioApiError):
+    """NIO rejected a documented request parameter."""
+
+
 class NioResourceNotFoundError(NioApiError):
     """NIO has no accessible record for the requested resource."""
 
@@ -105,15 +109,29 @@ class NioApiClient:
         self,
         vin: str,
     ) -> NioSocStatus:
-        """Return the newest SoC change from the last 24 hours."""
-        end_time = int(time.time() * _MILLISECONDS_PER_SECOND)
-        payload = await self._async_get(
-            f"{TELEMATICS_PATH}/vehicles/{vin}/soc_status/changes",
-            params={
-                "start_time": end_time - _SOC_HISTORY_WINDOW_MILLISECONDS,
-                "end_time": end_time,
-            },
-        )
+        """Return the newest SoC change from an explicit ten-minute window."""
+        end_seconds = int(time.time())
+        path = f"{TELEMATICS_PATH}/vehicles/{vin}/soc_status/changes"
+        try:
+            payload = await self._async_get(
+                path,
+                params={
+                    "start_time": end_seconds - _SOC_CHANGE_WINDOW_SECONDS,
+                    "end_time": end_seconds,
+                },
+            )
+        except NioInvalidParameterError:
+            end_milliseconds = end_seconds * _MILLISECONDS_PER_SECOND
+            payload = await self._async_get(
+                path,
+                params={
+                    "start_time": (
+                        end_milliseconds
+                        - _SOC_CHANGE_WINDOW_SECONDS * _MILLISECONDS_PER_SECOND
+                    ),
+                    "end_time": end_milliseconds,
+                },
+            )
         data = payload.get("data")
         if not isinstance(data, list) or not data:
             raise NioApiError("NIO returned no SoC status records")
@@ -200,6 +218,8 @@ class NioApiClient:
             raise NioPermissionError("NIO OAuth grant lacks the required scope")
         if result_code == "resource_not_found":
             raise NioResourceNotFoundError("NIO resource was not found")
+        if result_code == "invalid_param":
+            raise NioInvalidParameterError("NIO rejected request parameters")
         if result_code != "success":
             raise NioApiError(
                 f"NIO request failed: {payload.get('result_code', 'unknown')}"
