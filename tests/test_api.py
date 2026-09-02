@@ -57,7 +57,7 @@ async def test_soc_request_uses_historical_window_and_newest_record(
         "/vehicles/LJNABC12345678901/soc_status/changes"
     )
     assert request.kwargs["params"] == {
-        "start_time": 1_999_913_600,
+        "start_time": 1_913_600_000,
         "end_time": 2_000_000_000,
     }
     assert "Authorization" not in request.kwargs["headers"]
