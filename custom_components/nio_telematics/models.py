@@ -28,7 +28,11 @@ def _optional_float(value: Any) -> float | None:
 
 
 def _optional_str(value: Any) -> str | None:
-    return value if isinstance(value, str) and value else None
+    if isinstance(value, str):
+        return value or None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return str(value)
+    return None
 
 
 def _event_datetime(value: Any) -> datetime | None:

@@ -40,6 +40,11 @@ class TestNioModels(unittest.TestCase):
         self.assertIsNone(status.charging_state)
         self.assertIsNone(status.event_time)
 
+    def test_numeric_enum_is_normalized_to_string(self) -> None:
+        status = models.NioSocStatus.from_payload({"chrg_state": 3})
+
+        self.assertEqual(status.charging_state, "3")
+
     def test_event_time_accepts_milliseconds(self) -> None:
         status = models.NioSocStatus.from_payload(
             {"sample_timestamp": 1_760_000_000_000}
