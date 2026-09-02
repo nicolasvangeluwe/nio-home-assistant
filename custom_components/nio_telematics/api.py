@@ -98,6 +98,8 @@ class NioApiClient:
         if not isinstance(payload, dict):
             raise NioApiError("NIO returned an invalid response envelope")
         result_code = payload.get("result_code")
+        if result_code == "access_denied":
+            raise NioPermissionError("NIO OAuth grant lacks the required scope")
         if result_code == "resource_not_found":
             raise NioResourceNotFoundError("NIO resource was not found")
         if result_code != "success":

@@ -86,6 +86,17 @@ async def test_resource_not_found_is_mapped() -> None:
         await client.async_get_soc_status("LJNABC12345678901")
 
 
+async def test_envelope_access_denied_is_mapped() -> None:
+    oauth_session = MagicMock()
+    oauth_session.async_request = AsyncMock(
+        return_value=response(200, {"result_code": "access_denied"})
+    )
+    client = NioApiClient(oauth_session, API_BASE_URL)
+
+    with pytest.raises(NioPermissionError):
+        await client.async_get_latest_vehicle_status("LJNABC12345678901")
+
+
 @pytest.mark.parametrize(
     ("status", "headers", "error"),
     [
