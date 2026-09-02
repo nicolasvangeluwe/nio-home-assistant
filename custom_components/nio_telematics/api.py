@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from aiohttp import ClientError, ClientResponse
@@ -10,6 +11,8 @@ from homeassistant.helpers.config_entry_oauth2_flow import OAuth2Session
 
 from .const import TELEMATICS_PATH
 from .models import NioSocStatus
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class NioApiError(Exception):
@@ -61,6 +64,11 @@ class NioApiClient:
         records = [item for item in data if isinstance(item, dict)]
         if not records:
             raise NioApiError("NIO returned an invalid SoC status payload")
+        _LOGGER.debug(
+            "NIO SoC change response shape: record_count=%d field_sets=%s",
+            len(records),
+            [sorted(item) for item in records[:10]],
+        )
         latest = max(records, key=lambda item: item.get("sample_timestamp", 0))
         return NioSocStatus.from_payload(latest)
 
@@ -72,6 +80,7 @@ class NioApiClient:
         data = payload.get("data")
         if not isinstance(data, dict):
             raise NioApiError("NIO returned an invalid vehicle status payload")
+        _LOGGER.debug("NIO latest vehicle response fields: %s", sorted(data))
         return NioSocStatus.from_payload(data)
 
     async def _async_get(
