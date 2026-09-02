@@ -3,6 +3,18 @@
 Early development foundation for a read-only Home Assistant integration using
 NIO's official EU Open Telematics API.
 
+## Project status and disclosure
+
+This is an independent, unofficial personal project created to meet the
+author's own Home Assistant needs and shared in case it is useful to others.
+Its design, code, tests, and documentation have been produced with substantial
+assistance from AI and reviewed through automated validation and hands-on
+testing. It does not claim to be an official NIO product, a professionally
+supported integration, or affiliated with NIO, Home Assistant, or OpenAI.
+
+It is experimental software. Review it, protect your credentials and vehicle
+data, and use it at your own risk.
+
 Current milestone:
 
 - parses official SoC status fields;

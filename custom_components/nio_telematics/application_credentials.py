@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from http import HTTPStatus
+import logging
 from typing import Any, cast, override
 
 from aiohttp import BasicAuth, ClientResponseError
@@ -28,6 +29,8 @@ from .const import (
     TOKEN_PATH,
 )
 from .oauth import unwrap_token_response
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class NioOAuth2Implementation(LocalOAuth2ImplementationWithPkce):
@@ -63,8 +66,20 @@ class NioOAuth2Implementation(LocalOAuth2ImplementationWithPkce):
                 auth=BasicAuth(self.client_id, self.client_secret),
                 headers={"Accept": "application/json"},
             )
+            if response.status >= HTTPStatus.BAD_REQUEST:
+                try:
+                    error_payload = await response.json(content_type=None)
+                except (ValueError, TypeError):
+                    error_payload = {}
+                _LOGGER.error(
+                    "NIO token request failed: HTTP %s, result_code=%s, "
+                    "request_id=%s",
+                    response.status,
+                    error_payload.get("result_code", error_payload.get("error")),
+                    error_payload.get("request_id"),
+                )
             response.raise_for_status()
-            payload = await response.json()
+            payload = await response.json(content_type=None)
         except ClientResponseError as err:
             exception_type: type[OAuth2TokenRequestError]
             if err.status == HTTPStatus.TOO_MANY_REQUESTS or 500 <= err.status <= 599:
