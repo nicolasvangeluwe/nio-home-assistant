@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from aiohttp import ClientError, ClientResponse
@@ -13,6 +14,53 @@ from .const import TELEMATICS_PATH
 from .models import NioSocStatus
 
 _LOGGER = logging.getLogger(__name__)
+
+_SENSITIVE_KEY_PARTS = (
+    "access_token",
+    "authorization",
+    "client_id",
+    "client_secret",
+    "code_verifier",
+    "latitude",
+    "longitude",
+    "refresh_token",
+    "token",
+    "vin",
+)
+_VIN_IN_TEXT = re.compile(
+    r"(?<![A-Z0-9])[A-HJ-NPR-Z0-9]{17}(?![A-Z0-9])", re.IGNORECASE
+)
+_SAFE_RESPONSE_HEADERS = {
+    "content-type",
+    "retry-after",
+    "x-ratelimit-limit",
+    "x-ratelimit-remaining",
+    "x-ratelimit-reset",
+}
+
+
+def _redact_debug_value(value: Any, *, key: str = "") -> Any:
+    """Recursively redact credentials, vehicle IDs, and precise location data."""
+    normalized_key = key.casefold()
+    if any(part in normalized_key for part in _SENSITIVE_KEY_PARTS):
+        return "**REDACTED**"
+    if isinstance(value, dict):
+        return {
+            str(item_key): _redact_debug_value(item_value, key=str(item_key))
+            for item_key, item_value in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_debug_value(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_redact_debug_value(item) for item in value)
+    if isinstance(value, str):
+        return _VIN_IN_TEXT.sub("**REDACTED_VIN**", value)
+    return value
+
+
+def _safe_endpoint(path: str) -> str:
+    """Return an endpoint path with any VIN removed."""
+    return _VIN_IN_TEXT.sub("{vin}", path)
 
 
 class NioApiError(Exception):
@@ -105,12 +153,37 @@ class NioApiClient:
                 **request_kwargs,
             )
         except ClientError as err:
+            _LOGGER.debug(
+                "NIO API trace: endpoint=%s stage=transport error_type=%s",
+                _safe_endpoint(path),
+                type(err).__name__,
+            )
             raise NioApiError("Unable to reach the NIO API") from err
-        await self._raise_for_status(response)
+        payload: Any = None
+        json_error: Exception | None = None
         try:
             payload = await response.json()
         except (ClientError, ValueError) as err:
-            raise NioApiError("NIO returned a non-JSON response") from err
+            json_error = err
+
+        safe_headers = {
+            key: value
+            for key, value in response.headers.items()
+            if key.casefold() in _SAFE_RESPONSE_HEADERS
+        }
+        _LOGGER.debug(
+            "NIO API trace: endpoint=%s http_status=%s headers=%s payload=%s "
+            "json_error=%s",
+            _safe_endpoint(path),
+            response.status,
+            safe_headers,
+            _redact_debug_value(payload),
+            type(json_error).__name__ if json_error else None,
+        )
+
+        await self._raise_for_status(response)
+        if json_error is not None:
+            raise NioApiError("NIO returned a non-JSON response") from json_error
         if not isinstance(payload, dict):
             raise NioApiError("NIO returned an invalid response envelope")
         result_code = payload.get("result_code")

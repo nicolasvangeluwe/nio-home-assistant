@@ -1,5 +1,6 @@
 """API-client tests for NIO Open Telematics."""
 
+import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -80,6 +81,43 @@ async def test_latest_vehicle_status_uses_snapshot_endpoint() -> None:
     assert request.args[1].endswith(
         "/vehicles/LJNABC12345678901/vehicle_status/latest"
     )
+
+
+async def test_debug_trace_is_complete_but_redacts_sensitive_data(caplog) -> None:
+    oauth_session = MagicMock()
+    oauth_session.async_request = AsyncMock(
+        return_value=response(
+            200,
+            {
+                "request_id": "trace-123",
+                "result_code": "success",
+                "data": {
+                    "vin": "LJNABC12345678901",
+                    "soc": 52,
+                    "chrg_state": 3,
+                    "access_token": "must-not-leak",
+                    "longitude": 4.123,
+                },
+            },
+            {"Content-Type": "application/json", "Set-Cookie": "private"},
+        )
+    )
+    client = NioApiClient(oauth_session, API_BASE_URL)
+
+    with caplog.at_level(
+        logging.DEBUG, logger="custom_components.nio_telematics.api"
+    ):
+        await client.async_get_latest_vehicle_status("LJNABC12345678901")
+
+    trace = caplog.text
+    assert "/vehicles/{vin}/vehicle_status/latest" in trace
+    assert "http_status=200" in trace
+    assert "trace-123" in trace
+    assert "'soc': 52" in trace
+    assert "LJNABC12345678901" not in trace
+    assert "must-not-leak" not in trace
+    assert "4.123" not in trace
+    assert "private" not in trace
 
 
 async def test_resource_not_found_is_mapped() -> None:
