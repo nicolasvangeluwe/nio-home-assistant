@@ -16,9 +16,8 @@ CONF_VIN: Final = "vin"
 CONF_VEHICLE_NAME: Final = "vehicle_name"
 
 SCOPE_ENERGY_READ: Final = "vehicle:energy:read"
-OAUTH_SCOPES: Final = [SCOPE_ENERGY_READ]
+SCOPE_DYNAMICS_READ: Final = "vehicle:dynamics:read"
+OAUTH_SCOPES: Final = [SCOPE_ENERGY_READ, SCOPE_DYNAMICS_READ]
 
 DEFAULT_SCAN_INTERVAL: Final = timedelta(minutes=10)
-CHANGES_LOOKBACK: Final = timedelta(minutes=10)
-
 ATTR_EVENT_TIME: Final = "event_time"

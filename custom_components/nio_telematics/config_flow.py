@@ -38,6 +38,12 @@ class NioConfigFlow(
         self, data: dict[str, Any]
     ) -> config_entries.ConfigFlowResult:
         """Collect the vehicle identity after OAuth and create the entry."""
+        if self.source == config_entries.SOURCE_REAUTH:
+            reauth_entry = self._get_reauth_entry()
+            return self.async_update_reload_and_abort(
+                reauth_entry,
+                data={**reauth_entry.data, **data},
+            )
         self._oauth_data = data
         return await self.async_step_vehicle()
 

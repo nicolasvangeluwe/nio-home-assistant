@@ -10,7 +10,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import NioApiClient, NioApiError, NioAuthenticationError
+from .api import (
+    NioApiClient,
+    NioApiError,
+    NioAuthenticationError,
+    NioPermissionError,
+    NioResourceNotFoundError,
+)
 from .const import CONF_VIN, DEFAULT_SCAN_INTERVAL, DOMAIN
 from .models import NioVehicleData
 
@@ -38,8 +44,12 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
 
     async def _async_update_data(self) -> NioVehicleData:
         try:
-            soc_status = await self._client.async_get_soc_status(self._vin)
-        except NioAuthenticationError as err:
+            soc_status = await self._client.async_get_latest_vehicle_status(self._vin)
+            try:
+                soc_status = await self._client.async_get_soc_status(self._vin)
+            except NioResourceNotFoundError:
+                pass
+        except (NioAuthenticationError, NioPermissionError) as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except NioApiError as err:
             raise UpdateFailed(str(err)) from err

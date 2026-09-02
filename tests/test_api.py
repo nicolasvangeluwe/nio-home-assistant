@@ -1,6 +1,5 @@
 """API-client tests for NIO Open Telematics."""
 
-from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -10,6 +9,7 @@ from custom_components.nio_telematics.api import (
     NioAuthenticationError,
     NioPermissionError,
     NioRateLimitError,
+    NioResourceNotFoundError,
 )
 from custom_components.nio_telematics.const import API_BASE_URL
 
@@ -37,9 +37,7 @@ async def test_soc_request_uses_oauth_session_and_newest_record() -> None:
     )
     client = NioApiClient(oauth_session, API_BASE_URL)
 
-    status = await client.async_get_soc_status(
-        "LJNABC12345678901", now=datetime(2026, 9, 1, tzinfo=UTC)
-    )
+    status = await client.async_get_soc_status("LJNABC12345678901")
 
     assert status.soc == 41
     request = oauth_session.async_request.await_args
@@ -47,11 +45,45 @@ async def test_soc_request_uses_oauth_session_and_newest_record() -> None:
     assert request.args[1].endswith(
         "/vehicles/LJNABC12345678901/soc_status/changes"
     )
-    assert request.kwargs["params"] == {
-        "start_time": 1_788_220_200,
-        "end_time": 1_788_220_800,
-    }
+    assert "params" not in request.kwargs
     assert "Authorization" not in request.kwargs["headers"]
+
+
+async def test_latest_vehicle_status_uses_snapshot_endpoint() -> None:
+    oauth_session = MagicMock()
+    oauth_session.async_request = AsyncMock(
+        return_value=response(
+            200,
+            {
+                "result_code": "success",
+                "data": {
+                    "soc": 52,
+                    "chrg_state": "3",
+                    "sample_timestamp": 1_760_000_100_000,
+                },
+            },
+        )
+    )
+    client = NioApiClient(oauth_session, API_BASE_URL)
+
+    status = await client.async_get_latest_vehicle_status("LJNABC12345678901")
+
+    assert status.soc == 52
+    request = oauth_session.async_request.await_args
+    assert request.args[1].endswith(
+        "/vehicles/LJNABC12345678901/vehicle_status/latest"
+    )
+
+
+async def test_resource_not_found_is_mapped() -> None:
+    oauth_session = MagicMock()
+    oauth_session.async_request = AsyncMock(
+        return_value=response(200, {"result_code": "resource_not_found"})
+    )
+    client = NioApiClient(oauth_session, API_BASE_URL)
+
+    with pytest.raises(NioResourceNotFoundError):
+        await client.async_get_soc_status("LJNABC12345678901")
 
 
 @pytest.mark.parametrize(

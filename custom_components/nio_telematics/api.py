@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from aiohttp import ClientError, ClientResponse
 
 from homeassistant.helpers.config_entry_oauth2_flow import OAuth2Session
 
-from .const import CHANGES_LOOKBACK, TELEMATICS_PATH
+from .const import TELEMATICS_PATH
 from .models import NioSocStatus
 
 
@@ -23,6 +22,10 @@ class NioAuthenticationError(NioApiError):
 
 class NioPermissionError(NioApiError):
     """The OAuth grant lacks a required scope."""
+
+
+class NioResourceNotFoundError(NioApiError):
+    """NIO has no accessible record for the requested resource."""
 
 
 class NioRateLimitError(NioApiError):
@@ -47,16 +50,10 @@ class NioApiClient:
     async def async_get_soc_status(
         self,
         vin: str,
-        *,
-        now: datetime | None = None,
-        lookback: timedelta = CHANGES_LOOKBACK,
     ) -> NioSocStatus:
         """Return the newest SoC change for a vehicle."""
-        end = now or datetime.now(UTC)
-        start = end - lookback
         payload = await self._async_get(
             f"{TELEMATICS_PATH}/vehicles/{vin}/soc_status/changes",
-            params={"start_time": int(start.timestamp()), "end_time": int(end.timestamp())},
         )
         data = payload.get("data")
         if not isinstance(data, list) or not data:
@@ -66,6 +63,16 @@ class NioApiClient:
             raise NioApiError("NIO returned an invalid SoC status payload")
         latest = max(records, key=lambda item: item.get("sample_timestamp", 0))
         return NioSocStatus.from_payload(latest)
+
+    async def async_get_latest_vehicle_status(self, vin: str) -> NioSocStatus:
+        """Return the latest overall vehicle status snapshot."""
+        payload = await self._async_get(
+            f"{TELEMATICS_PATH}/vehicles/{vin}/vehicle_status/latest"
+        )
+        data = payload.get("data")
+        if not isinstance(data, dict):
+            raise NioApiError("NIO returned an invalid vehicle status payload")
+        return NioSocStatus.from_payload(data)
 
     async def _async_get(
         self, path: str, *, params: dict[str, int] | None = None
@@ -90,7 +97,10 @@ class NioApiClient:
             raise NioApiError("NIO returned a non-JSON response") from err
         if not isinstance(payload, dict):
             raise NioApiError("NIO returned an invalid response envelope")
-        if payload.get("result_code") != "success":
+        result_code = payload.get("result_code")
+        if result_code == "resource_not_found":
+            raise NioResourceNotFoundError("NIO resource was not found")
+        if result_code != "success":
             raise NioApiError(
                 f"NIO request failed: {payload.get('result_code', 'unknown')}"
             )
