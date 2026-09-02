@@ -15,7 +15,6 @@ from .api import (
     NioApiError,
     NioAuthenticationError,
     NioPermissionError,
-    NioResourceNotFoundError,
 )
 from .const import CONF_VIN, DEFAULT_SCAN_INTERVAL, DOMAIN
 from .models import NioVehicleData
@@ -45,10 +44,6 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
     async def _async_update_data(self) -> NioVehicleData:
         try:
             soc_status = await self._client.async_get_latest_vehicle_status(self._vin)
-            try:
-                soc_status = await self._client.async_get_soc_status(self._vin)
-            except NioResourceNotFoundError:
-                pass
         except (NioAuthenticationError, NioPermissionError) as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except NioApiError as err:
