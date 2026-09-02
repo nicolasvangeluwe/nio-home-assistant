@@ -15,6 +15,7 @@ from .api import (
     NioApiError,
     NioAuthenticationError,
     NioPermissionError,
+    NioResourceNotFoundError,
 )
 from .const import CONF_VIN, DEFAULT_SCAN_INTERVAL, DOMAIN
 from .models import NioVehicleData
@@ -43,11 +44,41 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
 
     async def _async_update_data(self) -> NioVehicleData:
         try:
-            soc_status = await self._client.async_get_latest_vehicle_status(self._vin)
+            vehicle_status = await self._client.async_get_latest_vehicle_status(
+                self._vin
+            )
+            try:
+                energy_status = await self._client.async_get_soc_status(self._vin)
+            except NioResourceNotFoundError:
+                energy_status = None
         except (NioAuthenticationError, NioPermissionError) as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except NioApiError as err:
             raise UpdateFailed(str(err)) from err
+        if energy_status is None:
+            soc_status = vehicle_status
+        else:
+            soc_status = type(vehicle_status)(
+                soc=vehicle_status.soc
+                if vehicle_status.soc is not None
+                else energy_status.soc,
+                remaining_range=energy_status.remaining_range,
+                charging_state=energy_status.charging_state
+                if energy_status.charging_state is not None
+                else vehicle_status.charging_state,
+                charging_target=energy_status.charging_target,
+                maximum_soc=energy_status.maximum_soc,
+                high_voltage_battery_current=(
+                    energy_status.high_voltage_battery_current
+                ),
+                event_time=max(
+                    filter(
+                        None,
+                        [vehicle_status.event_time, energy_status.event_time],
+                    ),
+                    default=None,
+                ),
+            )
         return NioVehicleData(
             vin=self._vin,
             soc_status=soc_status,

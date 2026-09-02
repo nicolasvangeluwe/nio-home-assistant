@@ -29,7 +29,12 @@ async def test_soc_request_uses_oauth_session_and_newest_record() -> None:
             {
                 "result_code": "success",
                 "data": [
-                    {"soc": 40, "sample_timestamp": 1_760_000_000_000},
+                    {
+                        "soc": 40,
+                        "remaining_range": 204.5,
+                        "chrg_final_soc": 80,
+                        "sample_timestamp": 1_760_000_000_000,
+                    },
                     {"soc": 41, "sample_timestamp": 1_760_000_100_000},
                 ],
             },
@@ -40,6 +45,8 @@ async def test_soc_request_uses_oauth_session_and_newest_record() -> None:
     status = await client.async_get_soc_status("LJNABC12345678901")
 
     assert status.soc == 41
+    assert status.remaining_range == 204.5
+    assert status.charging_target == 80
     request = oauth_session.async_request.await_args
     assert request.args[0] == "GET"
     assert request.args[1].endswith(

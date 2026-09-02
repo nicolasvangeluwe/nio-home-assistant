@@ -69,8 +69,15 @@ class NioApiClient:
             len(records),
             [sorted(item) for item in records[:10]],
         )
-        latest = max(records, key=lambda item: item.get("sample_timestamp", 0))
-        return NioSocStatus.from_payload(latest)
+        statuses = [
+            NioSocStatus.from_payload(item)
+            for item in sorted(
+                records,
+                key=lambda item: item.get("sample_timestamp", 0),
+                reverse=True,
+            )
+        ]
+        return NioSocStatus.merge(*statuses)
 
     async def async_get_latest_vehicle_status(self, vin: str) -> NioSocStatus:
         """Return the latest overall vehicle status snapshot."""

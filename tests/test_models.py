@@ -48,6 +48,25 @@ class TestNioModels(unittest.TestCase):
             status.event_time, datetime.fromtimestamp(1_760_000_000, tz=UTC)
         )
 
+    def test_merge_keeps_newest_available_value_for_each_field(self) -> None:
+        newest = models.NioSocStatus.from_payload(
+            {"soc": 51, "sample_timestamp": 1_760_000_100_000}
+        )
+        older = models.NioSocStatus.from_payload(
+            {
+                "remaining_range": 204.5,
+                "chrg_final_soc": 80,
+                "sample_timestamp": 1_760_000_000_000,
+            }
+        )
+
+        status = models.NioSocStatus.merge(newest, older)
+
+        self.assertEqual(status.soc, 51)
+        self.assertEqual(status.remaining_range, 204.5)
+        self.assertEqual(status.charging_target, 80)
+        self.assertEqual(status.event_time, newest.event_time)
+
     def test_vin_normalization(self) -> None:
         self.assertEqual(models.normalize_vin("  ljnabc12345678901 "), "LJNABC12345678901")
 

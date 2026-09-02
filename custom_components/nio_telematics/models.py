@@ -71,6 +71,31 @@ class NioSocStatus:
             event_time=_event_datetime(payload.get("sample_timestamp")),
         )
 
+    @classmethod
+    def merge(cls, *statuses: NioSocStatus) -> NioSocStatus:
+        """Merge snapshots in priority order, keeping the newest timestamp."""
+
+        def first(attribute: str) -> Any:
+            return next(
+                (
+                    value
+                    for status in statuses
+                    if (value := getattr(status, attribute)) is not None
+                ),
+                None,
+            )
+
+        event_times = [status.event_time for status in statuses if status.event_time]
+        return cls(
+            soc=first("soc"),
+            remaining_range=first("remaining_range"),
+            charging_state=first("charging_state"),
+            charging_target=first("charging_target"),
+            maximum_soc=first("maximum_soc"),
+            high_voltage_battery_current=first("high_voltage_battery_current"),
+            event_time=max(event_times) if event_times else None,
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class NioVehicleData:
