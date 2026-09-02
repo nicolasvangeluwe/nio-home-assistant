@@ -22,7 +22,10 @@ def response(status: int, payload: dict, headers: dict | None = None) -> MagicMo
     return result
 
 
-async def test_soc_request_uses_oauth_session_and_newest_record() -> None:
+async def test_soc_request_uses_historical_window_and_newest_record(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr("custom_components.nio_telematics.api.time.time", lambda: 2_000_000)
     oauth_session = MagicMock()
     oauth_session.async_request = AsyncMock(
         return_value=response(
@@ -53,7 +56,10 @@ async def test_soc_request_uses_oauth_session_and_newest_record() -> None:
     assert request.args[1].endswith(
         "/vehicles/LJNABC12345678901/soc_status/changes"
     )
-    assert "params" not in request.kwargs
+    assert request.kwargs["params"] == {
+        "start_time": 1_913_600,
+        "end_time": 2_000_000,
+    }
     assert "Authorization" not in request.kwargs["headers"]
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from typing import Any
 
 from aiohttp import ClientError, ClientResponse
@@ -37,6 +38,7 @@ _SAFE_RESPONSE_HEADERS = {
     "x-ratelimit-remaining",
     "x-ratelimit-reset",
 }
+_SOC_HISTORY_WINDOW_SECONDS = 24 * 60 * 60
 
 
 def _redact_debug_value(value: Any, *, key: str = "") -> Any:
@@ -102,9 +104,14 @@ class NioApiClient:
         self,
         vin: str,
     ) -> NioSocStatus:
-        """Return the newest SoC change for a vehicle."""
+        """Return the newest SoC change from the last 24 hours."""
+        end_time = int(time.time())
         payload = await self._async_get(
             f"{TELEMATICS_PATH}/vehicles/{vin}/soc_status/changes",
+            params={
+                "start_time": end_time - _SOC_HISTORY_WINDOW_SECONDS,
+                "end_time": end_time,
+            },
         )
         data = payload.get("data")
         if not isinstance(data, list) or not data:
@@ -172,9 +179,10 @@ class NioApiClient:
             if key.casefold() in _SAFE_RESPONSE_HEADERS
         }
         _LOGGER.debug(
-            "NIO API trace: endpoint=%s http_status=%s headers=%s payload=%s "
-            "json_error=%s",
+            "NIO API trace: endpoint=%s params=%s http_status=%s headers=%s "
+            "payload=%s json_error=%s",
             _safe_endpoint(path),
+            _redact_debug_value(params),
             response.status,
             safe_headers,
             _redact_debug_value(payload),
