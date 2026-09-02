@@ -39,7 +39,14 @@ _SAFE_RESPONSE_HEADERS = {
     "x-ratelimit-reset",
 }
 _MILLISECONDS_PER_SECOND = 1_000
-_SOC_CHANGE_WINDOW_SECONDS = 10 * 60
+_SOC_WINDOW_CANDIDATES_SECONDS = (
+    12 * 60 * 60,
+    6 * 60 * 60,
+    3 * 60 * 60,
+    60 * 60,
+    30 * 60,
+    10 * 60,
+)
 
 
 def _redact_debug_value(value: Any, *, key: str = "") -> Any:
@@ -104,34 +111,46 @@ class NioApiClient:
     ) -> None:
         self._oauth_session = oauth_session
         self._base_url = base_url.rstrip("/")
+        self._soc_window_seconds: int | None = None
 
     async def async_get_soc_status(
         self,
         vin: str,
     ) -> NioSocStatus:
-        """Return the newest SoC change from an explicit ten-minute window."""
+        """Return the newest SoC change from NIO's largest accepted window."""
         end_seconds = int(time.time())
         path = f"{TELEMATICS_PATH}/vehicles/{vin}/soc_status/changes"
-        try:
-            payload = await self._async_get(
-                path,
-                params={
-                    "start_time": end_seconds - _SOC_CHANGE_WINDOW_SECONDS,
-                    "end_time": end_seconds,
-                },
-            )
-        except NioInvalidParameterError:
+        windows = (
+            (self._soc_window_seconds,)
+            if self._soc_window_seconds is not None
+            else _SOC_WINDOW_CANDIDATES_SECONDS
+        )
+        last_error: NioInvalidParameterError | None = None
+        for window_seconds in windows:
             end_milliseconds = end_seconds * _MILLISECONDS_PER_SECOND
-            payload = await self._async_get(
-                path,
-                params={
-                    "start_time": (
-                        end_milliseconds
-                        - _SOC_CHANGE_WINDOW_SECONDS * _MILLISECONDS_PER_SECOND
-                    ),
-                    "end_time": end_milliseconds,
-                },
-            )
+            try:
+                payload = await self._async_get(
+                    path,
+                    params={
+                        "start_time": (
+                            end_milliseconds
+                            - window_seconds * _MILLISECONDS_PER_SECOND
+                        ),
+                        "end_time": end_milliseconds,
+                    },
+                )
+            except NioInvalidParameterError as err:
+                last_error = err
+                continue
+            except NioResourceNotFoundError:
+                self._soc_window_seconds = window_seconds
+                raise
+            self._soc_window_seconds = window_seconds
+            break
+        else:
+            if last_error is not None:
+                raise last_error
+            raise NioApiError("NIO did not accept a SoC query window")
         data = payload.get("data")
         if not isinstance(data, list) or not data:
             raise NioApiError("NIO returned no SoC status records")

@@ -22,7 +22,7 @@ def response(status: int, payload: dict, headers: dict | None = None) -> MagicMo
     return result
 
 
-async def test_soc_request_uses_ten_minute_window_and_newest_record(
+async def test_soc_request_uses_largest_window_and_newest_record(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr("custom_components.nio_telematics.api.time.time", lambda: 2_000_000)
@@ -57,13 +57,13 @@ async def test_soc_request_uses_ten_minute_window_and_newest_record(
         "/vehicles/LJNABC12345678901/soc_status/changes"
     )
     assert request.kwargs["params"] == {
-        "start_time": 1_999_400,
-        "end_time": 2_000_000,
+        "start_time": 1_956_800_000,
+        "end_time": 2_000_000_000,
     }
     assert "Authorization" not in request.kwargs["headers"]
 
 
-async def test_soc_request_retries_ten_minute_window_in_milliseconds(
+async def test_soc_request_retries_and_caches_smaller_window(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr("custom_components.nio_telematics.api.time.time", lambda: 2_000_000)
@@ -88,7 +88,26 @@ async def test_soc_request_retries_ten_minute_window_in_milliseconds(
     assert oauth_session.async_request.await_count == 2
     request = oauth_session.async_request.await_args
     assert request.kwargs["params"] == {
-        "start_time": 1_999_400_000,
+        "start_time": 1_978_400_000,
+        "end_time": 2_000_000_000,
+    }
+
+    oauth_session.async_request.reset_mock()
+    oauth_session.async_request.side_effect = None
+    oauth_session.async_request.return_value = response(
+        200,
+        {
+            "result_code": "success",
+            "data": [{"soc": 42, "sample_timestamp": 2_000_001_000}],
+        },
+    )
+
+    await client.async_get_soc_status("LJNABC12345678901")
+
+    assert oauth_session.async_request.await_count == 1
+    cached_request = oauth_session.async_request.await_args
+    assert cached_request.kwargs["params"] == {
+        "start_time": 1_978_400_000,
         "end_time": 2_000_000_000,
     }
 
