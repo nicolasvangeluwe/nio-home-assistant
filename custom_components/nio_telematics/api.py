@@ -38,7 +38,8 @@ _SAFE_RESPONSE_HEADERS = {
     "x-ratelimit-remaining",
     "x-ratelimit-reset",
 }
-_SOC_HISTORY_WINDOW_SECONDS = 24 * 60 * 60
+_MILLISECONDS_PER_SECOND = 1_000
+_SOC_HISTORY_WINDOW_MILLISECONDS = 24 * 60 * 60 * _MILLISECONDS_PER_SECOND
 
 
 def _redact_debug_value(value: Any, *, key: str = "") -> Any:
@@ -105,11 +106,11 @@ class NioApiClient:
         vin: str,
     ) -> NioSocStatus:
         """Return the newest SoC change from the last 24 hours."""
-        end_time = int(time.time())
+        end_time = int(time.time() * _MILLISECONDS_PER_SECOND)
         payload = await self._async_get(
             f"{TELEMATICS_PATH}/vehicles/{vin}/soc_status/changes",
             params={
-                "start_time": end_time - _SOC_HISTORY_WINDOW_SECONDS,
+                "start_time": end_time - _SOC_HISTORY_WINDOW_MILLISECONDS,
                 "end_time": end_time,
             },
         )
