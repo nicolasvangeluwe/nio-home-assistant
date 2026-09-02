@@ -17,8 +17,8 @@ class TestNioModels(unittest.TestCase):
                 "chrg_state": "charging",
                 "chrg_final_soc": 80,
                 "max_soc": 90,
-                "hivolt_btry_curr": -12.25,
-                "event_time": 1_760_000_000,
+                "hivolt_btry_curnt": -12.25,
+                "sample_timestamp": 1_760_000_000_000,
             }
         )
         self.assertEqual(status.soc, 51.0)
@@ -33,7 +33,7 @@ class TestNioModels(unittest.TestCase):
 
     def test_invalid_optional_fields_are_none(self) -> None:
         status = models.NioSocStatus.from_payload(
-            {"soc": "unknown", "chrg_state": "", "event_time": None}
+            {"soc": "unknown", "chrg_state": "", "sample_timestamp": None}
         )
         self.assertIsNone(status.soc)
         self.assertIsNone(status.remaining_range)
@@ -42,7 +42,7 @@ class TestNioModels(unittest.TestCase):
 
     def test_event_time_accepts_milliseconds(self) -> None:
         status = models.NioSocStatus.from_payload(
-            {"event_time": 1_760_000_000_000}
+            {"sample_timestamp": 1_760_000_000_000}
         )
         self.assertEqual(
             status.event_time, datetime.fromtimestamp(1_760_000_000, tz=UTC)

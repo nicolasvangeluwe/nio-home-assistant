@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from aiohttp import ClientError, ClientResponse
 
 from homeassistant.helpers.config_entry_oauth2_flow import OAuth2Session
 
-from .const import CHANGES_LOOKBACK, TELEMATICS_PATH
+from .const import TELEMATICS_PATH
 from .models import NioSocStatus
 
 
@@ -47,16 +46,10 @@ class NioApiClient:
     async def async_get_soc_status(
         self,
         vin: str,
-        *,
-        now: datetime | None = None,
-        lookback: timedelta = CHANGES_LOOKBACK,
     ) -> NioSocStatus:
         """Return the newest SoC change for a vehicle."""
-        end = now or datetime.now(UTC)
-        start = end - lookback
         payload = await self._async_get(
             f"{TELEMATICS_PATH}/vehicles/{vin}/soc_status/changes",
-            params={"start_time": int(start.timestamp()), "end_time": int(end.timestamp())},
         )
         data = payload.get("data")
         if not isinstance(data, list) or not data:
@@ -64,7 +57,7 @@ class NioApiClient:
         records = [item for item in data if isinstance(item, dict)]
         if not records:
             raise NioApiError("NIO returned an invalid SoC status payload")
-        latest = max(records, key=lambda item: item.get("event_time", 0))
+        latest = max(records, key=lambda item: item.get("sample_timestamp", 0))
         return NioSocStatus.from_payload(latest)
 
     async def _async_get(

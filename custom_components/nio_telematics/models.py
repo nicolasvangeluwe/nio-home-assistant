@@ -66,9 +66,9 @@ class NioSocStatus:
             charging_target=_optional_float(payload.get("chrg_final_soc")),
             maximum_soc=_optional_float(payload.get("max_soc")),
             high_voltage_battery_current=_optional_float(
-                payload.get("hivolt_btry_curr")
+                payload.get("hivolt_btry_curnt")
             ),
-            event_time=_event_datetime(payload.get("event_time")),
+            event_time=_event_datetime(payload.get("sample_timestamp")),
         )
 
 
