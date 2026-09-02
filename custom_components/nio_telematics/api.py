@@ -63,12 +63,16 @@ class NioApiClient:
     async def _async_get(
         self, path: str, *, params: dict[str, int] | None = None
     ) -> dict[str, Any]:
+        request_kwargs: dict[str, Any] = {
+            "headers": {"Accept": "application/json"}
+        }
+        if params is not None:
+            request_kwargs["params"] = params
         try:
             response = await self._oauth_session.async_request(
                 "GET",
                 f"{self._base_url}{path}",
-                headers={"Accept": "application/json"},
-                params=params,
+                **request_kwargs,
             )
         except ClientError as err:
             raise NioApiError("Unable to reach the NIO API") from err
