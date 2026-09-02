@@ -1,5 +1,6 @@
 """API-client tests for NIO Open Telematics."""
 
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -36,7 +37,9 @@ async def test_soc_request_uses_oauth_session_and_newest_record() -> None:
     )
     client = NioApiClient(oauth_session, API_BASE_URL)
 
-    status = await client.async_get_soc_status("LJNABC12345678901")
+    status = await client.async_get_soc_status(
+        "LJNABC12345678901", now=datetime(2026, 9, 1, tzinfo=UTC)
+    )
 
     assert status.soc == 41
     request = oauth_session.async_request.await_args
@@ -44,7 +47,10 @@ async def test_soc_request_uses_oauth_session_and_newest_record() -> None:
     assert request.args[1].endswith(
         "/vehicles/LJNABC12345678901/soc_status/changes"
     )
-    assert "params" not in request.kwargs
+    assert request.kwargs["params"] == {
+        "start_time": 1_788_220_200,
+        "end_time": 1_788_220_800,
+    }
     assert "Authorization" not in request.kwargs["headers"]
 
 
