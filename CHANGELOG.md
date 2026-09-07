@@ -5,6 +5,8 @@ Use this before releases and when opening PRs.
 
 ## Unreleased
 
+- Credit the project's first external tester and contributor, `@lubbyhst`.
+
 ## 0.1.1-dev.2
 
 - Prepare and maintain this public changelog file for HACS users.
