@@ -10,6 +10,8 @@ Use this before releases and when opening PRs.
   results, and help establish a working NIO developer-support channel.
 - Expand the installation guide with exact HACS custom-repository, download,
   restart, and Home Assistant configuration steps.
+- Add and link a dedicated EU telemetry report discussion with a structured,
+  privacy-safe model and country compatibility template.
 
 ## 0.1.1-dev.2
 

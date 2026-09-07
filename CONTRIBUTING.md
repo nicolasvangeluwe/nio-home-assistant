@@ -2,6 +2,13 @@
 
 Thanks for helping improve this experimental integration.
 
+## Vehicle test reports
+
+EU NIO owners can submit comparable, privacy-safe results using the template in
+[EU NIO telemetry test reports — model and country
+compatibility](https://github.com/nicolasvangeluwe/nio-home-assistant/discussions/6).
+Please update your existing reply when results for the same vehicle change.
+
 ## Before writing code
 
 Please open a GitHub issue or discussion before starting a change. Describe the

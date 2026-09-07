@@ -28,8 +28,8 @@ data, and use it at your own risk.
 >
 > Install the current development release, compare its values with the car or
 > NIO app, and share your vehicle model, EU country, application type, and
-> redacted endpoint results in [SoC Discussion
-> #5](https://github.com/nicolasvangeluwe/nio-home-assistant/discussions/5).
+> redacted endpoint results in the dedicated [EU telemetry test-report
+> discussion](https://github.com/nicolasvangeluwe/nio-home-assistant/discussions/6).
 >
 > If you also receive SoC `0`, `resource_not_found`, or unexpected
 > `permission_denied` responses, please report the behaviour to
