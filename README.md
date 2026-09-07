@@ -120,3 +120,9 @@ name and 17-character VIN.
 ## Changelog
 
 See [CHANGELOG.md](./CHANGELOG.md) for public release notes and version history.
+
+## Contributing
+
+Please read [CONTRIBUTING.md](./CONTRIBUTING.md) and open an issue or discussion
+before starting code changes. Testing with other eligible NIO applications and
+vehicle models is especially useful.

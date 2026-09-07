@@ -8,6 +8,8 @@ Use this before releases and when opening PRs.
 - Prepare and maintain this public changelog file for HACS users.
 - Document the exact Home Assistant OAuth redirect URI in the installation
   guide and application-credentials prompt.
+- Add contribution guidelines covering issue-first coordination, testing,
+  privacy, and pull requests.
 
 ## 0.1.1-dev.1
 
