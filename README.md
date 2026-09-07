@@ -15,6 +15,33 @@ supported integration, or affiliated with NIO, Home Assistant, or OpenAI.
 It is experimental software. Review it, protect your credentials and vehicle
 data, and use it at your own risk.
 
+## EU NIO owners: we need your help
+
+> [!IMPORTANT]
+> **Does your NIO report its real battery SoC through the official API?**
+>
+> We are looking for **EU NIO owners** willing to test this integration and
+> report what their car actually returns. Results from different models,
+> countries, and Personal Applications will help establish whether the current
+> missing or incorrect telemetry is vehicle-specific or an upstream NIO API
+> problem.
+>
+> Install the current development release, compare its values with the car or
+> NIO app, and share your vehicle model, EU country, application type, and
+> redacted endpoint results in [SoC Discussion
+> #5](https://github.com/nicolasvangeluwe/nio-home-assistant/discussions/5).
+>
+> If you also receive SoC `0`, `resource_not_found`, or unexpected
+> `permission_denied` responses, please report the behaviour to
+> [`api@nio.io`](mailto:api@nio.io) or through your national NIO contact or
+> importer. Ask for a ticket/reference number and add it to the discussion. If
+> you know a more direct route to NIO's Open Telematics/API team, an
+> introduction would be enormously helpful.
+>
+> Never post credentials, tokens, a full VIN, or precise location data. EU NIO
+> owners, rally: one report is a curiosity; a fleet of matching reports is
+> evidence.
+
 Current development milestone (`0.1.1-dev.2`):
 
 - polls every documented read-only telemetry category that can provide useful
