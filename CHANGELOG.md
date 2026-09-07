@@ -3,7 +3,7 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
-## Unreleased
+## 0.1.1-dev.3
 
 - Credit the project's first external tester and contributor, `@lubbyhst`.
 - Add a prominent public call for EU NIO owners to test, report redacted API
@@ -14,6 +14,8 @@ Use this before releases and when opening PRs.
   privacy-safe model and country compatibility template.
 - Add a one-click My Home Assistant button for opening the custom repository
   directly in HACS.
+- Declare the currently documented European NIO markets in `hacs.json` for
+  country-aware HACS discovery and the default-repository submission.
 
 ## 0.1.1-dev.2
 

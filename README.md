@@ -41,7 +41,7 @@ data, and use it at your own risk.
 > report is a curiosity; a fleet of matching reports is evidence. EU NIO
 > owners, rally—we are legion, and we need you. 😄
 
-Current development milestone (`0.1.1-dev.2`):
+Current development milestone (`0.1.1-dev.3`):
 
 - polls every documented read-only telemetry category that can provide useful
   Home Assistant state: body, dynamics, location, trip, energy, cabin,
