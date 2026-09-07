@@ -131,18 +131,49 @@ diagnostic payload containing personal vehicle data.
 
 ## Installation and configuration
 
-Install the integration through HACS as a custom repository, or copy
-`custom_components/nio_telematics` into Home Assistant's `custom_components`
-directory. In the [NIO Open Telematics developer
+### Install with HACS
+
+HACS must already be installed in Home Assistant.
+
+1. Open **HACS** in Home Assistant.
+2. Open the three-dot menu in the upper-right corner and select
+   **Custom repositories**.
+3. Enter this repository URL:
+   `https://github.com/nicolasvangeluwe/nio-home-assistant`
+4. Select **Integration** as the category, then select **Add**.
+5. Open **NIO Open Telematics** in HACS and select **Download**. Choose the
+   latest development release when HACS asks for a version.
+6. Restart Home Assistant after the download finishes.
+
+These steps follow the official [HACS custom-repository
+instructions](https://www.hacs.xyz/docs/faq/custom_repositories/).
+
+### Configure NIO and Home Assistant
+
+In the [NIO Open Telematics developer
 console](https://open-eu.nio.com/console), create or open a Personal
 Application using the OAuth Authorization Code flow and set its redirect URI
 exactly to:
 
 `https://my.home-assistant.io/redirect/oauth`
 
-Then add the integration in Home Assistant and enter the application's Client
-ID and Client Secret when prompted. After NIO authorization, enter the vehicle
-name and 17-character VIN.
+Then:
+
+1. In Home Assistant, open **Settings > Devices & services**.
+2. Select **Add integration**, search for **NIO Open Telematics**, and select
+   it.
+3. Enter the Personal Application's Client ID and Client Secret when prompted.
+4. Complete NIO authorization, then enter the vehicle name and 17-character
+   VIN.
+
+If the integration is missing from **Add integration** after the restart,
+clear or hard-refresh the browser cache and try again.
+
+### Manual installation
+
+As an alternative to HACS, copy `custom_components/nio_telematics` into Home
+Assistant's `custom_components` directory and restart Home Assistant. Future
+updates must then also be installed manually.
 
 ## Changelog
 

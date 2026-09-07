@@ -8,6 +8,8 @@ Use this before releases and when opening PRs.
 - Credit the project's first external tester and contributor, `@lubbyhst`.
 - Add a prominent public call for EU NIO owners to test, report redacted API
   results, and help establish a working NIO developer-support channel.
+- Expand the installation guide with exact HACS custom-repository, download,
+  restart, and Home Assistant configuration steps.
 
 ## 0.1.1-dev.2
 
