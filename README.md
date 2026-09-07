@@ -18,13 +18,12 @@ data, and use it at your own risk.
 ## EU NIO owners: we need your help
 
 > [!IMPORTANT]
-> **Does your NIO report its real battery SoC through the official API?**
+> **EU NIO owners: we need you.**
 >
-> We are looking for **EU NIO owners** willing to test this integration and
-> report what their car actually returns. Results from different models,
-> countries, and Personal Applications will help establish whether the current
-> missing or incorrect telemetry is vehicle-specific or an upstream NIO API
-> problem.
+> We all want reliable battery SoC in Home Assistant, but the official API is
+> currently returning missing or incorrect telemetry. We need more owners,
+> vehicles, and countries to produce clear evidence and make the problem
+> visible enough for NIO to investigate and fix it.
 >
 > Install the current development release, compare its values with the car or
 > NIO app, and share your vehicle model, EU country, application type, and
@@ -38,9 +37,9 @@ data, and use it at your own risk.
 > you know a more direct route to NIO's Open Telematics/API team, an
 > introduction would be enormously helpful.
 >
-> Never post credentials, tokens, a full VIN, or precise location data. EU NIO
-> owners, rally: one report is a curiosity; a fleet of matching reports is
-> evidence.
+> Never post credentials, tokens, a full VIN, or precise location data. One
+> report is a curiosity; a fleet of matching reports is evidence. EU NIO
+> owners, rally—we are legion, and we need you. 😄
 
 Current development milestone (`0.1.1-dev.2`):
 
