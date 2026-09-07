@@ -134,6 +134,12 @@ diagnostic payload containing personal vehicle data.
 
 HACS must already be installed in Home Assistant.
 
+[![Open your Home Assistant instance and open this repository in
+HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=nicolasvangeluwe&repository=nio-home-assistant&category=integration)
+
+Select the button above for the easiest installation. If the link cannot reach
+your Home Assistant instance, add the repository manually:
+
 1. Open **HACS** in Home Assistant.
 2. Open the three-dot menu in the upper-right corner and select
    **Custom repositories**.

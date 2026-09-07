@@ -12,6 +12,8 @@ Use this before releases and when opening PRs.
   restart, and Home Assistant configuration steps.
 - Add and link a dedicated EU telemetry report discussion with a structured,
   privacy-safe model and country compatibility template.
+- Add a one-click My Home Assistant button for opening the custom repository
+  directly in HACS.
 
 ## 0.1.1-dev.2
 
