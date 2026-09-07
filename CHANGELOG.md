@@ -6,6 +6,8 @@ Use this before releases and when opening PRs.
 ## Unreleased
 
 - Prepare and maintain this public changelog file for HACS users.
+- Document the exact Home Assistant OAuth redirect URI in the installation
+  guide and application-credentials prompt.
 
 ## 0.1.1-dev.1
 

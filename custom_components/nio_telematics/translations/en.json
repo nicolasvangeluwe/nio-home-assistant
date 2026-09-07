@@ -14,7 +14,7 @@
     "error": {"invalid_vin": "Enter a valid 17-character VIN."}
   },
   "application_credentials": {
-    "description": "Create or open your application in the [NIO Open Telematics developer console]({console_url}), then enter its Client ID and Client Secret."
+    "description": "Create or open your Personal Application in the [NIO Open Telematics developer console]({console_url}), set its OAuth redirect URI exactly to [{redirect_url}]({redirect_url}), then enter its Client ID and Client Secret."
   },
   "entity": {
     "sensor": {

@@ -112,4 +112,7 @@ async def async_get_description_placeholders(
     hass: HomeAssistant,
 ) -> dict[str, str]:
     """Return application-credential help links."""
-    return {"console_url": "https://open-eu.nio.com/console"}
+    return {
+        "console_url": "https://open-eu.nio.com/console",
+        "redirect_url": "https://my.home-assistant.io/redirect/oauth",
+    }

@@ -102,6 +102,21 @@ Automated tests, hassfest, and HACS repository validation run on every push.
 Never commit a Client ID, Client Secret, VIN, access token, refresh token, or
 diagnostic payload containing personal vehicle data.
 
+## Installation and configuration
+
+Install the integration through HACS as a custom repository, or copy
+`custom_components/nio_telematics` into Home Assistant's `custom_components`
+directory. In the [NIO Open Telematics developer
+console](https://open-eu.nio.com/console), create or open a Personal
+Application using the OAuth Authorization Code flow and set its redirect URI
+exactly to:
+
+`https://my.home-assistant.io/redirect/oauth`
+
+Then add the integration in Home Assistant and enter the application's Client
+ID and Client Secret when prompted. After NIO authorization, enter the vehicle
+name and 17-character VIN.
+
 ## Changelog
 
 See [CHANGELOG.md](./CHANGELOG.md) for public release notes and version history.
