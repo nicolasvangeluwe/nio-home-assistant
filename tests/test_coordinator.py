@@ -75,3 +75,55 @@ async def test_range_survives_sparse_change_feed(hass: HomeAssistant) -> None:
     second = await coordinator._async_update_data()
     assert second.soc_status.remaining_range == 213
     assert second.remaining_range_retained
+
+
+async def test_soc_prefers_change_feed_and_survives_empty_polls(
+    hass: HomeAssistant,
+) -> None:
+    """A placeholder snapshot zero must never mask or replace actual SoC."""
+    entry = MagicMock()
+    entry.data = {CONF_VIN: "LJNABC12345678901"}
+    client = MagicMock()
+    client.async_get_latest_vehicle_record = AsyncMock(return_value={"soc": 0})
+    energy_records = iter([{"soc": 38, "remaining_range": 213}, None])
+
+    async def get_change_record(_vin: str, resource: str) -> dict:
+        if resource == "soc_status":
+            if (record := next(energy_records)) is not None:
+                return record
+        raise NioResourceNotFoundError("No recent data")
+
+    client.async_get_change_record = get_change_record
+    client.async_get_odometer_report = AsyncMock(
+        side_effect=NioResourceNotFoundError("No recent data")
+    )
+    coordinator = NioDataUpdateCoordinator(hass, entry, client)
+    first = await coordinator._async_update_data()
+    assert first.soc_status.soc == 38
+    assert not first.soc_retained
+
+    coordinator.async_set_updated_data(first)
+    second = await coordinator._async_update_data()
+    assert second.soc_status.soc == 38
+    assert second.soc_retained
+
+
+async def test_snapshot_zero_is_not_presented_as_official_soc(
+    hass: HomeAssistant,
+) -> None:
+    """Until an energy event arrives, the official SoC remains unknown."""
+    entry = MagicMock()
+    entry.data = {CONF_VIN: "LJNABC12345678901"}
+    client = MagicMock()
+    client.async_get_latest_vehicle_record = AsyncMock(return_value={"soc": 0})
+    client.async_get_change_record = AsyncMock(
+        side_effect=NioResourceNotFoundError("No recent data")
+    )
+    client.async_get_odometer_report = AsyncMock(
+        side_effect=NioResourceNotFoundError("No recent data")
+    )
+    coordinator = NioDataUpdateCoordinator(hass, entry, client)
+
+    result = await coordinator._async_update_data()
+
+    assert result.soc_status.soc is None

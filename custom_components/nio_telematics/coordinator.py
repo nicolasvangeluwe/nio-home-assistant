@@ -128,9 +128,7 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
             soc_status = vehicle_status
         else:
             soc_status = type(vehicle_status)(
-                soc=vehicle_status.soc
-                if vehicle_status.soc is not None
-                else energy_status.soc,
+                soc=energy_status.soc,
                 remaining_range=energy_status.remaining_range,
                 charging_state=energy_status.charging_state
                 if energy_status.charging_state is not None
@@ -148,6 +146,23 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
                     default=None,
                 ),
             )
+        # The latest vehicle snapshot has returned a placeholder SoC of zero.
+        # Only the energy change feed is authoritative for this sensor.
+        previous = self.data
+        if energy_status is not None and _valid_soc(energy_status.soc):
+            soc = energy_status.soc
+            soc_last_valid_at = energy_status.event_time
+            soc_retained = False
+        elif previous is not None and _valid_soc(previous.soc_status.soc):
+            soc = previous.soc_status.soc
+            soc_last_valid_at = previous.soc_last_valid_at
+            soc_retained = True
+        else:
+            soc = None
+            soc_last_valid_at = None
+            soc_retained = False
+        soc_status = replace(soc_status, soc=soc)
+
         # A change feed can be empty for many polls. Do not replace an actual
         # range measurement with the sparse latest vehicle-status snapshot.
         range_status = None
@@ -159,7 +174,6 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
         ):
             # The latest vehicle snapshot may contain a placeholder zero.
             range_status = vehicle_status
-        previous = self.data
         if range_status is not None:
             remaining_range = range_status.remaining_range
             range_last_valid_at = range_status.event_time
@@ -179,6 +193,8 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
             fetched_at=datetime.now(UTC),
             telemetry=dict(self._telemetry),
             endpoint_status=endpoint_status,
+            soc_last_valid_at=soc_last_valid_at,
+            soc_retained=soc_retained,
             remaining_range_last_valid_at=range_last_valid_at,
             remaining_range_retained=range_retained,
         )
@@ -187,3 +203,8 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
 def _valid_range(value: float | None) -> bool:
     """Accept real zero from the energy feed, but no missing/nonfinite values."""
     return value is not None and math.isfinite(value) and value >= 0
+
+
+def _valid_soc(value: float | None) -> bool:
+    """Accept a real 0–100% reading only from the SoC change feed."""
+    return value is not None and math.isfinite(value) and 0 <= value <= 100

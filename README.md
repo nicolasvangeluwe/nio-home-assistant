@@ -41,7 +41,7 @@ data, and use it at your own risk.
 > report is a curiosity; a fleet of matching reports is evidence. EU NIO
 > owners, rally—we are legion, and we need you. 😄
 
-Current development release (`0.1.1-dev.6`):
+Current development release (`0.1.1-dev.7`):
 
 - polls every documented read-only telemetry category that can provide useful
   Home Assistant state: body, dynamics, location, trip, energy, cabin,
@@ -71,6 +71,14 @@ belongs in the owner's Home Assistant configuration.
 Recorder history on the first upgrade when an older version had ended at
 `unknown`. This migration fallback is skipped if Recorder is unavailable.
 
+`0.1.1-dev.7` reads official SoC from the sparse `soc_status/changes` feed,
+retains the last valid reading between events and across restarts, and no longer
+lets a placeholder zero from `vehicle_status/latest` override it. A fresh
+installation may show SoC as unknown until NIO sends a real change event;
+`last_valid_sample` and `data_retained` indicate its age and retention. This is
+separate from any owner-specific range-to-charge calculation. The tested ET5
+Touring's actual SoC feed still needs live verification.
+
 Most detailed entities are disabled by default to avoid flooding a new Home
 Assistant installation. **Disabled does not mean broken or denied**; it is only
 the default Home Assistant entity-registry setting. The enabled diagnostic
@@ -90,9 +98,9 @@ behave differently.
 |---|---:|---|
 | OAuth authorization, refresh and user info | Yes | Working after restart; a rejected refresh grant now triggers native HA reauthentication (cause of NIO's rejection unknown) |
 | Latest vehicle timestamp/state/mileage | Yes | Working; timestamp and mileage advanced after driving; raw mileage is kilometres |
-| Battery SoC in latest vehicle status | Yes | Returned `0` instead of the vehicle's real SoC |
+| Battery SoC in latest vehicle status | Yes | Returned `0` instead of the vehicle's real SoC; no longer used for the SoC sensor in dev.7 |
 | Charging state, battery current/voltage | Yes | Missing, null, or zero in the latest-status response |
-| SoC/range/charging-target change feed | Yes | Range now appears intermittently on the tested ET5 Touring; absent polls still occur. SoC in latest status remains wrong at `0` |
+| SoC/range/charging-target change feed | Yes | Range now appears intermittently on the tested ET5 Touring; absent polls still occur. The dev.7 SoC feed selection is not yet verified live on this car. |
 | Body, lights, windows, position, trips, cells, cabin, motor, alarms | Yes | NIO currently returns `permission_denied` |
 | Driving and battery-extremum change feeds | Yes | Request accepted, but currently returns no recent record |
 | Aftersales odometer reports | Yes | NIO currently returns `permission_denied`; the working latest-status mileage is used for the normal odometer sensor |

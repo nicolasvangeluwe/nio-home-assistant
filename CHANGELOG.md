@@ -3,6 +3,21 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.1.1-dev.7
+
+- Source battery SoC from NIO's `soc_status/changes` feed instead of the
+  placeholder zero in `vehicle_status/latest`; preserve the last valid value
+  through empty polls and Home Assistant restarts.
+- Keep the newest non-null energy field from each event in a ten-minute change
+  window, so a range-only event cannot hide an earlier SoC event.
+- Expose the SoC source, sample time, and retained-state flag. Do not restore
+  the old snapshot-derived zero when upgrading. Until this vehicle actually
+  sends an SoC change record, the official sensor will be unknown rather than
+  falsely showing zero.
+- Add regression coverage for source priority, sparse records, and restoration.
+  Thanks to @Laddvin for identifying the working change-feed approach and
+  @lubbyhst for independently testing it and proposing a fix in PR #7.
+
 ## 0.1.1-dev.6
 
 - On the first upgrade from older versions, recover the last numeric range

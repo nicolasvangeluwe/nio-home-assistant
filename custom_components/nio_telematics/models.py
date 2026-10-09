@@ -110,5 +110,7 @@ class NioVehicleData:
     fetched_at: datetime
     telemetry: dict[str, dict[str, Any]]
     endpoint_status: dict[str, str]
+    soc_last_valid_at: datetime | None = None
+    soc_retained: bool = False
     remaining_range_last_valid_at: datetime | None = None
     remaining_range_retained: bool = False

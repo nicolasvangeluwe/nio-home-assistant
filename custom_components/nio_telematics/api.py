@@ -186,6 +186,15 @@ class NioApiClient:
         records = [item for item in data if isinstance(item, dict)]
         if not records:
             raise NioApiError("NIO returned an invalid telemetry payload")
+        if resource == "soc_status":
+            # NIO may emit separate sparse changes for different energy fields.
+            # Keep the newest non-null value of each field in this window.
+            merged: dict[str, Any] = {}
+            for record in sorted(
+                records, key=lambda item: item.get("sample_timestamp", 0)
+            ):
+                merged.update({key: value for key, value in record.items() if value is not None})
+            return merged
         return max(records, key=lambda item: item.get("sample_timestamp", 0))
 
     async def async_get_latest_vehicle_record(self, vin: str) -> dict[str, Any]:

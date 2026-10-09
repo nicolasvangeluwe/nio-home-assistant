@@ -68,6 +68,30 @@ async def test_soc_request_uses_largest_window_and_newest_record(
     assert "Authorization" not in request.kwargs["headers"]
 
 
+async def test_sparse_soc_changes_keep_each_fields_newest_value() -> None:
+    """A later range-only event must not hide an earlier SoC event."""
+    oauth_session = MagicMock()
+    oauth_session.async_request = AsyncMock(
+        return_value=response(
+            200,
+            {
+                "result_code": "success",
+                "data": [
+                    {"soc": 38, "sample_timestamp": 1000},
+                    {"remaining_range": 213, "sample_timestamp": 2000},
+                ],
+            },
+        )
+    )
+    client = NioApiClient(oauth_session, API_BASE_URL)
+
+    record = await client.async_get_change_record(
+        "LJNABC12345678901", "soc_status"
+    )
+
+    assert record == {"soc": 38, "remaining_range": 213, "sample_timestamp": 2000}
+
+
 async def test_soc_request_retries_and_caches_smaller_window(
     monkeypatch,
 ) -> None:

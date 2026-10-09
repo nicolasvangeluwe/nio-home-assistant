@@ -482,6 +482,8 @@ async def async_setup_entry(
     async_add_entities(
         NioRangeSensor(coordinator, description)
         if description.key == "remaining_range"
+        else NioSocSensor(coordinator, description)
+        if description.key == "battery_state_of_charge"
         else NioSensor(coordinator, description)
         for description in SENSORS
     )
@@ -522,6 +524,42 @@ class NioSensorEntity(NioEntity):
 
 class NioSensor(NioSensorEntity, SensorEntity):
     """Representation of a NIO telemetry sensor."""
+
+
+class NioSocSensor(NioSensorEntity, RestoreSensor):
+    """Keep the last SoC reported by NIO's sparse energy change feed."""
+
+    _restored_soc: float | None = None
+    _restored_sample_time: str | None = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        if (last_state := await self.async_get_last_state()) is not None:
+            restored = _restorable_soc(last_state)
+            if restored is not None:
+                self._restored_soc, self._restored_sample_time = restored
+
+    @property
+    def native_value(self) -> float | None:
+        value = self.coordinator.data.soc_status.soc
+        if _soc_number(value) is not None:
+            return value
+        return self._restored_soc
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        sample = self.coordinator.data.soc_last_valid_at
+        return {
+            "source_endpoint": "soc_status",
+            "last_valid_sample": sample.isoformat()
+            if sample is not None
+            else self._restored_sample_time,
+            "data_retained": self.coordinator.data.soc_retained
+            or (
+                self.coordinator.data.soc_status.soc is None
+                and self._restored_soc is not None
+            ),
+        }
 
 
 class NioRangeSensor(NioSensorEntity, RestoreSensor):
@@ -595,6 +633,26 @@ def _range_number(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return number if math.isfinite(number) and number >= 0 else None
+
+
+def _soc_number(value: Any) -> float | None:
+    """Accept only a finite SoC in the physical 0–100% range."""
+    if isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) and 0 <= number <= 100 else None
+
+
+def _restorable_soc(state: State) -> tuple[float, str | None] | None:
+    """Never restore an old snapshot-derived zero after upgrading."""
+    if state.attributes.get("source_endpoint") != "soc_status":
+        return None
+    if (value := _soc_number(state.state)) is None:
+        return None
+    return value, state.attributes.get("last_valid_sample")
 
 
 def _last_recorded_range(states: list[State]) -> tuple[float, str] | None:
