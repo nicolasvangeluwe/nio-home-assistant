@@ -1,235 +1,49 @@
 # NIO Open Telematics for Home Assistant
 
-Early development foundation for a read-only Home Assistant integration using
-NIO's official EU Open Telematics API.
+An experimental, read-only Home Assistant integration for NIO's official EU Open Telematics API.
 
-## Project status and disclosure
+This is an independent personal project, built with substantial AI assistance and shared with other owners. It is not affiliated with or endorsed by NIO or Home Assistant. Please treat it as development software, protect your credentials and vehicle data, and check data freshness before using it in automations.
 
-This is an independent, unofficial personal project created to meet the
-author's own Home Assistant needs and shared in case it is useful to others.
-Its design, code, tests, and documentation have been produced with substantial
-assistance from AI and reviewed through automated validation and hands-on
-testing. It does not claim to be an official NIO product, a professionally
-supported integration, or affiliated with NIO, Home Assistant, or OpenAI.
+## What works today
 
-It is experimental software. Review it, protect your credentials and vehicle
-data, and use it at your own risk.
+On one EU ET5 Touring, OAuth, vehicle state, odometer, **native battery SoC**, and remaining range have been verified in Home Assistant. SoC and range come from NIO's `soc_status/changes` feed; empty or partial responses do not erase the last valid readings. Each sensor exposes its source sample time and whether the displayed value was retained. NIO decides when new vehicle events are published, so a retained value can be old.
 
-## EU NIO owners: we need your help
+The integration checks the overlapping last ten minutes of SoC changes about every 15 seconds, with a 30-second gap around each rotating background request. A shared limiter keeps vehicle API requests at least 15 seconds apart per OAuth client and backs off when NIO rate-limits them. **Ten minutes is the history window, not the polling interval.** More frequent requests do not make the car transmit more frequently.
 
-> [!IMPORTANT]
-> **EU NIO owners: we need you.**
->
-> We all want reliable battery SoC in Home Assistant. One EU ET5 Touring now
-> receives it through the official change feed, but other documented endpoints
-> still deny access or return incomplete data. We need more owners, vehicles,
-> and countries to establish what actually works and help NIO resolve the rest.
->
-> Install the current development release, compare its values with the car or
-> NIO app, and share your vehicle model, EU country, application type, and
-> redacted endpoint results in the dedicated [EU telemetry test-report
-> discussion](https://github.com/nicolasvangeluwe/nio-home-assistant/discussions/6).
->
-> If you also receive SoC `0`, `resource_not_found`, or unexpected
-> `permission_denied` responses, please report the behaviour to
-> [`api@nio.io`](mailto:api@nio.io) or through your national NIO contact or
-> importer. Ask for a ticket/reference number and add it to the discussion. If
-> you know a more direct route to NIO's Open Telematics/API team, an
-> introduction would be enormously helpful.
->
-> Never post credentials, tokens, a full VIN, or precise location data. One
-> report is a curiosity; a fleet of matching reports is evidence. EU NIO
-> owners, rally—we are legion, and we need you. 😄
+Other documented energy fields include charging state and target, battery current, temperatures, SoC limits, and pack diagnostics. Their presence in the API documentation does not mean that every car supplies a useful value. Detailed and diagnostic entities are disabled by default; enable only the ones you want in the vehicle's Home Assistant entity list. The SoC sensor's `observed_fields` attribute lists field *names* seen from your car. The **API availability** sensor distinguishes successful, empty, denied, and failed endpoint families.
 
-Current development release (`0.1.1-dev.11`):
+### Known limits
 
-- polls every documented read-only telemetry category that can provide useful
-  Home Assistant state: body, dynamics, location, trip, energy, cabin,
-  powertrain, diagnostics, and aftersales odometer data;
-- creates 64 stable scalar sensors and 16 disabled diagnostic endpoint sensors;
-- preserves variable-length/nested data such as battery cells, motor lists,
-  window faults, door structures, and alarm signals as attributes on the
-  corresponding disabled diagnostic sensor;
-- uses one coordinator and one Home Assistant device per VIN;
-- redacts credentials and vehicle identifiers from diagnostics;
-- handles authentication, permission, rate-limit, envelope, and transport
-  errors separately, and keeps unavailable optional feeds from breaking feeds
-  that do work.
+- On the tested ET5 Touring, several non-energy feeds (including body, location, trips, and cabin data) have returned `permission_denied` from **NIO's API**. That is not a Home Assistant account-permission error; its exact NIO-side cause remains unconfirmed.
+- A successful response can contain placeholders or absent fields. For example, a zero charging target while not charging is not a confirmed usable target. The integration suppresses zero-valued top-level battery-temperature placeholders rather than displaying a false −40 °C.
+- The normal odometer uses verified mileage from `vehicle_status/latest`; the separate aftersales odometer endpoint has been denied for the tested application.
+- Results are from **one vehicle and application**, not a compatibility guarantee for all EU models. No vehicle commands or charging policy are implemented in this integration.
 
-`0.1.1-dev.4` fixed NIO's HTTP-success `invalid_grant` refresh response:
-Home Assistant now opens its native reauthentication repair for rejected
-authorization, while temporary token-service failures remain retryable. This
-does not change NIO's upstream SoC or endpoint-permission behavior.
+See [CHANGELOG.md](CHANGELOG.md) for the release-by-release history. The current development version is `0.1.1-dev.12`.
 
-`0.1.1-dev.5` keeps the last valid official remaining-range reading when a
-later sparse update has no range, including after a restart. A retained value
-is marked with `data_retained` and `last_valid_sample` attributes. It may be
-stale; check freshness before using it for charging decisions. The integration
-does **not** convert range into SoC: that calibration is specific to a car and
-belongs in the owner's Home Assistant configuration.
-`0.1.1-dev.6` also recovers a numeric range from the sensor's own recent
-Recorder history on the first upgrade when an older version had ended at
-`unknown`. This migration fallback is skipped if Recorder is unavailable.
+## EU owners: help test
 
-`0.1.1-dev.7` began reading official SoC from the sparse
-`soc_status/changes` feed, while `0.1.1-dev.10` added paced, faster polling,
-sparse-field retention and rate-limit handling. The integration
-retains the last valid reading between events and across restarts, and no longer
-lets a placeholder zero from `vehicle_status/latest` override it. A fresh
-installation may show SoC as unknown until NIO sends a real change event;
-`last_valid_sample` and `data_retained` indicate its age and retention. This is
-separate from any owner-specific range-to-charge calculation. A tested EU ET5
-Touring has now delivered real SoC and range events. The integration checks the
-overlapping last ten minutes of energy changes approximately every 15 seconds,
-with a 30-second gap around each background request. All vehicle requests for
-the same OAuth client are paced at least 15 seconds apart. This improves event
-discovery, but cannot make NIO publish new vehicle data sooner.
+If you have an eligible EU NIO, please compare the integration's SoC, range, and other enabled values with your car or NIO app. Share your model, country, what works or does not, and approximate sample age in the [EU telemetry test discussion](https://github.com/nicolasvangeluwe/nio-home-assistant/discussions/6). A quick report is useful; you do not need to be a developer. Never post credentials, tokens, a full VIN, or precise location.
 
-The SoC sensor's `observed_fields` attribute lists energy field names actually
-seen since startup, without exposing field values or credentials. NIO also
-documents charging state and target, maximum SoC, high-voltage current,
-discharged energy, battery temperatures, SoC lock, vehicle-to-load status and
-per-pack battery data in this response. These are exposed where meaningful;
-the detailed diagnostics stay disabled by default until an owner chooses to
-enable them. A documented field is not a promise that every car sends it.
+A case was sent to NIO, but the unresolved endpoint denials still need clarification. If you have a direct route to NIO's Open Telematics team, or can provide results from another EU vehicle, please join the discussion. We all want dependable SoC in Home Assistant—NIO owners, we are legion. 😄
 
-Most detailed entities are disabled by default to avoid flooding a new Home
-Assistant installation. **Disabled does not mean broken or denied**; it is only
-the default Home Assistant entity-registry setting. The enabled diagnostic
-**API availability** sensor shows which endpoint families work, have no recent
-data, are denied by NIO, or returned another error. Once enabled, each detailed
-telemetry sensor reports its source endpoint and that endpoint's current status
-as attributes. The existing battery/range/charging entities keep their original
-IDs.
+## Install with HACS
 
-## Live API status
+[![Open this repository in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=nicolasvangeluwe&repository=nio-home-assistant&category=integration)
 
-The table below is based on hands-on testing against one EU NIO ET5 Touring,
-not on what the API merely promises. Other vehicle models or accounts may
-behave differently.
+If the button does not open your Home Assistant instance:
 
-| Data | Implemented | Observed result |
-|---|---:|---|
-| OAuth authorization, refresh and user info | Yes | Working after restart; a rejected refresh grant now triggers native HA reauthentication (cause of NIO's rejection unknown) |
-| Latest vehicle timestamp/state/mileage | Yes | Working; timestamp and mileage advanced after driving; raw mileage is kilometres |
-| Battery SoC in latest vehicle status | Yes | Returned `0` instead of the vehicle's real SoC; not used for the SoC sensor |
-| Charging state, battery current/voltage | Yes | Missing, null, or zero in the latest-status response |
-| SoC/range/charging-target change feed | Yes | Real SoC (50%) and range (278 km) were observed on the tested ET5 Touring; sparse/empty polls still occur. A target value of 0% while not charging is not proof of a usable target. |
-| Other SoC-status fields | Yes | 0 A high-voltage and pack current, 359 V pack voltage, 90% maximum/lock limit, no SoC lock or V2L discharge, one pack with 96 cells and 48 temperature probes were observed. Top-level temperature extrema were 0 despite 17–19 °C pack probes, so dev.10 treats them as absent. |
-| Body, lights, windows, position, trips, cells, cabin, motor, alarms | Yes | NIO currently returns `permission_denied` |
-| Driving and battery-extremum change feeds | Yes | Request accepted, but currently returns no recent record |
-| Aftersales odometer reports | Yes | NIO currently returns `permission_denied`; the working latest-status mileage is used for the normal odometer sensor |
+1. In **HACS**, open the three-dot menu → **Custom repositories**.
+2. Add `https://github.com/nicolasvangeluwe/nio-home-assistant` as an **Integration**.
+3. Open **NIO Open Telematics** in HACS, select **Download**, and choose the latest development release.
+4. Restart Home Assistant.
 
-### Current live sensor diagnosis
+In the [NIO developer console](https://open-eu.nio.com/console), create or open a **Personal Application** using the OAuth Authorization Code flow. Set its redirect URI **exactly** to `https://my.home-assistant.io/redirect/oauth`. Personal applications receive their permitted scopes by default; the integration intentionally omits a `scope` parameter from authorization.
 
-This earlier diagnosis was observed with `v0.1.1-dev.1` on one EU ET5 Touring
-on 2026-09-06. The table is retained as historical evidence, not the current
-state; the newer SoC-status observations above supersede its SoC/range rows.
+Then in Home Assistant, open **Settings → Devices & services → Add integration → NIO Open Telematics**. Enter your own application's Client ID and Client Secret, authorize with NIO, and enter a vehicle name and 17-character VIN. The official API does not document a vehicle-list endpoint, so VIN entry is currently required. If the integration is missing after restart, refresh the browser.
 
-| Diagnosis | Sensors/data |
-|---|---|
-| Working and meaningful | API availability, data timestamp, odometer (`5077 km`), vehicle state (`PARKED_VEHICLE`), comfort mode |
-| Plausible but not yet verified while driving | Speed (`0` while parked) |
-| Returned, but not currently trustworthy | SoC (`0`), charging state (null), remaining range (missing), charging target (missing), operation mode (null), total voltage/current (`0`), DC-DC status (null), insulation resistance (`0`), gear (unmapped raw `0`) |
-| Endpoint works but has no recent event record | Driving mode, steering angle/speed, accelerator position, average/minimum/maximum speed, highest/lowest cell voltage, highest/lowest battery temperature, discharged energy, SoC lock limit/status, vehicle-to-load status |
-| Endpoint denied by NIO | Vehicle lock/doors, fridge, lights/windows, position/GPS, trips and trip energy, cell details, heating/HVAC, driving motors, alarms, aftersales odometer |
-
-`permission_denied` is returned by the official NIO API. It is **not** a Home
-Assistant user-rights problem. It means NIO refuses that endpoint for the
-current OAuth application/token/vehicle combination. Because authorization
-succeeds using NIO's documented default personal-app grant, the current
-evidence points to an upstream NIO entitlement or vehicle/application
-provisioning restriction. Only NIO can confirm the exact backend reason.
-
-The VIN was independently verified because vehicle state and mileage were
-correct. If a granted scope is missing, the integration keeps setup active and
-flags the affected feed as `permission_denied`, so available data keeps working
-while the NIO-side restriction is investigated. A detailed case has been sent
-to NIO and feedback is still pending. If you have faster access to NIO's Open
-Telematics API support or can test another eligible EU vehicle, please open a
-GitHub issue and help move the investigation forward. Never post credentials,
-tokens, a full VIN, or precise location data.
-
-The config flow now uses locally supplied NIO application credentials, OAuth
-Authorization Code + PKCE, NIO's HTTP Basic token exchange, wrapped token
-response, and automatic refresh through Home Assistant's OAuth session. The
-official reference exposes vehicle telemetry by VIN and does not document a
-vehicle-list endpoint, so setup validates a manually entered VIN after consent.
-The OAuth authorization request omits `scope`, using NIO's documented default
-of the application's full permitted scope set. When this permission policy
-changes, Home Assistant requests a single native reauthorization flow and
-records the permission revision after it completes. Individual optional feeds
-that NIO still denies remain isolated as
-`permission_denied` rather than taking the integration offline.
-Automated tests, hassfest, and HACS repository validation run on every push.
-
-Never commit a Client ID, Client Secret, VIN, access token, refresh token, or
-diagnostic payload containing personal vehicle data.
-
-## Installation and configuration
-
-### Install with HACS
-
-HACS must already be installed in Home Assistant.
-
-[![Open your Home Assistant instance and open this repository in
-HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=nicolasvangeluwe&repository=nio-home-assistant&category=integration)
-
-Select the button above for the easiest installation. If the link cannot reach
-your Home Assistant instance, add the repository manually:
-
-1. Open **HACS** in Home Assistant.
-2. Open the three-dot menu in the upper-right corner and select
-   **Custom repositories**.
-3. Enter this repository URL:
-   `https://github.com/nicolasvangeluwe/nio-home-assistant`
-4. Select **Integration** as the category, then select **Add**.
-5. Open **NIO Open Telematics** in HACS and select **Download**. Choose the
-   latest development release when HACS asks for a version.
-6. Restart Home Assistant after the download finishes.
-
-These steps follow the official [HACS custom-repository
-instructions](https://www.hacs.xyz/docs/faq/custom_repositories/).
-
-### Configure NIO and Home Assistant
-
-In the [NIO Open Telematics developer
-console](https://open-eu.nio.com/console), create or open a Personal
-Application using the OAuth Authorization Code flow and set its redirect URI
-exactly to:
-
-`https://my.home-assistant.io/redirect/oauth`
-
-Then:
-
-1. In Home Assistant, open **Settings > Devices & services**.
-2. Select **Add integration**, search for **NIO Open Telematics**, and select
-   it.
-3. Enter the Personal Application's Client ID and Client Secret when prompted.
-4. Complete NIO authorization, then enter the vehicle name and 17-character
-   VIN.
-
-If the integration is missing from **Add integration** after the restart,
-clear or hard-refresh the browser cache and try again.
-
-### Manual installation
-
-As an alternative to HACS, copy `custom_components/nio_telematics` into Home
-Assistant's `custom_components` directory and restart Home Assistant. Future
-updates must then also be installed manually.
-
-## Changelog
-
-See [CHANGELOG.md](./CHANGELOG.md) for public release notes and version history.
+For manual installation, copy `custom_components/nio_telematics` into Home Assistant's `custom_components` directory and restart. Manual updates require repeating that copy.
 
 ## Contributing
 
-Please read [CONTRIBUTING.md](./CONTRIBUTING.md) and open an issue or discussion
-before starting code changes. Testing with other eligible NIO applications and
-vehicle models is especially useful.
-
-## Acknowledgements
-
-Special thanks to [@lubbyhst](https://github.com/lubbyhst) for early
-cross-vehicle testing, clear issue reports, proposed OAuth and documentation
-improvements, and sharing independent NIO API results.
+Issues, [discussions](https://github.com/nicolasvangeluwe/nio-home-assistant/discussions), and cross-vehicle test reports are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before a code change. Thanks to [@Laddvin](https://github.com/Laddvin) for identifying the useful SoC change feed and [@lubbyhst](https://github.com/lubbyhst) for independent testing and early improvements.
