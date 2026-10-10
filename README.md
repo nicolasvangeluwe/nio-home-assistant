@@ -20,10 +20,10 @@ data, and use it at your own risk.
 > [!IMPORTANT]
 > **EU NIO owners: we need you.**
 >
-> We all want reliable battery SoC in Home Assistant, but the official API is
-> currently returning missing or incorrect telemetry. We need more owners,
-> vehicles, and countries to produce clear evidence and make the problem
-> visible enough for NIO to investigate and fix it.
+> We all want reliable battery SoC in Home Assistant. One EU ET5 Touring now
+> receives it through the official change feed, but other documented endpoints
+> still deny access or return incomplete data. We need more owners, vehicles,
+> and countries to establish what actually works and help NIO resolve the rest.
 >
 > Install the current development release, compare its values with the car or
 > NIO app, and share your vehicle model, EU country, application type, and
@@ -41,7 +41,7 @@ data, and use it at your own risk.
 > report is a curiosity; a fleet of matching reports is evidence. EU NIO
 > owners, rally—we are legion, and we need you. 😄
 
-Current development release (`0.1.1-dev.7`):
+Current development release (`0.1.1-dev.10`):
 
 - polls every documented read-only telemetry category that can provide useful
   Home Assistant state: body, dynamics, location, trip, energy, cabin,
@@ -112,16 +112,17 @@ behave differently.
 | Latest vehicle timestamp/state/mileage | Yes | Working; timestamp and mileage advanced after driving; raw mileage is kilometres |
 | Battery SoC in latest vehicle status | Yes | Returned `0` instead of the vehicle's real SoC; not used for the SoC sensor |
 | Charging state, battery current/voltage | Yes | Missing, null, or zero in the latest-status response |
-| SoC/range/charging-target change feed | Yes | Real SoC and range were observed on the tested ET5 Touring; sparse/empty polls still occur. Charging-target delivery is unverified. |
+| SoC/range/charging-target change feed | Yes | Real SoC (50%) and range (278 km) were observed on the tested ET5 Touring; sparse/empty polls still occur. A target value of 0% while not charging is not proof of a usable target. |
+| Other SoC-status fields | Yes | 0 A high-voltage and pack current, 359 V pack voltage, 90% maximum/lock limit, no SoC lock or V2L discharge, one pack with 96 cells and 48 temperature probes were observed. Top-level temperature extrema were 0 despite 17–19 °C pack probes, so dev.10 treats them as absent. |
 | Body, lights, windows, position, trips, cells, cabin, motor, alarms | Yes | NIO currently returns `permission_denied` |
 | Driving and battery-extremum change feeds | Yes | Request accepted, but currently returns no recent record |
 | Aftersales odometer reports | Yes | NIO currently returns `permission_denied`; the working latest-status mileage is used for the normal odometer sensor |
 
 ### Current live sensor diagnosis
 
-This diagnosis was observed with `v0.1.1-dev.1` on one EU ET5 Touring on
-2026-09-06. It describes this app/account/vehicle combination and may differ for
-another NIO application or vehicle.
+This earlier diagnosis was observed with `v0.1.1-dev.1` on one EU ET5 Touring
+on 2026-09-06. The table is retained as historical evidence, not the current
+state; the newer SoC-status observations above supersede its SoC/range rows.
 
 | Diagnosis | Sensors/data |
 |---|---|
