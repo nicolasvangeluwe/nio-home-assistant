@@ -15,6 +15,8 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import NioDataUpdateCoordinator
+from .pacing import NioRequestPacer
+
 
 type NioConfigEntry = ConfigEntry[NioDataUpdateCoordinator]
 
@@ -31,9 +33,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: NioConfigEntry) -> bool:
         )
     )
     oauth_session = config_entry_oauth2_flow.OAuth2Session(hass, entry, implementation)
+    # One OAuth application may have multiple vehicles/config entries. Never
+    # give each entry its own independent API request budget.
+    pacers = hass.data.setdefault("nio_telematics_request_pacers", {})
+    pacer = pacers.setdefault(implementation.client_id, NioRequestPacer())
     client = NioApiClient(
         oauth_session,
         API_BASE_URL,
+        pacer=pacer,
     )
     coordinator = NioDataUpdateCoordinator(hass, entry, client)
     await coordinator.async_config_entry_first_refresh()

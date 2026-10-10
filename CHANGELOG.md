@@ -3,6 +3,29 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.1.1-dev.8
+
+- Poll one vehicle API resource per cycle with a shared 15-second minimum
+  between requests per OAuth client, including concurrent vehicles and manual
+  refreshes. Read the overlapping ten-minute SoC change window three times
+  before each rotating background request; the ten minutes are a history
+  window, not the polling delay.
+- Merge sparse and duplicate energy events by field and retain independent
+  source timestamps for SoC and range. Keep earlier valid values when a later
+  event omits them.
+- Recognize NIO's rate-limit envelopes, including HTTP 403 with a throttling
+  message, honor Retry-After, and apply bounded shared backoff. Genuine
+  authentication and missing-scope failures keep their prior handling.
+- Expose the documented highest/lowest SoC-status battery temperatures and a
+  compact battery-pack diagnostic as disabled-by-default sensors. Add a safe
+  field-name list to the SoC sensor so owners can report which energy fields
+  their vehicle actually sends; no serials, cell arrays or credentials are
+  exposed through the new diagnostic.
+- Add scheduling, pacing, sparse-field, duplicate, throttling and temperature
+  regression tests. The optional, household-installed car ledger is not part
+  of this public HACS package; its separate native-SoC migration is still
+  being verified locally and its history remains outside shipped files.
+
 ## 0.1.1-dev.7
 
 - Source battery SoC from NIO's `soc_status/changes` feed instead of the

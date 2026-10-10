@@ -18,6 +18,7 @@ from custom_components.nio_telematics.api import (
     NioResourceNotFoundError,
 )
 from custom_components.nio_telematics.const import API_BASE_URL
+from custom_components.nio_telematics.pacing import NioRequestPacer
 
 
 def response(status: int, payload: dict, headers: dict | None = None) -> MagicMock:
@@ -89,7 +90,16 @@ async def test_sparse_soc_changes_keep_each_fields_newest_value() -> None:
         "LJNABC12345678901", "soc_status"
     )
 
-    assert record == {"soc": 38, "remaining_range": 213, "sample_timestamp": 2000}
+    assert record == {
+        "soc": 38,
+        "remaining_range": 213,
+        "sample_timestamp": 2000,
+        "_field_timestamps": {"soc": 1000, "remaining_range": 2000},
+    }
+    request = oauth_session.async_request.await_args
+    assert request.kwargs["params"]["end_time"] - request.kwargs["params"][
+        "start_time"
+    ] == 600_000
 
 
 async def test_soc_request_retries_and_caches_smaller_window(
@@ -262,6 +272,28 @@ async def test_http_errors_are_mapped(status, headers, error) -> None:
     client = NioApiClient(oauth_session, API_BASE_URL)
     with pytest.raises(error):
         await client.async_get_soc_status("LJNABC12345678901")
+
+
+@pytest.mark.parametrize("status", [200, 403])
+async def test_rate_limit_envelope_is_retryable(status: int) -> None:
+    """NIO can report throttling in a successful HTTP response or HTTP 403."""
+    oauth_session = MagicMock()
+    oauth_session.async_request = AsyncMock(
+        return_value=response(
+            status,
+            {"result_code": "access_denied", "debug_msg": "rate limit exceeded"},
+            {"Retry-After": "45"},
+        )
+    )
+    pacer = MagicMock(spec=NioRequestPacer)
+    pacer.wait = AsyncMock()
+    pacer.rate_limited = AsyncMock()
+    client = NioApiClient(oauth_session, API_BASE_URL, pacer=pacer)
+
+    with pytest.raises(NioRateLimitError) as error:
+        await client.async_get_change_record("LJNABC12345678901", "soc_status")
+    assert error.value.retry_after == 45
+    pacer.rate_limited.assert_awaited_once_with(45)
 
 
 async def test_refresh_rejection_reaches_coordinator() -> None:

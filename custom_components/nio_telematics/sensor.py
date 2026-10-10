@@ -34,7 +34,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from .availability import availability_attributes, overall_availability
 from .coordinator import NioDataUpdateCoordinator
 from .entity import NioEntity
-from .models import NioVehicleData
+from .models import NioSocStatus, NioVehicleData
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -59,6 +59,40 @@ def _field(
             return None
 
     return value
+
+
+def _battery_temperature(field: str) -> Callable[[NioVehicleData], float | None]:
+    """Decode NIO's offset temperature, excluding documented sentinels."""
+
+    def value(data: NioVehicleData) -> float | None:
+        raw = data.telemetry.get("soc_status", {}).get(field)
+        try:
+            reading = float(raw)
+        except (TypeError, ValueError):
+            return None
+        if not math.isfinite(reading) or not 0 <= reading < 254:
+            return None
+        return reading - 40
+
+    return value
+
+
+def _battery_packs(data: NioVehicleData) -> list[dict[str, Any]]:
+    """Expose compact pack diagnostics without serials or large cell arrays."""
+    raw = data.telemetry.get("soc_status", {}).get("btry_paks")
+    if not isinstance(raw, list):
+        return []
+    return [
+        {
+            "pack": index,
+            "voltage_v": pack.get("btry_pak_voltage"),
+            "current_a": pack.get("btry_pak_curnt"),
+            "cell_count": pack.get("sin_btry_qunty_of_pak"),
+            "temperature_probe_count": pack.get("temp_prb_qunty"),
+        }
+        for index, pack in enumerate(raw, start=1)
+        if isinstance(pack, dict)
+    ]
 
 
 def _simple(
@@ -385,6 +419,35 @@ SENSORS: tuple[NioSensorDescription, ...] = (
         unit=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
     ),
+    NioSensorDescription(
+        key="soc_highest_battery_temperature",
+        name="SoC status highest battery temperature",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        entity_registry_enabled_default=False,
+        value_fn=_battery_temperature("sin_btry_hist_temp"),
+        source_endpoint="soc_status",
+    ),
+    NioSensorDescription(
+        key="soc_lowest_battery_temperature",
+        name="SoC status lowest battery temperature",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        entity_registry_enabled_default=False,
+        value_fn=_battery_temperature("sin_btry_lwst_temp"),
+        source_endpoint="soc_status",
+    ),
+    NioSensorDescription(
+        key="battery_pack_count",
+        name="Battery pack count",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda data: len(_battery_packs(data))
+        if isinstance(data.telemetry.get("soc_status", {}).get("btry_paks"), list)
+        else None,
+        attributes_fn=lambda data: {"packs": _battery_packs(data)},
+        source_endpoint="soc_status",
+    ),
     _simple(
         "soc_lock_limit", "SoC lock limit", "soc_status", "lock_soc", unit=PERCENTAGE
     ),
@@ -519,6 +582,11 @@ class NioSensorEntity(NioEntity):
                 "source_endpoint": endpoint,
                 "endpoint_status": self.coordinator.data.endpoint_status.get(endpoint),
             }
+        if self.entity_description.key == "odometer":
+            sample = NioSocStatus.from_payload(
+                self.coordinator.data.telemetry.get("vehicle_status", {})
+            ).event_time
+            attributes["source_sample"] = sample.isoformat() if sample else None
         return attributes or None
 
 
@@ -549,8 +617,12 @@ class NioSocSensor(NioSensorEntity, RestoreSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         sample = self.coordinator.data.soc_last_valid_at
+        observed = self.coordinator.data.telemetry.get("soc_status", {})
         return {
             "source_endpoint": "soc_status",
+            "observed_fields": sorted(
+                key for key in observed if key not in {"_field_timestamps"}
+            ),
             "last_valid_sample": sample.isoformat()
             if sample is not None
             else self._restored_sample_time,

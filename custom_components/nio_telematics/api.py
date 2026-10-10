@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 import re
 import time
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 from aiohttp import ClientError, ClientResponse
@@ -17,6 +19,7 @@ from homeassistant.helpers.config_entry_oauth2_flow import (
 
 from .const import TELEMATICS_PATH
 from .models import NioSocStatus
+from .pacing import NioRequestPacer
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,6 +46,11 @@ _SAFE_RESPONSE_HEADERS = {
     "x-ratelimit-reset",
 }
 _MILLISECONDS_PER_SECOND = 1_000
+_ENERGY_WINDOW_SECONDS = 10 * 60
+_RATE_LIMIT_MARKER = re.compile(
+    r"rate[_ -]?limit|too[_ -]?many|throttl|request[_ -]?frequen",
+    re.IGNORECASE,
+)
 _SOC_WINDOW_CANDIDATES_SECONDS = (
     12 * 60 * 60,
     6 * 60 * 60,
@@ -100,7 +108,7 @@ class NioResourceNotFoundError(NioApiError):
 class NioRateLimitError(NioApiError):
     """NIO rate limited the request."""
 
-    def __init__(self, retry_after: int | None) -> None:
+    def __init__(self, retry_after: float | None) -> None:
         super().__init__("NIO API rate limit exceeded")
         self.retry_after = retry_after
 
@@ -112,10 +120,12 @@ class NioApiClient:
         self,
         oauth_session: OAuth2Session,
         base_url: str,
+        pacer: NioRequestPacer | None = None,
     ) -> None:
         self._oauth_session = oauth_session
         self._base_url = base_url.rstrip("/")
         self._soc_window_seconds: int | None = None
+        self._pacer = pacer
 
     async def async_get_soc_status(
         self,
@@ -177,8 +187,16 @@ class NioApiClient:
 
     async def async_get_change_record(self, vin: str, resource: str) -> dict[str, Any]:
         """Return the newest record from a documented change endpoint."""
+        params = None
+        if resource == "soc_status":
+            end = int(time.time() * _MILLISECONDS_PER_SECOND)
+            params = {
+                "start_time": end - _ENERGY_WINDOW_SECONDS * _MILLISECONDS_PER_SECOND,
+                "end_time": end,
+            }
         payload = await self._async_get(
-            f"{TELEMATICS_PATH}/vehicles/{vin}/{resource}/changes"
+            f"{TELEMATICS_PATH}/vehicles/{vin}/{resource}/changes",
+            params=params,
         )
         data = payload.get("data")
         if not isinstance(data, list) or not data:
@@ -190,10 +208,16 @@ class NioApiClient:
             # NIO may emit separate sparse changes for different energy fields.
             # Keep the newest non-null value of each field in this window.
             merged: dict[str, Any] = {}
+            field_timestamps: dict[str, Any] = {}
             for record in sorted(
                 records, key=lambda item: item.get("sample_timestamp", 0)
             ):
-                merged.update({key: value for key, value in record.items() if value is not None})
+                for key, value in record.items():
+                    if value is not None:
+                        merged[key] = value
+                        if key != "sample_timestamp":
+                            field_timestamps[key] = record.get("sample_timestamp")
+            merged["_field_timestamps"] = field_timestamps
             return merged
         return max(records, key=lambda item: item.get("sample_timestamp", 0))
 
@@ -233,6 +257,8 @@ class NioApiClient:
         if params is not None:
             request_kwargs["params"] = params
         try:
+            if self._pacer is not None:
+                await self._pacer.wait()
             response = await self._oauth_session.async_request(
                 "GET",
                 f"{self._base_url}{path}",
@@ -242,7 +268,9 @@ class NioApiClient:
             # HA's OAuth2Session starts the native reauth flow for this error.
             raise
         except OAuth2TokenRequestTransientError as err:
-            raise NioApiError("NIO OAuth token service is temporarily unavailable") from err
+            raise NioApiError(
+                "NIO OAuth token service is temporarily unavailable"
+            ) from err
         except OAuth2TokenRequestError as err:
             raise NioApiError("NIO OAuth token request failed") from err
         except ClientError as err:
@@ -275,12 +303,22 @@ class NioApiClient:
             type(json_error).__name__ if json_error else None,
         )
 
-        await self._raise_for_status(response)
+        try:
+            await self._raise_for_status(response, payload)
+        except NioRateLimitError as err:
+            if self._pacer is not None:
+                await self._pacer.rate_limited(err.retry_after)
+            raise
         if json_error is not None:
             raise NioApiError("NIO returned a non-JSON response") from json_error
         if not isinstance(payload, dict):
             raise NioApiError("NIO returned an invalid response envelope")
         result_code = payload.get("result_code")
+        if _is_rate_limited(payload):
+            retry_after = _retry_after(response.headers)
+            if self._pacer is not None:
+                await self._pacer.rate_limited(retry_after)
+            raise NioRateLimitError(retry_after)
         if result_code == "access_denied":
             raise NioPermissionError("NIO OAuth grant lacks the required scope")
         if result_code == "resource_not_found":
@@ -291,21 +329,42 @@ class NioApiClient:
             raise NioApiError(
                 f"NIO request failed: {payload.get('result_code', 'unknown')}"
             )
+        if self._pacer is not None:
+            self._pacer.succeeded()
         return payload
 
     @staticmethod
-    async def _raise_for_status(response: ClientResponse) -> None:
+    async def _raise_for_status(response: ClientResponse, payload: Any = None) -> None:
         if response.status == 401:
             raise NioAuthenticationError("NIO access token is invalid or expired")
+        if response.status == 429 or (
+            response.status == 403 and _is_rate_limited(payload)
+        ):
+            raise NioRateLimitError(_retry_after(response.headers))
         if response.status == 403:
             raise NioPermissionError("NIO OAuth grant lacks the required scope")
-        if response.status == 429:
-            raw_retry_after = response.headers.get("Retry-After")
-            retry_after = (
-                int(raw_retry_after)
-                if raw_retry_after and raw_retry_after.isdigit()
-                else None
-            )
-            raise NioRateLimitError(retry_after)
         if response.status >= 400:
             raise NioApiError(f"NIO API returned HTTP {response.status}")
+
+
+def _is_rate_limited(payload: Any) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    return any(
+        _RATE_LIMIT_MARKER.search(str(payload.get(key) or ""))
+        for key in ("result_code", "display_msg", "debug_msg")
+    )
+
+
+def _retry_after(headers: Any) -> float | None:
+    raw = headers.get("Retry-After") or headers.get("retry-after")
+    if not raw:
+        return None
+    try:
+        return max(0.0, float(raw))
+    except (TypeError, ValueError):
+        try:
+            date = parsedate_to_datetime(raw)
+            return max(0.0, (date - datetime.now(UTC)).total_seconds())
+        except (TypeError, ValueError, OverflowError):
+            return None
