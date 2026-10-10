@@ -3,6 +3,20 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.1.1-dev.14
+
+- Shorten the HACS-visible README to current capabilities, installation and an
+  invitation for EU owners to test and report results. Keep implementation
+  history in this changelog rather than in the introduction.
+- Clarify the two distinct SoC-response fields using NIO's published schema:
+  `max_soc` is the **user-set maximum SoC limit** (90% on the test ET5 Touring),
+  whereas `chrg_final_soc` is the **charging target** field. The latter has
+  reported 0% while parked; that observation does not override the configured
+  90% limit. Existing sensor IDs and their source-field mappings remain
+  unchanged. `lock_soc` is a separate system-enforced limit.
+- No telemetry or polling code changes. Existing installed entities and
+  household Car-ledger files are unaffected by this documentation release.
+
 ## 0.1.1-dev.13
 
 - Route the observed single-pack voltage and current to dedicated sensors,
