@@ -6,20 +6,22 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import config_entry_oauth2_flow
+from homeassistant.helpers import config_validation as cv
 
 from .api import NioApiClient
+from .car_dashboard import async_setup_dashboard
 from .const import (
     API_BASE_URL,
     CONF_SCOPE_REVISION,
+    DOMAIN,
     OAUTH_SCOPE_REVISION,
     PLATFORMS,
 )
 from .coordinator import NioDataUpdateCoordinator
 from .pacing import NioRequestPacer
-from .car_dashboard import async_setup_dashboard
-
 
 type NioConfigEntry = ConfigEntry[NioDataUpdateCoordinator]
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
