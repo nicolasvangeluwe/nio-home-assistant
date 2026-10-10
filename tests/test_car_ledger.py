@@ -254,6 +254,24 @@ class CalculationTests(unittest.TestCase):
         self.assertAlmostEqual(self.ledger.data["trips"][0]["segments"][0]["kwh"], 0.9)
         self.assertFalse(self.ledger.data["charges"])
 
+    def test_reconfiguration_keeps_archives_and_starts_new_baseline(self):
+        self.drive()
+        self.ledger.close_trip()
+        archived = json.loads(json.dumps(self.ledger.data["trips"]))
+        self.ledger.begin_new_epoch({"capacity_kwh": 75, "full_range_km": 500})
+        restored = Ledger(
+            {"capacity_kwh": 75, "full_range_km": 500},
+            json.loads(json.dumps(self.ledger.data)),
+        )
+        self.assertIsNone(restored.data["last"])
+        self.assertEqual(restored.data["trips"], archived)
+        restored.ingest(self.t + 1800, 1020, 230, soc_pct=50)
+        self.assertEqual(restored.data["trips"], archived)
+        self.assertFalse(restored.data["charges"])
+        self.assertEqual(restored.data["last"]["energy"], 37.5)
+        self.assertEqual(restored.data["source_transitions"][-1]["capacity_kwh"], 75)
+        assert not restored.ingest(self.t + 1800, 1020, 230, soc_pct=50)
+
 
 if __name__ == "__main__":
     unittest.main()

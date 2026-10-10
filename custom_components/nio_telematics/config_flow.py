@@ -18,7 +18,13 @@ from .const import (
     OAUTH_SCOPE_REVISION,
 )
 from .models import normalize_vin
-from .vehicle_dashboard import LANGUAGES, MODELS, OPTIONS_KEY, PREFERENCES_SCHEMA
+from .vehicle_dashboard import (
+    LANGUAGES,
+    MODELS,
+    OPTIONS_KEY,
+    PREFERENCES_SCHEMA,
+    preferences_for_entry,
+)
 
 
 class NioConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, domain=DOMAIN):
@@ -111,12 +117,19 @@ class NioOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
+        errors: dict[str, str] = {}
         if user_input is not None:
             preferences = PREFERENCES_SCHEMA(user_input)
-            return self.async_create_entry(
-                title="", data={**self.config_entry.options, OPTIONS_KEY: preferences}
-            )
-        current = PREFERENCES_SCHEMA(self.config_entry.options.get(OPTIONS_KEY, {}))
+            if preferences["ledger_enabled"] and not all(
+                preferences[key] for key in ("battery_capacity_kwh", "full_range_km")
+            ):
+                errors["base"] = "ledger_calibration_required"
+            else:
+                return self.async_create_entry(
+                    title="",
+                    data={**self.config_entry.options, OPTIONS_KEY: preferences},
+                )
+        current = preferences_for_entry(self.hass, self.config_entry)
         entity = selector.EntitySelector(selector.EntitySelectorConfig())
         fields: dict[Any, Any] = {
             vol.Required("model", default=current["model"]): selector.SelectSelector(
@@ -152,4 +165,19 @@ class NioOptionsFlow(config_entries.OptionsFlow):
                 )
             ),
         )
-        return self.async_show_form(step_id="init", data_schema=vol.Schema(fields))
+        fields[vol.Optional("full_range_km", default=current["full_range_km"])] = (
+            vol.Any(
+                None,
+                selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=1, max=2000, step=1, mode=selector.NumberSelectorMode.BOX
+                    )
+                ),
+            )
+        )
+        fields[vol.Optional("ledger_enabled", default=current["ledger_enabled"])] = (
+            selector.BooleanSelector()
+        )
+        return self.async_show_form(
+            step_id="init", data_schema=vol.Schema(fields), errors=errors
+        )

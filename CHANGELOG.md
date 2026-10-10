@@ -3,6 +3,24 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.1.1-dev.17
+
+- Add an optional NIO Vehicle Lovelace card with local, bundled model-class
+  artwork, theme-aware mobile/desktop layout and 14 European language choices.
+  It reads the existing NIO SoC, range, odometer, charging state and charge
+  limit sensors; no new vehicle API calls or external image service are needed.
+- Add per-vehicle settings in both the card and the integration's Configure
+  flow. EVCC connection/power/history and household price/reimbursement
+  entities are optional; leaving them empty does not affect vehicle telemetry.
+  Price and reimbursement are displayed as references, not used to infer costs.
+- Allow users to enable the bundled trip/charging ledger from those settings.
+  Existing ledger configurations are adopted rather than silently disabled.
+  Changing energy sources or calibration starts a fresh calculation baseline
+  without erasing archived trips or charging sessions; history remains stored
+  outside HACS-managed files. No charging control is added.
+- Add dashboard-preference and history-migration regression tests. The card is
+  opt-in and does not create or replace any existing Home Assistant dashboard.
+
 ## 0.1.1-dev.16
 
 - Bundle the previously local, optional Car ledger and card with the NIO

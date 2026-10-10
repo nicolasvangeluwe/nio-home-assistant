@@ -1,6 +1,7 @@
 """Optional bundled dashboard; recorded history lives outside HACS-installed files."""
 
 import asyncio
+from copy import deepcopy
 from hashlib import sha256
 from pathlib import Path
 from types import SimpleNamespace
@@ -99,6 +100,43 @@ async def start_recorder(hass, entry_id, settings):
     return recorder
 
 
+async def async_configure_recorder(hass, entry_id, settings):
+    """Apply source changes without erasing archived history or bridging baselines."""
+    entry = hass.config_entries.async_get_entry(entry_id)
+    if not entry or entry.domain != NIO_DOMAIN:
+        raise ValueError("Select an existing NIO integration")
+    settings = CONFIG_SCHEMA(settings)
+    for key in ("odometer", "range", "soc", "home_connected", "home_history"):
+        entity_id = settings[key]
+        if entity_id and not hass.states.get(entity_id):
+            raise ValueError(f"{key} entity does not exist")
+    data = manager(hass)
+    async with data["lock"]:
+        old = data["recorders"].get(entry_id)
+        if old and all(old.settings[key] == value for key, value in settings.items()):
+            return old
+        previous = deepcopy(old.ledger.data) if old else None
+        previous_settings = data["settings"].get(entry_id)
+        if old:
+            await old.async_stop()
+            if any(
+                old.settings[key] != settings[key]
+                for key in ("odometer", "range", "soc", "capacity_kwh", "full_range_km")
+            ):
+                old.ledger.begin_new_epoch(settings)
+                await old.store.async_save(deepcopy(old.ledger.data))
+        try:
+            recorder = await start_recorder(hass, entry_id, settings)
+            data["settings"][entry_id] = settings
+            await data["store"].async_save(data["settings"])
+        except Exception:
+            if old:
+                await old.store.async_save(previous)
+                await start_recorder(hass, entry_id, previous_settings)
+            raise
+        return recorder
+
+
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "nio_telematics/car_dashboard/configure",
@@ -109,20 +147,13 @@ async def start_recorder(hass, entry_id, settings):
 @websocket_api.require_admin
 @websocket_api.async_response
 async def websocket_configure(hass, connection, msg):
-    entry = hass.config_entries.async_get_entry(msg["entry_id"])
-    if not entry or entry.domain != NIO_DOMAIN:
-        connection.send_error(
-            msg["id"], "invalid_entry", "Select an existing NIO integration"
+    try:
+        recorder = await async_configure_recorder(
+            hass, msg["entry_id"], msg["settings"]
         )
+    except (ValueError, vol.Invalid) as err:
+        connection.send_error(msg["id"], "invalid_input", str(err))
         return
-    data = manager(hass)
-    async with data["lock"]:
-        old = data["recorders"].get(entry.entry_id)
-        if old:
-            await old.async_stop()
-        recorder = await start_recorder(hass, entry.entry_id, msg["settings"])
-        data["settings"][entry.entry_id] = msg["settings"]
-        await data["store"].async_save(data["settings"])
     connection.send_result(msg["id"], recorder.snapshot())
 
 
@@ -150,7 +181,12 @@ async def async_setup_dashboard(hass):
     frontend.add_extra_js_url(hass, f"{url}?v={digest}")
     for entry_id, config in settings.items():
         entry = hass.config_entries.async_get_entry(entry_id)
-        if entry and entry.domain == NIO_DOMAIN:
+        dashboard = entry.options.get("vehicle_dashboard", {}) if entry else {}
+        if (
+            entry
+            and entry.domain == NIO_DOMAIN
+            and dashboard.get("ledger_enabled", True)
+        ):
             await start_recorder(hass, entry_id, CONFIG_SCHEMA(config))
 
     async def stop(event):

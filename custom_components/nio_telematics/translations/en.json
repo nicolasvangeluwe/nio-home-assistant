@@ -29,9 +29,14 @@
           "evcc_history": "EVCC charging history entity",
           "electricity_price": "Electricity price entity",
           "reimbursement_rate": "Reimbursement rate entity",
-          "battery_capacity_kwh": "Usable battery capacity (kWh)"
+          "battery_capacity_kwh": "Usable battery capacity (kWh)",
+          "full_range_km": "Range at full charge (km; ledger fallback)",
+          "ledger_enabled": "Enable trip and charging history"
         }
       }
+    },
+    "error": {
+      "ledger_calibration_required": "Set usable battery capacity and full-charge range before enabling history."
     }
   },
   "entity": {

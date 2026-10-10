@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -19,10 +21,27 @@ from .const import (
 )
 from .coordinator import NioDataUpdateCoordinator
 from .pacing import NioRequestPacer
-from .vehicle_dashboard import async_setup_vehicle_dashboard
+from .vehicle_dashboard import async_reconcile_ledger, async_setup_vehicle_dashboard
 
 type NioConfigEntry = ConfigEntry[NioDataUpdateCoordinator]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+_LOGGER = logging.getLogger(__name__)
+
+
+async def _async_dashboard_options_updated(
+    hass: HomeAssistant, entry: NioConfigEntry
+) -> None:
+    """Apply optional dashboard changes without resetting NIO OAuth telemetry."""
+    try:
+        await async_reconcile_ledger(hass, entry)
+        hass.data.setdefault("nio_telematics_dashboard_errors", {}).pop(
+            entry.entry_id, None
+        )
+    except ValueError as err:
+        hass.data.setdefault("nio_telematics_dashboard_errors", {})[entry.entry_id] = (
+            str(err)
+        )
+        _LOGGER.warning("NIO dashboard history configuration: %s", err)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -59,6 +78,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: NioConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(_async_dashboard_options_updated))
+    await _async_dashboard_options_updated(hass, entry)
     return True
 
 

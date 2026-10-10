@@ -10,7 +10,9 @@ On my EU ET5 Touring, it receives live **battery SoC, remaining range, odometer 
 
 SoC and range keep their last valid readings when NIO sends sparse updates. Check each sensor's sample time before relying on it for an automation. See the [changelog](CHANGELOG.md) for technical details and release history.
 
-An **optional, experimental Car ledger** is bundled from dev.16. It records trips, parked energy changes and charging sessions for a separately configured car dashboard. It uses native SoC for new energy samples where configured; older range-derived history is kept unchanged. Its settings and history live in Home Assistant storage outside HACS-managed files, so normal integration updates preserve them. The ledger does not control charging or change NIO entities. New-user setup is not yet exposed in the integration UI.
+An optional **NIO Vehicle card** shows the key readings in a compact car view. It uses bundled artwork, follows light/dark themes and the viewer's language, and needs no external image service. Add a manual card with `type: custom:nio-vehicle-card` to any Lovelace dashboard; no existing dashboard is replaced. Choose a model and language in the card's Settings or the integration's **Configure** dialog.
+
+EVCC connection, power and session-history entities can be selected if you have them. Battery capacity and full-charge range enable the optional experimental trip/charging ledger, whose history survives HACS updates. Changing these energy inputs starts a new baseline without rewriting old trips. Electricity-price and reimbursement entities, if selected, are shown as reference values; they do not calculate historical costs. Everything on the card is read-only, and charging rules stay in Home Assistant.
 
 ## Install
 

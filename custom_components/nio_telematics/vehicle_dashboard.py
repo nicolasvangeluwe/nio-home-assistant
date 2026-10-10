@@ -11,6 +11,8 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 
+from .car_dashboard import async_configure_recorder
+from .car_dashboard import manager as ledger_manager
 from .const import DOMAIN
 
 OPTIONS_KEY = "vehicle_dashboard"
@@ -51,9 +53,36 @@ PREFERENCES_SCHEMA = vol.Schema(
         vol.Optional("battery_capacity_kwh", default=None): vol.Any(
             None, vol.All(vol.Coerce(float), vol.Range(min=1, max=300))
         ),
+        vol.Optional("full_range_km", default=None): vol.Any(
+            None, vol.All(vol.Coerce(float), vol.Range(min=1, max=2000))
+        ),
+        vol.Optional("ledger_enabled", default=False): bool,
     },
     extra=vol.PREVENT_EXTRA,
 )
+
+
+def preferences_for_entry(hass, entry):
+    """Adopt existing ledger settings with new display preferences."""
+    saved = entry.options.get(OPTIONS_KEY)
+    if saved is not None:
+        return PREFERENCES_SCHEMA(saved)
+    config = (
+        hass.data.get("nio_telematics_car_dashboard", {})
+        .get("settings", {})
+        .get(entry.entry_id)
+    )
+    if not config:
+        return PREFERENCES_SCHEMA({})
+    return PREFERENCES_SCHEMA(
+        {
+            "ledger_enabled": True,
+            "battery_capacity_kwh": config.get("capacity_kwh"),
+            "full_range_km": config.get("full_range_km"),
+            "evcc_connected": config.get("home_connected", ""),
+            "evcc_history": config.get("home_history", ""),
+        }
+    )
 
 
 def _vehicle(hass, entry, preferences):
@@ -70,7 +99,9 @@ def _vehicle(hass, entry, preferences):
         "entry_id": entry.entry_id,
         "name": entry.title,
         "entities": entities,
-        "preferences": PREFERENCES_SCHEMA(preferences),
+        "preferences": preferences_for_entry(hass, entry)
+        if OPTIONS_KEY not in entry.options
+        else PREFERENCES_SCHEMA(preferences),
         "ledger_available": entry.entry_id
         in hass.data.get("nio_telematics_car_dashboard", {}).get("recorders", {}),
     }
@@ -85,7 +116,7 @@ async def websocket_get(hass, connection, msg):
         msg["id"],
         {
             "vehicles": [
-                _vehicle(hass, entry, entry.options.get(OPTIONS_KEY, {}))
+                _vehicle(hass, entry, preferences_for_entry(hass, entry))
                 for entry in hass.config_entries.async_entries(DOMAIN)
             ]
         },
@@ -117,11 +148,68 @@ async def websocket_save(hass, connection, msg):
         if entity_id and not hass.states.get(entity_id):
             connection.send_error(msg["id"], "invalid_entity", f"{key} does not exist")
             return
+    preferences = msg["preferences"]
+    if preferences["ledger_enabled"]:
+        if not preferences["battery_capacity_kwh"] or not preferences["full_range_km"]:
+            connection.send_error(
+                msg["id"],
+                "missing_calibration",
+                "History needs battery capacity and full-range calibration",
+            )
+            return
+        entities = _vehicle(hass, entry, preferences)["entities"]
+        if any(
+            not hass.states.get(entities.get(key, ""))
+            for key in ("odometer", "remaining_range")
+        ):
+            connection.send_error(
+                msg["id"], "missing_source", "Enable NIO odometer and range first"
+            )
+            return
     hass.config_entries.async_update_entry(
         entry,
-        options={**entry.options, OPTIONS_KEY: msg["preferences"]},
+        options={**entry.options, OPTIONS_KEY: preferences},
     )
-    connection.send_result(msg["id"], _vehicle(hass, entry, msg["preferences"]))
+    try:
+        await async_reconcile_ledger(hass, entry)
+    except ValueError as err:
+        connection.send_error(msg["id"], "history_error", str(err))
+        return
+    connection.send_result(msg["id"], _vehicle(hass, entry, preferences))
+
+
+async def async_reconcile_ledger(hass, entry):
+    """Start or pause optional history using the selected vehicle's own sensors."""
+    preferences = preferences_for_entry(hass, entry)
+    if OPTIONS_KEY not in entry.options:
+        return  # Preserve existing dev.16 ledger installations.
+    if "nio_telematics_car_dashboard" not in hass.data:
+        return  # Frontend/HTTP is optional on headless installations.
+    data = ledger_manager(hass)
+    if not preferences["ledger_enabled"]:
+        async with data["lock"]:
+            recorder = data["recorders"].pop(entry.entry_id, None)
+            if recorder:
+                await recorder.async_stop()
+        return
+    if not preferences["battery_capacity_kwh"] or not preferences["full_range_km"]:
+        raise ValueError("History needs battery capacity and full-range calibration")
+    entities = _vehicle(hass, entry, preferences)["entities"]
+    if not all(key in entities for key in ("odometer", "remaining_range")):
+        raise ValueError("Enable the NIO odometer and range entities for history")
+    await async_configure_recorder(
+        hass,
+        entry.entry_id,
+        {
+            "odometer": entities["odometer"],
+            "range": entities["remaining_range"],
+            "soc": entities.get("battery_state_of_charge", ""),
+            "home_connected": preferences["evcc_connected"],
+            "home_history": preferences["evcc_history"],
+            "capacity_kwh": preferences["battery_capacity_kwh"],
+            "full_range_km": preferences["full_range_km"],
+        },
+    )
 
 
 async def async_setup_vehicle_dashboard(hass):

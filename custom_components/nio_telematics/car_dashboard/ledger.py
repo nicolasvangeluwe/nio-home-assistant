@@ -42,9 +42,46 @@ class Ledger:
         self.data.setdefault("last_home_charge", None)
         self.data.setdefault("source_transition_at", None)
         self.data.setdefault("source_transition_energy", None)
+        self.data.setdefault("initial_capacity_kwh", self.settings["capacity_kwh"])
+        self.data.setdefault("pending_epoch", None)
+        if "source_transitions" not in self.data:
+            first = self.data["source_transition_at"]
+            self.data["source_transitions"] = (
+                [
+                    {
+                        "t": first,
+                        "energy": self.data["source_transition_energy"],
+                        "capacity_kwh": self.settings["capacity_kwh"],
+                    }
+                ]
+                if first is not None
+                else []
+            )
 
     def changed(self):
         self.data["revision"] += 1
+
+    def begin_new_epoch(self, new_settings):
+        """Keep archives, but never compare a new source/calibration to the old one."""
+        self.close_trip(incomplete=True)
+        self.data["last"] = None
+        self.data["pending_epoch"] = {
+            "capacity_kwh": new_settings["capacity_kwh"],
+            "full_range_km": new_settings["full_range_km"],
+        }
+        self.changed()
+
+    def record_transition(self, sample):
+        """Mark a fresh energy baseline for cost replay and archival boundaries."""
+        transition = {
+            "t": sample["t"],
+            "energy": sample["energy"],
+            "capacity_kwh": self.settings["capacity_kwh"],
+        }
+        self.data["source_transitions"].append(transition)
+        if self.data["source_transition_at"] is None:
+            self.data["source_transition_at"] = sample["t"]
+            self.data["source_transition_energy"] = sample["energy"]
 
     def energy(self, range_km):
         return max(
@@ -210,15 +247,18 @@ class Ledger:
             # The two energy estimates have different baselines. Never turn
             # their difference into a trip, stationary loss or charge.
             self.close_trip(incomplete=True)
-            self.data["source_transition_at"] = t
-            self.data["source_transition_energy"] = energy
+            self.record_transition(sample)
             self.data["last"] = sample
             self.data["samples"].append(sample)
             self.data["samples"] = self.data["samples"][-2000:]
             self.changed()
             return True
         if not old:
-            self.data["opening"] = deepcopy(sample)
+            if self.data["opening"] is None:
+                self.data["opening"] = deepcopy(sample)
+            elif self.data["pending_epoch"] is not None:
+                self.record_transition(sample)
+                self.data["pending_epoch"] = None
             if not self.data["counters"]:
                 self.data["counters"] = [
                     {"id": "trip-a", "name": "Trip A", "start": t},
@@ -469,6 +509,7 @@ class Ledger:
         if not opening:
             return []
         stock = opening["energy"]
+        capacity = self.data["initial_capacity_kwh"]
         initial_price = number(self.data["preferences"].get("opening_price_eur_kwh"))
         known_energy = stock if initial_price is not None else 0.0
         value = stock * (initial_price or 0)
@@ -481,25 +522,19 @@ class Ledger:
                 events.append((segment["end"], 1, "trip", segment))
         for loss in self.data["parked_losses"]:
             events.append((loss["end"], 1, "parked", loss))
-        if self.data["source_transition_at"] is not None:
-            events.append(
-                (
-                    self.data["source_transition_at"],
-                    -1,
-                    "source_transition",
-                    self.data["source_transition_energy"],
-                )
-            )
+        for transition in self.data["source_transitions"]:
+            events.append((transition["t"], -1, "source_transition", transition))
         result = []
         for _, _, kind, row in sorted(events, key=lambda x: (x[0], x[1])):
             if kind == "source_transition":
-                stock = row
+                stock = row["energy"]
+                capacity = row["capacity_kwh"]
                 known_energy = value = 0.0
             elif kind == "charge":
                 kwh = row["kwh"]
                 # Wall-to-battery losses are unknown; allocation is approximate.
-                if stock + kwh > self.settings["capacity_kwh"]:
-                    kwh = max(0, self.settings["capacity_kwh"] - stock)
+                if stock + kwh > capacity:
+                    kwh = max(0, capacity - stock)
                 cost = row.get("cost_eur") if row.get("confirmed") else None
                 stock += kwh
                 if cost is not None:
