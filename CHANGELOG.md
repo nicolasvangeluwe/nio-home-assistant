@@ -3,6 +3,23 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.1.1-dev.13
+
+- Route the observed single-pack voltage and current to dedicated sensors,
+  with cell and temperature-probe counts as optional diagnostic sensors.
+  Never combine readings when a car reports multiple packs; the existing
+  pack-count entity keeps per-pack details as attributes.
+- Enable maximum SoC, high-voltage current, pack count, pack voltage and pack
+  current by default on new installs. Existing HA entity-registry choices are
+  preserved and can be changed on the device's Entities page.
+- Add tests for real, missing, malformed and multi-pack readings.
+- Reorganize the README around the entities owners receive: seven core
+  sensors plus energy diagnostics, optional sensor groups, and the values
+  actually observed on the test ET5 Touring. Native SoC and range are
+  explicitly confirmed.
+- Move implementation and release history out of the main explanation; replace
+  the outdated rally-style appeal with a brief invitation for EU owner reports.
+
 ## 0.1.1-dev.12
 
 - Replace the outdated early sensor test table with a shorter, current README:

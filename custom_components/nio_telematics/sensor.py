@@ -97,6 +97,42 @@ def _battery_packs(data: NioVehicleData) -> list[dict[str, Any]]:
     ]
 
 
+def _single_pack_measurement(field: str) -> Callable[[NioVehicleData], float | None]:
+    """Expose an electrical reading only when the vehicle reports one pack."""
+
+    def value(data: NioVehicleData) -> float | None:
+        packs = data.telemetry.get("soc_status", {}).get("btry_paks")
+        if (
+            not isinstance(packs, list)
+            or len(packs) != 1
+            or not isinstance(packs[0], dict)
+        ):
+            return None
+        reading = packs[0].get(field)
+        if isinstance(reading, bool):
+            return None
+        try:
+            number = float(reading)
+        except (TypeError, ValueError):
+            return None
+        return number if math.isfinite(number) else None
+
+    return value
+
+
+def _single_pack_count(field: str) -> Callable[[NioVehicleData], int | None]:
+    """Return a whole nonnegative count from a single battery pack."""
+    measurement = _single_pack_measurement(field)
+
+    def value(data: NioVehicleData) -> int | None:
+        number = measurement(data)
+        if number is None or number < 0 or not number.is_integer():
+            return None
+        return int(number)
+
+    return value
+
+
 def _simple(
     key: str,
     name: str,
@@ -157,7 +193,7 @@ SENSORS: tuple[NioSensorDescription, ...] = (
         key="maximum_soc",
         translation_key="maximum_soc",
         native_unit_of_measurement=PERCENTAGE,
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda data: data.soc_status.maximum_soc,
     ),
     NioSensorDescription(
@@ -165,7 +201,7 @@ SENSORS: tuple[NioSensorDescription, ...] = (
         translation_key="high_voltage_battery_current",
         device_class=SensorDeviceClass.CURRENT,
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda data: data.soc_status.high_voltage_battery_current,
     ),
     NioSensorDescription(
@@ -443,11 +479,45 @@ SENSORS: tuple[NioSensorDescription, ...] = (
         key="battery_pack_count",
         name="Battery pack count",
         entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda data: len(_battery_packs(data))
         if isinstance(data.telemetry.get("soc_status", {}).get("btry_paks"), list)
         else None,
         attributes_fn=lambda data: {"packs": _battery_packs(data)},
+        source_endpoint="soc_status",
+    ),
+    NioSensorDescription(
+        key="battery_pack_voltage",
+        name="Battery pack voltage",
+        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
+        device_class=SensorDeviceClass.VOLTAGE,
+        entity_registry_enabled_default=True,
+        value_fn=_single_pack_measurement("btry_pak_voltage"),
+        source_endpoint="soc_status",
+    ),
+    NioSensorDescription(
+        key="battery_pack_current",
+        name="Battery pack current",
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        device_class=SensorDeviceClass.CURRENT,
+        entity_registry_enabled_default=True,
+        value_fn=_single_pack_measurement("btry_pak_curnt"),
+        source_endpoint="soc_status",
+    ),
+    NioSensorDescription(
+        key="battery_pack_cell_count",
+        name="Battery pack cell count",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=_single_pack_count("sin_btry_qunty_of_pak"),
+        source_endpoint="soc_status",
+    ),
+    NioSensorDescription(
+        key="battery_pack_temperature_probe_count",
+        name="Battery pack temperature probe count",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=_single_pack_count("temp_prb_qunty"),
         source_endpoint="soc_status",
     ),
     _simple(
