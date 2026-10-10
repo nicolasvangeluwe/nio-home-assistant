@@ -3,6 +3,14 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.1.1-dev.11
+
+- Refresh the HACS-visible README snapshot with the verified live SoC/range
+  results and the dev.10 polling/diagnostic behavior. HACS reads the README
+  from the selected release tag, so the dev.10 installation displayed older
+  dev.7-era text despite the current default branch being correct.
+- Documentation-only follow-up; telemetry behavior is identical to dev.10.
+
 ## 0.1.1-dev.10
 
 - Treat zero-valued SoC-status battery temperature extrema as absent rather

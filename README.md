@@ -41,7 +41,7 @@ data, and use it at your own risk.
 > report is a curiosity; a fleet of matching reports is evidence. EU NIO
 > owners, rally—we are legion, and we need you. 😄
 
-Current development release (`0.1.1-dev.10`):
+Current development release (`0.1.1-dev.11`):
 
 - polls every documented read-only telemetry category that can provide useful
   Home Assistant state: body, dynamics, location, trip, energy, cabin,
@@ -71,7 +71,9 @@ belongs in the owner's Home Assistant configuration.
 Recorder history on the first upgrade when an older version had ended at
 `unknown`. This migration fallback is skipped if Recorder is unavailable.
 
-`0.1.1-dev.10` reads official SoC from the sparse `soc_status/changes` feed,
+`0.1.1-dev.7` began reading official SoC from the sparse
+`soc_status/changes` feed, while `0.1.1-dev.10` added paced, faster polling,
+sparse-field retention and rate-limit handling. The integration
 retains the last valid reading between events and across restarts, and no longer
 lets a placeholder zero from `vehicle_status/latest` override it. A fresh
 installation may show SoC as unknown until NIO sends a real change event;
