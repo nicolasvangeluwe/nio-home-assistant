@@ -121,8 +121,10 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
         if resource != "soc_status":
             self._background_index += 1
 
-        status = previous.soc_status if previous else NioSocStatus(
-            None, None, None, None, None, None, None
+        status = (
+            previous.soc_status
+            if previous
+            else NioSocStatus(None, None, None, None, None, None, None)
         )
         soc_at = previous.soc_last_valid_at if previous else None
         range_at = previous.remaining_range_last_valid_at if previous else None
@@ -141,9 +143,11 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
                     default=None,
                 ),
             )
-            if not _valid_range(status.remaining_range) and _valid_range(
-                snapshot.remaining_range
-            ) and snapshot.remaining_range > 0:
+            if (
+                not _valid_range(status.remaining_range)
+                and _valid_range(snapshot.remaining_range)
+                and snapshot.remaining_range > 0
+            ):
                 status = replace(status, remaining_range=snapshot.remaining_range)
                 range_at = snapshot.event_time
                 range_retained = False
@@ -219,9 +223,7 @@ def _new_event(
     return previous_value != value
 
 
-def _merge_sparse_energy(
-    previous: dict | None, current: dict
-) -> dict:
+def _merge_sparse_energy(previous: dict | None, current: dict) -> dict:
     """Keep each field's latest event across overlapping sparse windows."""
     if not previous:
         return current
@@ -230,6 +232,11 @@ def _merge_sparse_energy(
     current_times = current.get("_field_timestamps", {})
     for key, value in current.items():
         if key in ("sample_timestamp", "_field_timestamps") or value is None:
+            continue
+        if (
+            key in {"soc", "remaining_range"}
+            and getattr(NioSocStatus.from_payload({key: value}), key) is None
+        ):
             continue
         incoming = _event_datetime(current_times.get(key))
         stored = _event_datetime(timestamps.get(key))

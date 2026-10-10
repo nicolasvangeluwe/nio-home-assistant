@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -22,9 +23,10 @@ def _optional_float(value: Any) -> float | None:
     if value is None or isinstance(value, bool):
         return None
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError):
         return None
+    return number if math.isfinite(number) else None
 
 
 def _optional_str(value: Any) -> str | None:
@@ -64,8 +66,19 @@ class NioSocStatus:
     def from_payload(cls, payload: dict[str, Any]) -> NioSocStatus:
         """Parse only fields verified in the official SoC schema."""
         return cls(
-            soc=_optional_float(payload.get("soc")),
-            remaining_range=_optional_float(payload.get("remaining_range")),
+            soc=(
+                value
+                if (value := _optional_float(payload.get("soc"))) is not None
+                and 0 <= value <= 100
+                else None
+            ),
+            remaining_range=(
+                value
+                if (value := _optional_float(payload.get("remaining_range")))
+                is not None
+                and 0 <= value < 0xFFFE
+                else None
+            ),
             charging_state=_optional_str(payload.get("chrg_state")),
             charging_target=_optional_float(payload.get("chrg_final_soc")),
             maximum_soc=_optional_float(payload.get("max_soc")),

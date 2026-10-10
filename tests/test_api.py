@@ -13,6 +13,7 @@ from custom_components.nio_telematics.api import (
     NioApiClient,
     NioApiError,
     NioAuthenticationError,
+    NioInvalidParameterError,
     NioPermissionError,
     NioRateLimitError,
     NioResourceNotFoundError,
@@ -26,6 +27,27 @@ def response(status: int, payload: dict, headers: dict | None = None) -> MagicMo
     result = MagicMock(status=status, headers=headers or {})
     result.json = AsyncMock(return_value=payload)
     return result
+
+
+@pytest.mark.parametrize(
+    ("http_status", "result_code", "error_type"),
+    [
+        (400, "invalid_param", NioInvalidParameterError),
+        (404, "resource_not_found", NioResourceNotFoundError),
+        (400, "access_denied", NioPermissionError),
+    ],
+)
+async def test_http_error_envelopes_keep_semantic_classification(
+    http_status, result_code, error_type
+) -> None:
+    oauth_session = MagicMock()
+    oauth_session.async_request = AsyncMock(
+        return_value=response(http_status, {"result_code": result_code})
+    )
+    with pytest.raises(error_type):
+        await NioApiClient(oauth_session, API_BASE_URL).async_get_latest_vehicle_record(
+            "LJNABC12345678901"
+        )
 
 
 async def test_soc_request_uses_largest_window_and_newest_record(
@@ -86,9 +108,7 @@ async def test_sparse_soc_changes_keep_each_fields_newest_value() -> None:
     )
     client = NioApiClient(oauth_session, API_BASE_URL)
 
-    record = await client.async_get_change_record(
-        "LJNABC12345678901", "soc_status"
-    )
+    record = await client.async_get_change_record("LJNABC12345678901", "soc_status")
 
     assert record == {
         "soc": 38,
@@ -97,9 +117,36 @@ async def test_sparse_soc_changes_keep_each_fields_newest_value() -> None:
         "_field_timestamps": {"soc": 1000, "remaining_range": 2000},
     }
     request = oauth_session.async_request.await_args
-    assert request.kwargs["params"]["end_time"] - request.kwargs["params"][
-        "start_time"
-    ] == 600_000
+    assert (
+        request.kwargs["params"]["end_time"] - request.kwargs["params"]["start_time"]
+        == 600_000
+    )
+
+
+async def test_invalid_newer_energy_event_does_not_erase_valid_older_event() -> None:
+    oauth_session = MagicMock()
+    oauth_session.async_request = AsyncMock(
+        return_value=response(
+            200,
+            {
+                "result_code": "success",
+                "data": [
+                    {"soc": 48, "remaining_range": 270, "sample_timestamp": 1000},
+                    {
+                        "soc": 101,
+                        "remaining_range": 0xFFFFFFFE,
+                        "sample_timestamp": 2000,
+                    },
+                ],
+            },
+        )
+    )
+    record = await NioApiClient(oauth_session, API_BASE_URL).async_get_change_record(
+        "LJNABC12345678901", "soc_status"
+    )
+    assert record["soc"] == 48
+    assert record["remaining_range"] == 270
+    assert record["_field_timestamps"]["soc"] == 1000
 
 
 async def test_soc_request_retries_and_caches_smaller_window(

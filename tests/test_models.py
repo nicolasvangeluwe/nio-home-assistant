@@ -40,6 +40,18 @@ class TestNioModels(unittest.TestCase):
         self.assertIsNone(status.charging_state)
         self.assertIsNone(status.event_time)
 
+    def test_invalid_energy_numbers_do_not_replace_real_readings(self) -> None:
+        for raw in ("NaN", "Infinity", -1, 101, 0xFFFFFFFF):
+            status = models.NioSocStatus.from_payload({"soc": raw})
+            self.assertIsNone(status.soc)
+        for raw in ("NaN", "Infinity", -1, 0xFFFFFFFE):
+            status = models.NioSocStatus.from_payload({"remaining_range": raw})
+            self.assertIsNone(status.remaining_range)
+        self.assertEqual(
+            models.NioSocStatus.from_payload({"soc": 0, "remaining_range": 0}).soc,
+            0,
+        )
+
     def test_numeric_enum_is_normalized_to_string(self) -> None:
         status = models.NioSocStatus.from_payload({"chrg_state": 3})
 

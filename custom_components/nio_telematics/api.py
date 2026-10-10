@@ -214,7 +214,11 @@ class NioApiClient:
                 records, key=lambda item: item.get("sample_timestamp", 0)
             ):
                 for key, value in record.items():
-                    if value is not None:
+                    if value is not None and (
+                        key not in {"soc", "remaining_range"}
+                        or getattr(NioSocStatus.from_payload({key: value}), key)
+                        is not None
+                    ):
                         merged[key] = value
                         if key != "sample_timestamp":
                             field_timestamps[key] = record.get("sample_timestamp")
@@ -344,6 +348,14 @@ class NioApiClient:
             raise NioRateLimitError(_retry_after(response.headers))
         if response.status == 403:
             raise NioPermissionError("NIO OAuth grant lacks the required scope")
+        if response.status in (400, 404) and isinstance(payload, dict):
+            result_code = payload.get("result_code")
+            if result_code == "invalid_param":
+                raise NioInvalidParameterError("NIO rejected request parameters")
+            if result_code == "resource_not_found":
+                raise NioResourceNotFoundError("NIO resource was not found")
+            if result_code == "access_denied":
+                raise NioPermissionError("NIO OAuth grant lacks the required scope")
         if response.status >= 400:
             raise NioApiError(f"NIO API returned HTTP {response.status}")
 

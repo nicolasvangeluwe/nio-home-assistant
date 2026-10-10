@@ -3,6 +3,24 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.1.1-dev.15
+
+- Filter invalid numeric sentinels and non-finite readings before they can
+  appear as vehicle measurements or replace retained SoC/range values. Preserve
+  legitimate zero SoC and range readings.
+- Classify NIO's `invalid_param`, `resource_not_found` and `access_denied`
+  envelopes even when the HTTP response is 400 or 404. Authentication and
+  rate-limit handling remain unchanged.
+- Keep diagnostic entity attributes bounded and redact vehicle identifiers,
+  battery-pack serials, precise location and signed URLs.
+- Display individual cell-voltage values as volts to three decimal places,
+  following the independently tested ET7 response; do not apply the previous
+  additional divide-by-1000 conversion.
+- Adapted the data-quality and diagnostic-privacy improvements from
+  [@lubbyhst's PR #7](https://github.com/nicolasvangeluwe/nio-home-assistant/pull/7)
+  onto the current paced-polling and retained-value implementation. Its
+  separate on-demand ADAS/NOMI/recall query service is not included.
+
 ## 0.1.1-dev.14
 
 - Shorten the HACS-visible README to current capabilities, installation and an
