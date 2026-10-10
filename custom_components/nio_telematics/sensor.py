@@ -697,6 +697,14 @@ class NioSocSensor(NioSensorEntity, RestoreSensor):
     _restored_soc: float | None = None
     _restored_sample_time: str | None = None
 
+    @property
+    def available(self) -> bool:
+        """Do not show a restored SoC when NIO denies the energy feed."""
+        return super().available and (
+            self.coordinator.data.endpoint_status.get("soc_status")
+            != "permission_denied"
+        )
+
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
         if (last_state := await self.async_get_last_state()) is not None:

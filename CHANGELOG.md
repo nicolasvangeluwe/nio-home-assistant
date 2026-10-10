@@ -3,6 +3,21 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.1.1-dev.19
+
+- Keep a vehicle's integration loaded when NIO returns `access_denied` for the
+  `soc_status` feed. Report that endpoint as permission-denied, keep the SoC
+  entity unavailable while denied, and continue showing any other permitted
+  telemetry instead of starting a futile reauthentication loop.
+- While the energy feed is denied, prioritize other endpoints and retry energy
+  about every ten minutes so a later NIO entitlement change can recover
+  without restarting Home Assistant. Actual expired/rejected OAuth tokens
+  still trigger Home Assistant's reauthentication flow.
+- Add regression coverage for a denied energy feed, continued vehicle-status
+  polling and later energy recovery. No OAuth scope request, entity ID,
+  dashboard or charging-policy changes. Thanks to @frankweiby for the
+  Norwegian ET5 Touring trace that exposed this behavior.
+
 ## 0.1.1-dev.18
 
 - Document the required Lovelace JavaScript-module resource registration for

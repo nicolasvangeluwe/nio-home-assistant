@@ -95,7 +95,7 @@ class NioAuthenticationError(NioApiError):
 
 
 class NioPermissionError(NioApiError):
-    """The OAuth grant lacks a required scope."""
+    """NIO denied access to a telemetry resource."""
 
 
 class NioInvalidParameterError(NioApiError):
@@ -325,7 +325,7 @@ class NioApiClient:
                 await self._pacer.rate_limited(retry_after)
             raise NioRateLimitError(retry_after)
         if result_code == "access_denied":
-            raise NioPermissionError("NIO OAuth grant lacks the required scope")
+            raise NioPermissionError("NIO denied access to this telemetry resource")
         if result_code == "resource_not_found":
             raise NioResourceNotFoundError("NIO resource was not found")
         if result_code == "invalid_param":
@@ -347,7 +347,7 @@ class NioApiClient:
         ):
             raise NioRateLimitError(_retry_after(response.headers))
         if response.status == 403:
-            raise NioPermissionError("NIO OAuth grant lacks the required scope")
+            raise NioPermissionError("NIO denied access to this telemetry resource")
         if response.status in (400, 404) and isinstance(payload, dict):
             result_code = payload.get("result_code")
             if result_code == "invalid_param":
@@ -355,7 +355,7 @@ class NioApiClient:
             if result_code == "resource_not_found":
                 raise NioResourceNotFoundError("NIO resource was not found")
             if result_code == "access_denied":
-                raise NioPermissionError("NIO OAuth grant lacks the required scope")
+                raise NioPermissionError("NIO denied access to this telemetry resource")
         if response.status >= 400:
             raise NioApiError(f"NIO API returned HTTP {response.status}")
 

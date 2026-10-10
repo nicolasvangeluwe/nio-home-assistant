@@ -10,6 +10,8 @@ On my EU ET5 Touring, it receives live **battery SoC, remaining range, odometer 
 
 SoC and range keep their last valid readings when NIO sends sparse updates. Check each sensor's sample time before relying on it for an automation. See the [changelog](CHANGELOG.md) for technical details and release history.
 
+NIO may deny individual telemetry feeds for some vehicles or accounts. The integration keeps any permitted vehicle data available and identifies denied feeds in its API availability diagnostics; it cannot override NIO's access decision. An actual expired OAuth grant still requests reauthentication.
+
 An optional **NIO Vehicle card** shows the key readings in a compact car view. It uses bundled artwork, follows light/dark themes and offers 14 interface languages; it needs no external image service. To use it, go to **Settings → Dashboards → Resources**, add `/nio_telematics/nio-vehicle-card.js` as a **JavaScript module**, then refresh Home Assistant. The **NIO Vehicle** card will appear in the card picker; alternatively use a manual card with `type: custom:nio-vehicle-card`. Choose a model and language in the card's Settings or the integration's **Configure** dialog. No existing dashboard is replaced.
 
 EVCC connection, power and session-history entities can be selected if you have them. Battery capacity and full-charge range enable the optional experimental trip/charging ledger, whose history survives HACS updates. Changing these energy inputs starts a new baseline without rewriting old trips. Electricity-price and reimbursement entities, if selected, are shown as reference values; they do not calculate historical costs. Everything on the card is read-only, and charging rules stay in Home Assistant.

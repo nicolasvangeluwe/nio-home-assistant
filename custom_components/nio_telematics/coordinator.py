@@ -71,9 +71,11 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
         endpoint_status = dict(previous.endpoint_status) if previous else {}
         energy_record = None
         vehicle_record = None
+        energy_denied = endpoint_status.get("soc_status") == "permission_denied"
         resource = (
             "soc_status"
-            if self._request_count % 4 != 3
+            if (not energy_denied and self._request_count % 4 != 3)
+            or (energy_denied and self._request_count % 40 == 0)
             else (
                 "vehicle_status"
                 if self._background_index % 2 == 0
@@ -102,12 +104,7 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
             endpoint_status[resource] = "success"
         except NioResourceNotFoundError:
             endpoint_status[resource] = "no_recent_data"
-        except NioPermissionError as err:
-            if resource == "soc_status":
-                raise ConfigEntryAuthFailed(
-                    "NIO energy telemetry permission was rejected; "
-                    "reauthentication is required"
-                ) from err
+        except NioPermissionError:
             endpoint_status[resource] = "permission_denied"
         except OAuth2TokenRequestReauthError as err:
             raise ConfigEntryAuthFailed(

@@ -9,9 +9,15 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.config_entry_oauth2_flow import OAuth2TokenRequestReauthError
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
-from custom_components.nio_telematics.api import NioApiError, NioResourceNotFoundError
+from custom_components.nio_telematics.api import (
+    NioApiError,
+    NioPermissionError,
+    NioResourceNotFoundError,
+)
+from custom_components.nio_telematics.availability import overall_availability
 from custom_components.nio_telematics.const import CONF_VIN
 from custom_components.nio_telematics.coordinator import NioDataUpdateCoordinator
+from custom_components.nio_telematics.sensor import SENSORS, NioSocSensor
 
 
 async def test_rejected_refresh_becomes_config_entry_auth_failure(
@@ -44,6 +50,87 @@ async def test_temporary_refresh_failure_remains_retryable(hass: HomeAssistant) 
 
     with pytest.raises(UpdateFailed, match="temporarily unavailable"):
         await coordinator._async_update_data()
+
+
+async def test_denied_energy_feed_does_not_block_other_vehicle_data(
+    hass: HomeAssistant,
+) -> None:
+    """NIO's HTTP-success access_denied is not an expired OAuth grant."""
+    entry = MagicMock()
+    entry.data = {CONF_VIN: "LJNABC12345678901"}
+    client = MagicMock()
+
+    async def get_change_record(_vin: str, resource: str) -> dict:
+        if resource == "soc_status":
+            raise NioPermissionError("NIO denied access to this telemetry resource")
+        raise NioResourceNotFoundError("No recent data")
+
+    client.async_get_change_record = AsyncMock(side_effect=get_change_record)
+    client.async_get_latest_vehicle_record = AsyncMock(
+        return_value={"mileage": 5926, "soc": 0}
+    )
+    coordinator = NioDataUpdateCoordinator(hass, entry, client)
+
+    for _ in range(4):
+        coordinator.async_set_updated_data(await coordinator._async_update_data())
+
+    assert coordinator.data.endpoint_status["soc_status"] == "permission_denied"
+    assert coordinator.data.endpoint_status["vehicle_status"] == "success"
+    assert overall_availability(coordinator.data.endpoint_status) == "partial"
+    assert coordinator.data.telemetry["vehicle_status"]["mileage"] == 5926
+    assert coordinator.data.soc_status.soc is None
+    assert client.async_get_latest_vehicle_record.await_count == 2
+    resources = [
+        call.args[1] for call in client.async_get_change_record.await_args_list
+    ]
+    assert resources == [
+        "soc_status",
+        "door_status",
+    ]
+
+    description = next(
+        sensor for sensor in SENSORS if sensor.key == "battery_state_of_charge"
+    )
+    soc_sensor = NioSocSensor(coordinator, description)
+    soc_sensor._restored_soc = 50
+    assert not soc_sensor.available
+
+
+async def test_denied_energy_feed_is_retried_after_background_polling(
+    hass: HomeAssistant,
+) -> None:
+    """An entitlement change can recover without restarting HA."""
+    entry = MagicMock()
+    entry.data = {CONF_VIN: "LJNABC12345678901"}
+    client = MagicMock()
+    energy_calls = 0
+
+    async def get_change_record(_vin: str, resource: str) -> dict:
+        nonlocal energy_calls
+        if resource == "soc_status":
+            energy_calls += 1
+            if energy_calls == 1:
+                raise NioPermissionError("NIO denied access")
+            return {"soc": 54, "sample_timestamp": 1_760_000_000_000}
+        raise NioResourceNotFoundError("No recent data")
+
+    client.async_get_change_record = AsyncMock(side_effect=get_change_record)
+    client.async_get_latest_vehicle_record = AsyncMock(return_value={"mileage": 5926})
+    client.async_get_odometer_report = AsyncMock(
+        side_effect=NioResourceNotFoundError("No recent data")
+    )
+    coordinator = NioDataUpdateCoordinator(hass, entry, client)
+
+    for _ in range(41):
+        coordinator.async_set_updated_data(await coordinator._async_update_data())
+
+    assert energy_calls == 2
+    assert coordinator.data.endpoint_status["soc_status"] == "success"
+    assert coordinator.data.soc_status.soc == 54
+    description = next(
+        sensor for sensor in SENSORS if sensor.key == "battery_state_of_charge"
+    )
+    assert NioSocSensor(coordinator, description).available
 
 
 async def test_range_survives_sparse_change_feed(hass: HomeAssistant) -> None:
