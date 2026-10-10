@@ -3,6 +3,16 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.1.1-dev.18
+
+- Document the required Lovelace JavaScript-module resource registration for
+  the optional NIO Vehicle card. In live testing, serving the file and adding
+  an extra frontend script did not reliably list the card in Home Assistant's
+  picker; adding the resource did, and the card displayed live vehicle data.
+- Remove the unreliable extra-script registration for this card to avoid
+  duplicate loading when the resource is registered. No vehicle telemetry,
+  ledger, existing dashboard, or entity ID changes.
+
 ## 0.1.1-dev.17
 
 - Add an optional NIO Vehicle Lovelace card with local, bundled model-class

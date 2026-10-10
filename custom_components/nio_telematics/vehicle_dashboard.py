@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from hashlib import sha256
 from pathlib import Path
 
 import voluptuous as vol
-from homeassistant.components import frontend, websocket_api
+from homeassistant.components import websocket_api
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
@@ -220,11 +219,7 @@ async def async_setup_vehicle_dashboard(hass):
     websocket_api.async_register_command(hass, websocket_get)
     websocket_api.async_register_command(hass, websocket_save)
     path = Path(__file__).with_name("nio-vehicle-card.js")
-    digest = await hass.async_add_executor_job(
-        lambda: sha256(path.read_bytes()).hexdigest()[:12]
-    )
     url = "/nio_telematics/nio-vehicle-card.js"
     await hass.http.async_register_static_paths(
         [StaticPathConfig(url, str(path), False)]
     )
-    frontend.add_extra_js_url(hass, f"{url}?v={digest}")
