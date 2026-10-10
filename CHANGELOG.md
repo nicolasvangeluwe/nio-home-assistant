@@ -15,9 +15,10 @@ Use this before releases and when opening PRs.
   Price and reimbursement are displayed as references, not used to infer costs.
 - Allow users to enable the bundled trip/charging ledger from those settings.
   Existing ledger configurations are adopted rather than silently disabled.
-  Changing energy sources or calibration starts a fresh calculation baseline
-  without erasing archived trips or charging sessions; history remains stored
-  outside HACS-managed files. No charging control is added.
+  Changing energy sources or calibration, or resuming history after a pause,
+  starts a fresh calculation baseline without erasing archived trips or
+  charging sessions; history remains stored outside HACS-managed files. No
+  charging control is added.
 - Add dashboard-preference and history-migration regression tests. The card is
   opt-in and does not create or replace any existing Home Assistant dashboard.
 

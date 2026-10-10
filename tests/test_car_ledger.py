@@ -272,6 +272,19 @@ class CalculationTests(unittest.TestCase):
         self.assertEqual(restored.data["source_transitions"][-1]["capacity_kwh"], 75)
         assert not restored.ingest(self.t + 1800, 1020, 230, soc_pct=50)
 
+    def test_pause_then_restart_does_not_create_a_missing_interval(self):
+        self.drive()
+        self.ledger.close_trip()
+        archived = json.loads(json.dumps(self.ledger.data["trips"]))
+        self.ledger.begin_new_epoch(self.ledger.settings)
+        restored = Ledger(
+            self.ledger.settings, json.loads(json.dumps(self.ledger.data))
+        )
+        restored.ingest(self.t + 86400, 1020, 200)
+        self.assertEqual(restored.data["trips"], archived)
+        self.assertEqual(restored.data["parked_losses"], [])
+        self.assertEqual(restored.data["charges"], {})
+
 
 if __name__ == "__main__":
     unittest.main()

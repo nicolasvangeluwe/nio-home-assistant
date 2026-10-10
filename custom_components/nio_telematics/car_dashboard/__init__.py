@@ -13,7 +13,9 @@ from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.storage import Store
 
+from .const import DOMAIN as LEDGER_DOMAIN
 from .coordinator import CarLedgerCoordinator
+from .ledger import Ledger
 
 NIO_DOMAIN = "nio_telematics"
 DATA_KEY = "nio_telematics_car_dashboard"
@@ -115,23 +117,33 @@ async def async_configure_recorder(hass, entry_id, settings):
         old = data["recorders"].get(entry_id)
         if old and all(old.settings[key] == value for key, value in settings.items()):
             return old
-        previous = deepcopy(old.ledger.data) if old else None
-        previous_settings = data["settings"].get(entry_id)
+        history_store = Store(
+            hass, 1, f"{LEDGER_DOMAIN}.{entry_id}", atomic_writes=True
+        )
+        previous = (
+            deepcopy(old.ledger.data) if old else await history_store.async_load()
+        )
+        previous_settings = data["settings"].get(entry_id) or (
+            old.settings if old else None
+        )
+        energy_changed = previous_settings is not None and any(
+            previous_settings.get(key) != settings[key]
+            for key in ("odometer", "range", "soc", "capacity_kwh", "full_range_km")
+        )
         if old:
             await old.async_stop()
-            if any(
-                old.settings[key] != settings[key]
-                for key in ("odometer", "range", "soc", "capacity_kwh", "full_range_km")
-            ):
-                old.ledger.begin_new_epoch(settings)
-                await old.store.async_save(deepcopy(old.ledger.data))
+        if energy_changed and previous:
+            archived = Ledger(previous_settings, previous)
+            archived.begin_new_epoch(settings)
+            await history_store.async_save(deepcopy(archived.data))
         try:
             recorder = await start_recorder(hass, entry_id, settings)
             data["settings"][entry_id] = settings
             await data["store"].async_save(data["settings"])
         except Exception:
+            if previous is not None:
+                await history_store.async_save(previous)
             if old:
-                await old.store.async_save(previous)
                 await start_recorder(hass, entry_id, previous_settings)
             raise
         return recorder

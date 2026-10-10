@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from hashlib import sha256
 from pathlib import Path
 
@@ -191,6 +192,8 @@ async def async_reconcile_ledger(hass, entry):
             recorder = data["recorders"].pop(entry.entry_id, None)
             if recorder:
                 await recorder.async_stop()
+                recorder.ledger.begin_new_epoch(recorder.settings)
+                await recorder.store.async_save(deepcopy(recorder.ledger.data))
         return
     if not preferences["battery_capacity_kwh"] or not preferences["full_range_km"]:
         raise ValueError("History needs battery capacity and full-range calibration")
