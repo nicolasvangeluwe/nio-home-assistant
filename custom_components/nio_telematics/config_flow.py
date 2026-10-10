@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import logging
+from collections.abc import Mapping
 from typing import Any, override
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.helpers import config_entry_oauth2_flow
+from homeassistant.helpers import config_entry_oauth2_flow, selector
 
 from .const import (
     CONF_SCOPE_REVISION,
@@ -18,6 +18,7 @@ from .const import (
     OAUTH_SCOPE_REVISION,
 )
 from .models import normalize_vin
+from .vehicle_dashboard import LANGUAGES, MODELS, OPTIONS_KEY, PREFERENCES_SCHEMA
 
 
 class NioConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, domain=DOMAIN):
@@ -26,6 +27,13 @@ class NioConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, domain=D
     VERSION = 1
 
     DOMAIN = DOMAIN
+
+    @staticmethod
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> NioOptionsFlow:
+        """Offer a reusable vehicle dashboard without changing OAuth settings."""
+        return NioOptionsFlow()
 
     def __init__(self) -> None:
         super().__init__()
@@ -95,3 +103,53 @@ class NioConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, domain=D
             ),
             errors=errors,
         )
+
+
+class NioOptionsFlow(config_entries.OptionsFlow):
+    """Edit optional dashboard sources; the NIO telemetry remains independent."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        if user_input is not None:
+            preferences = PREFERENCES_SCHEMA(user_input)
+            return self.async_create_entry(
+                title="", data={**self.config_entry.options, OPTIONS_KEY: preferences}
+            )
+        current = PREFERENCES_SCHEMA(self.config_entry.options.get(OPTIONS_KEY, {}))
+        entity = selector.EntitySelector(selector.EntitySelectorConfig())
+        fields: dict[Any, Any] = {
+            vol.Required("model", default=current["model"]): selector.SelectSelector(
+                selector.SelectSelectorConfig(options=list(MODELS))
+            ),
+            vol.Required(
+                "language", default=current["language"]
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(options=list(LANGUAGES))
+            ),
+        }
+        for key in (
+            "evcc_connected",
+            "evcc_power",
+            "evcc_history",
+            "electricity_price",
+            "reimbursement_rate",
+        ):
+            fields[vol.Optional(key, default=current[key])] = vol.Any("", entity)
+        fields[
+            vol.Optional(
+                "battery_capacity_kwh",
+                default=current["battery_capacity_kwh"],
+            )
+        ] = vol.Any(
+            None,
+            selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=1,
+                    max=300,
+                    step=0.1,
+                    mode=selector.NumberSelectorMode.BOX,
+                )
+            ),
+        )
+        return self.async_show_form(step_id="init", data_schema=vol.Schema(fields))

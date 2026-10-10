@@ -19,6 +19,7 @@ from .const import (
 )
 from .coordinator import NioDataUpdateCoordinator
 from .pacing import NioRequestPacer
+from .vehicle_dashboard import async_setup_vehicle_dashboard
 
 type NioConfigEntry = ConfigEntry[NioDataUpdateCoordinator]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -29,6 +30,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     # NIO telemetry is usable on installations without the optional frontend.
     if getattr(hass, "http", None) is not None:
         await async_setup_dashboard(hass)
+        await async_setup_vehicle_dashboard(hass)
     return True
 
 

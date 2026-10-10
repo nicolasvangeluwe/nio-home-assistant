@@ -20,6 +20,24 @@
   "application_credentials": {
     "description": "Create or open your Personal Application in the [NIO Open Telematics developer console]({console_url}), set its OAuth redirect URI exactly to [{redirect_url}]({redirect_url}), then enter its Client ID and Client Secret."
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Vehicle dashboard",
+        "description": "Optional display and household sources. NIO telemetry works without these. Leave a source empty to hide its feature.",
+        "data": {
+          "model": "Car model for local artwork",
+          "language": "Dashboard language (auto follows each viewer's Home Assistant language)",
+          "evcc_connected": "EVCC vehicle connected entity",
+          "evcc_power": "EVCC charging power entity",
+          "evcc_history": "EVCC charging history entity",
+          "electricity_price": "Electricity price entity",
+          "reimbursement_rate": "Reimbursement rate entity",
+          "battery_capacity_kwh": "Usable battery capacity (kWh)"
+        }
+      }
+    }
+  },
   "entity": {
     "sensor": {
       "battery_state_of_charge": {"name": "Battery state of charge"},
