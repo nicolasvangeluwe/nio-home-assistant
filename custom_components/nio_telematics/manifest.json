@@ -1,10 +1,10 @@
 {
   "domain": "nio_telematics",
   "name": "NIO Open Telematics",
-  "after_dependencies": ["recorder"],
+  "after_dependencies": ["frontend", "http", "recorder", "websocket_api"],
   "codeowners": ["@nicolasvangeluwe"],
   "config_flow": true,
-  "dependencies": ["application_credentials", "frontend", "http", "websocket_api"],
+  "dependencies": ["application_credentials"],
   "documentation": "https://github.com/nicolasvangeluwe/nio-home-assistant",
   "integration_type": "service",
   "iot_class": "cloud_polling",

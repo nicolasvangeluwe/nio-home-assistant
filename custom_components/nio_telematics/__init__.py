@@ -26,7 +26,9 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Load the optional local ledger without requiring NIO API availability."""
-    await async_setup_dashboard(hass)
+    # NIO telemetry is usable on installations without the optional frontend.
+    if getattr(hass, "http", None) is not None:
+        await async_setup_dashboard(hass)
     return True
 
 
