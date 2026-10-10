@@ -9,7 +9,7 @@ from custom_components.nio_telematics.sensor import SENSORS
 
 
 @pytest.mark.parametrize(
-    ("raw", "expected"), [(61, 21), (0, -40), (254, None), (255, None)]
+    ("raw", "expected"), [(61, 21), (0, None), (254, None), (255, None)]
 )
 def test_soc_battery_temperature_excludes_sentinels(raw, expected) -> None:
     description = next(

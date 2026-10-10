@@ -26,6 +26,7 @@ _LOGGER = logging.getLogger(__name__)
 _SENSITIVE_KEY_PARTS = (
     "access_token",
     "authorization",
+    "btry_pak_sn",
     "client_id",
     "client_secret",
     "code_verifier",

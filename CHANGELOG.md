@@ -3,6 +3,16 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.1.1-dev.10
+
+- Treat zero-valued SoC-status battery temperature extrema as absent rather
+  than displaying a misleading -40 °C. Live pack probes reported 17–19 °C
+  while these two top-level fields were zero.
+- Redact battery-pack serials from optional debug logging. The compact pack
+  diagnostic continues to omit serials and per-cell arrays.
+- Includes the faster, paced polling and sparse-energy retention from dev.8
+  and the shared-backoff race fix from dev.9. Neither earlier tag was released.
+
 ## 0.1.1-dev.9
 
 - Close a concurrency race discovered during final review of the shared

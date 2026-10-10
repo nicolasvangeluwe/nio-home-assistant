@@ -70,7 +70,9 @@ def _battery_temperature(field: str) -> Callable[[NioVehicleData], float | None]
             reading = float(raw)
         except (TypeError, ValueError):
             return None
-        if not math.isfinite(reading) or not 0 <= reading < 254:
+        # A live ET5 response used zero for both extrema while its pack probes
+        # reported 17–19 °C. Treat that value as an absent measurement.
+        if not math.isfinite(reading) or not 0 < reading < 254:
             return None
         return reading - 40
 

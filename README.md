@@ -71,7 +71,7 @@ belongs in the owner's Home Assistant configuration.
 Recorder history on the first upgrade when an older version had ended at
 `unknown`. This migration fallback is skipped if Recorder is unavailable.
 
-`0.1.1-dev.9` reads official SoC from the sparse `soc_status/changes` feed,
+`0.1.1-dev.10` reads official SoC from the sparse `soc_status/changes` feed,
 retains the last valid reading between events and across restarts, and no longer
 lets a placeholder zero from `vehicle_status/latest` override it. A fresh
 installation may show SoC as unknown until NIO sends a real change event;

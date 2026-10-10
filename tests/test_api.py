@@ -215,6 +215,7 @@ async def test_debug_trace_is_complete_but_redacts_sensitive_data(caplog) -> Non
                     "chrg_state": 3,
                     "access_token": "must-not-leak",
                     "longitude": 4.123,
+                    "btry_paks": [{"btry_pak_sn": "pack-serial-marker"}],
                 },
             },
             {"Content-Type": "application/json", "Set-Cookie": "private"},
@@ -234,6 +235,7 @@ async def test_debug_trace_is_complete_but_redacts_sensitive_data(caplog) -> Non
     assert "must-not-leak" not in trace
     assert "4.123" not in trace
     assert "private" not in trace
+    assert "pack-serial-marker" not in trace
 
 
 async def test_resource_not_found_is_mapped() -> None:
