@@ -3,6 +3,15 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.1.1-dev.9
+
+- Close a concurrency race discovered during final review of the shared
+  request pacer: a waiting vehicle request no longer holds the pacing lock,
+  so a rate-limit response can extend its deadline before it starts.
+- Add a regression test for backoff arriving while another request waits.
+- `v0.1.1-dev.8` was tagged for validation but not published as a release;
+  use this version for the completed development release.
+
 ## 0.1.1-dev.8
 
 - Poll one vehicle API resource per cycle with a shared 15-second minimum

@@ -16,11 +16,15 @@ class NioRequestPacer:
         self._rate_failures = 0
 
     async def wait(self) -> None:
-        async with self._lock:
-            delay = max(0.0, self._next_at - time.monotonic())
-            if delay:
-                await asyncio.sleep(delay)
-            self._next_at = time.monotonic() + self.interval
+        while True:
+            async with self._lock:
+                delay = max(0.0, self._next_at - time.monotonic())
+                if not delay:
+                    self._next_at = time.monotonic() + self.interval
+                    return
+            # Release the lock while sleeping so a 429 can extend the
+            # deadline before another car starts its waiting request.
+            await asyncio.sleep(delay)
 
     async def rate_limited(self, retry_after: float | None) -> None:
         """Honor server delay, with bounded exponential fallback."""
