@@ -3,6 +3,13 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.1.1-dev.12
+
+- Replace the outdated early sensor test table with a shorter, current README:
+  verified native SoC/range, paced polling, retained-value freshness, disabled
+  diagnostics, and the remaining NIO-side limitations.
+- Documentation-only release; integration behavior is unchanged from dev.11.
+
 ## 0.1.1-dev.11
 
 - Refresh the HACS-visible README snapshot with the verified live SoC/range
