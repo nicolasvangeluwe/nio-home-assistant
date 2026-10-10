@@ -3,6 +3,22 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.1.1-dev.16
+
+- Bundle the previously local, optional Car ledger and card with the NIO
+  integration so HACS updates no longer delete their code. Existing ledger
+  settings and history remain in Home Assistant Store outside shipped files;
+  the storage keys and WebSocket/card interfaces are unchanged.
+- Keep the native-SoC energy source and migration boundary: the first native
+  sample starts a new baseline, without recalculating archived range-derived
+  trips or charging sessions. The ledger remains opt-in and does not implement
+  charging policy or send vehicle commands.
+- Remove household-specific 90 kWh / 557 km defaults from the bundled ledger;
+  these values must come from the per-car saved configuration. Existing saved
+  settings are reused automatically. A public first-time setup UI is still
+  pending, so the ledger remains experimental.
+- Add the 20 standalone trip/charging/native-SoC regression tests to CI.
+
 ## 0.1.1-dev.15
 
 - Filter invalid numeric sentinels and non-finite readings before they can

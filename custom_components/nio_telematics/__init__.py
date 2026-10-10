@@ -16,9 +16,16 @@ from .const import (
 )
 from .coordinator import NioDataUpdateCoordinator
 from .pacing import NioRequestPacer
+from .car_dashboard import async_setup_dashboard
 
 
 type NioConfigEntry = ConfigEntry[NioDataUpdateCoordinator]
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Load the optional local ledger without requiring NIO API availability."""
+    await async_setup_dashboard(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: NioConfigEntry) -> bool:

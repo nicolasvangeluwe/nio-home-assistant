@@ -10,6 +10,8 @@ On my EU ET5 Touring, it receives live **battery SoC, remaining range, odometer 
 
 SoC and range keep their last valid readings when NIO sends sparse updates. Check each sensor's sample time before relying on it for an automation. See the [changelog](CHANGELOG.md) for technical details and release history.
 
+An **optional, experimental Car ledger** is bundled from dev.16. It records trips, parked energy changes and charging sessions for a separately configured car dashboard. It uses native SoC for new energy samples where configured; older range-derived history is kept unchanged. Its settings and history live in Home Assistant storage outside HACS-managed files, so normal integration updates preserve them. The ledger does not control charging or change NIO entities. New-user setup is not yet exposed in the integration UI.
+
 ## Install
 
 [![Open this repository in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=nicolasvangeluwe&repository=nio-home-assistant&category=integration)
