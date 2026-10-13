@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NIO dashboard proposal — example data</title>
+<style>
+body{margin:0;background:#fafafa;color:#141414;font-family:"Segoe UI",Arial,sans-serif;--card-background-color:#fff;--primary-text-color:#141414;--secondary-text-color:#626262}
+main{max-width:820px;margin:28px auto;padding:0 16px}.sample{font-size:12px;color:#626262;text-align:right}
+ha-card{display:block}
+</style>
+<main><p class="sample">ONTWERPVOORBEELD · VOORBEELDGEGEVENS · NIET LIVE</p><nio-vehicle-dashboard></nio-vehicle-dashboard></main>
+<script src="../custom_components/nio_telematics/nio-vehicle-card.js"></script>
+<script>
+const cls=customElements.get('nio-vehicle-dashboard');
+const originalCarImage=cls.prototype.carImage;
+cls.prototype.carImage=function(model){return model==='ET5 Touring'?'<img class="car-photo" src="../custom_components/nio_telematics/et5-touring-hero.webp" alt="ET5 Touring illustration">':originalCarImage.call(this,model);};
+const stamp='2026-10-13T18:37:00Z';
+const states={
+ 'sensor.example_soc':{state:'75',attributes:{last_valid_sample:stamp}},
+ 'sensor.example_range':{state:'416',attributes:{last_valid_sample:stamp}},
+ 'sensor.example_odometer':{state:'6266',attributes:{}},
+ 'sensor.example_limit':{state:'90',attributes:{}},
+ 'sensor.example_charging':{state:'not_charging',attributes:{}},
+};
+const vehicle={entry_id:'example',name:'ET5 Touring',entities:{battery_state_of_charge:'sensor.example_soc',remaining_range:'sensor.example_range',odometer:'sensor.example_odometer',maximum_soc:'sensor.example_limit',charging_state:'sensor.example_charging'},preferences:{model:'ET5 Touring',language:'nl',evcc_connected:'',evcc_power:'',evcc_history:'',electricity_price:'',reimbursement_rate:'',battery_capacity_kwh:null,ledger_enabled:false},ledger_available:false};
+const card=document.querySelector('nio-vehicle-dashboard');card.setConfig({entry_id:'example'});card.hass={language:'nl',states,callWS:async()=>({vehicles:[vehicle]})};
+</script>
+</html>

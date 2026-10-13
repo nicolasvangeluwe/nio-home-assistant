@@ -12,9 +12,20 @@ SoC and range keep their last valid readings when NIO sends sparse updates. Chec
 
 NIO may deny individual telemetry feeds for some vehicles or accounts. The integration keeps any permitted vehicle data available and identifies denied feeds in its API availability diagnostics; it cannot override NIO's access decision. An actual expired OAuth grant still requests reauthentication.
 
-An optional **NIO Vehicle card** shows the key readings in a compact car view. It uses bundled artwork, follows light/dark themes and offers 14 interface languages; it needs no external image service. To use it, go to **Settings → Dashboards → Resources**, add `/nio_telematics/nio-vehicle-card.js` as a **JavaScript module**, then refresh Home Assistant. The **NIO Vehicle** card will appear in the card picker; alternatively use a manual card with `type: custom:nio-vehicle-card`. Choose a model and language in the card's Settings or the integration's **Configure** dialog. No existing dashboard is replaced.
+## Optional car app
 
-EVCC connection, power and session-history entities can be selected if you have them. Battery capacity and full-charge range enable the optional experimental trip/charging ledger, whose history survives HACS updates. Changing these energy inputs starts a new baseline without rewriting old trips. Identified ongoing home sessions appear live before EVCC archives them; optional recorded EVCC cost sources split completed sessions into grid and solar opportunity costs when dated evidence is available. Missing history and the initial battery-stock price remain unknown. Electricity-price and reimbursement entities are reference values, not a basis for backpricing old trips. Everything on the card is read-only, and charging rules stay in Home Assistant.
+The **NIO Vehicle Dashboard** is an opt-in, mobile-friendly car view with SoC, range, odometer, charge limit and four history tabs. It does not replace any existing dashboard or control the car. The first illustrated model is **ET5 Touring**; other models use a neutral NIO icon until their own artwork is added. Its AI-generated illustration is bundled locally, not fetched from NIO or another service. Light and dark themes are supported.
+
+After installing the integration:
+
+1. In **Settings → Dashboards → Resources**, add `/nio_telematics/nio-vehicle-card.js` as a **JavaScript module**, then reload Home Assistant in your browser.
+2. Edit a dashboard, choose **Add card → NIO Vehicle Dashboard**, and select your NIO. The simpler **NIO Vehicle** card remains available too.
+3. The overview works with NIO alone. Use its **Settings** button to choose your model/language and, if wanted, EVCC connection/power entities. Leave those inputs empty if you do not use EVCC.
+4. To record trips and charging history, enable **Trip and charging history** in Settings and enter your car's usable battery capacity and its range at 100% charge. The NIO odometer and range entities must be enabled. History starts from actual recorded readings; it cannot reconstruct missing journeys.
+
+The overview offers 14 European language choices. History is Dutch on a Dutch installation and uses English for other languages; further translations are in progress. The ET5 Touring image currently has one colour. Model-specific images and colours are planned, not silently simulated.
+
+History survives HACS updates. Changing its energy inputs starts a new baseline without rewriting old trips. Optional EVCC session entities add home charging records; recorded cost sources can split completed sessions when dated evidence is available. Missing history and the initial battery-stock price stay unknown, never €0 by assumption. Electricity-price and reimbursement entities are references, not a way to backprice old trips. Charging rules remain in Home Assistant.
 
 ## Install
 
