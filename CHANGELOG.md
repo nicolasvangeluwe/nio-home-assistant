@@ -3,6 +3,16 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.2.0-dev.3
+
+- Request NIO's documented default ten-minute `soc_status/changes` window
+  without explicit timestamps. Live NIO responses on October 13 rejected the
+  equivalent timestamped request as `invalid_param`, preventing new SoC and
+  range polls after restart. Sparse-field merging, separate source timestamps,
+  retained last-valid values and the 15-second request pacing are unchanged.
+- Add a regression assertion that the scheduled SoC request sends no query
+  parameters. This does not change vehicle control or charging policy.
+
 ## 0.2.0-dev.2
 
 - Show a live, provisional charging session as ongoing in the optional vehicle
