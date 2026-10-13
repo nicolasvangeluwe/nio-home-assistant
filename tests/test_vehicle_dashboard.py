@@ -1,6 +1,7 @@
 """Dashboard preferences remain optional, per car and free of secrets."""
 
 import asyncio
+import inspect
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -264,9 +265,14 @@ async def test_dashboard_backup_preview_and_restore_preserve_vehicle_identity(
     connection = SimpleNamespace(
         user=SimpleNamespace(is_admin=True), send_result=Mock(), send_error=Mock()
     )
-    await websocket_backup(
-        hass,
-        connection,
+
+    async def call_backup(message):
+        result = websocket_backup(hass, connection, message)
+        if inspect.isawaitable(result):
+            await result
+        await hass.async_block_till_done()
+
+    await call_backup(
         {"id": 1, "entry_id": entry.entry_id, "action": "export"},
     )
     backup = connection.send_result.call_args.args[1]
@@ -275,18 +281,14 @@ async def test_dashboard_backup_preview_and_restore_preserve_vehicle_identity(
 
     backup["preferences"]["language"] = "en"
     backup["history"]["revision"] = 4
-    await websocket_backup(
-        hass,
-        connection,
+    await call_backup(
         {"id": 2, "entry_id": entry.entry_id, "action": "preview", "backup": backup},
     )
     preview = connection.send_result.call_args.args[1]
     assert preview["current"]["revision"] == 3
     assert (await history_store.async_load())["revision"] == 3
 
-    await websocket_backup(
-        hass,
-        connection,
+    await call_backup(
         {
             "id": 3,
             "entry_id": entry.entry_id,
