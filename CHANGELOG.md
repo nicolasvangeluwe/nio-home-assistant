@@ -3,6 +3,16 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.3.0-dev.2
+
+- Refine the optional ET5 Touring dashboard hero with a locally bundled,
+  front-three-quarter studio render, natural contact shadow and larger mobile
+  placement. Remove the stacked synthetic shadow that made the prior image
+  look toy-like. The existing artwork URL remains available for older cached
+  cards.
+- No changes to vehicle polling, entity IDs, the owner's separate Car board,
+  ledger calculations or saved history.
+
 ## 0.3.0-dev.1
 
 - Add contextual help beside optional dashboard inputs, including charger,

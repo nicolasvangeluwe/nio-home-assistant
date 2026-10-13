@@ -128,6 +128,13 @@ test('other NIO models use the approved NIO front icon, not a fabricated model i
   assert.match(Dashboard.prototype.rangeIcon.call({}, 'ET5 Touring'), /range-nio-d/);
 });
 
+test('ET5 Touring uses the locally bundled studio render without stacked shadows', () => {
+  const html = Dashboard.prototype.carImage.call({}, 'ET5 Touring');
+  assert.match(html, /et5-touring-studio\.png/);
+  assert.match(Dashboard.styles, /\.car-art:before\{display:none\}/);
+  assert.match(Dashboard.styles, /\.car-photo\{filter:none\}/);
+});
+
 test('automatic model detection prefers ET5 Touring over the shorter ET5 name', () => {
   const model = Dashboard.prototype.modelFor.call({config: {}}, {name: 'My ET5 Touring', preferences: {model: 'auto'}});
   assert.equal(model, 'ET5 Touring');

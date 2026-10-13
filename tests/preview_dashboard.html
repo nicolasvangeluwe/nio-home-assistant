@@ -11,7 +11,7 @@ ha-card{display:block}
 <script>
 const cls=customElements.get('nio-vehicle-dashboard');
 const originalCarImage=cls.prototype.carImage;
-cls.prototype.carImage=function(model){return model==='ET5 Touring'?'<img class="car-photo" src="../custom_components/nio_telematics/et5-touring-hero.webp" alt="ET5 Touring illustration">':originalCarImage.call(this,model);};
+cls.prototype.carImage=function(model){return model==='ET5 Touring'?'<img class="car-photo" src="../custom_components/nio_telematics/et5-touring-studio.png" alt="ET5 Touring illustration">':originalCarImage.call(this,model);};
 const stamp='2026-10-13T18:37:00Z';
 const states={
  'sensor.example_soc':{state:'75',attributes:{last_valid_sample:stamp}},
