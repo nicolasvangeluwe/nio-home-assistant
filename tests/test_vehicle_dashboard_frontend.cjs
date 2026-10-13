@@ -12,6 +12,7 @@ vm.runInNewContext(source, {
   window: { customCards: [] },
 });
 const Dashboard = elements.get('nio-vehicle-dashboard');
+const Vehicle = elements.get('nio-vehicle-card');
 const ledgerElements = new Map();
 vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../custom_components/nio_telematics/car_dashboard/car-ledger-card.js'), 'utf8'), {
   HTMLElement: class {},
@@ -19,6 +20,15 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../custom_components/ni
   window: { customCards: [] },
 });
 const Ledger = ledgerElements.get('car-ledger-card');
+
+test('dashboard setup provides keyboard-accessible help and restore controls', () => {
+  const card = Object.create(Vehicle.prototype);
+  assert.match(card.fieldHelp('evcc_connected', 'en'), /<details class="field-help">/);
+  assert.match(card.fieldHelp('evcc_connected', 'en'), /EVCC is not required/);
+  assert.match(card.fieldHelp('battery_capacity_kwh', 'nl'), /Alleen nodig/);
+  assert.match(Dashboard.styles, /\.field-help summary:focus-visible/);
+  assert.match(Dashboard.styles, /\.backup button\[hidden\]/);
+});
 
 function display(chargingState, connection, power, powerUnit = 'kW') {
   const nodes = new Map();

@@ -32,6 +32,8 @@ async def _async_dashboard_options_updated(
     hass: HomeAssistant, entry: NioConfigEntry
 ) -> None:
     """Apply optional dashboard changes without resetting NIO OAuth telemetry."""
+    if entry.entry_id in hass.data.get("nio_telematics_dashboard_restoring", set()):
+        return  # Restore applies the validated settings after replacing the archive.
     try:
         await async_reconcile_ledger(hass, entry)
         hass.data.setdefault("nio_telematics_dashboard_errors", {}).pop(

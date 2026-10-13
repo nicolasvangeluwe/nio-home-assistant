@@ -3,6 +3,24 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.3.0-dev.1
+
+- Add contextual help beside optional dashboard inputs, including charger,
+  calibration and history settings. NIO remains the default vehicle source;
+  EVCC is optional. English, Dutch, German and French help is included, with
+  English fallback for the other overview languages.
+- Add a per-car, versioned JSON export of dashboard preferences and the
+  optional trip/charging archive. OAuth credentials, tokens and the raw VIN
+  are excluded. The file contains travel and cost history and should be kept
+  private.
+- Add an admin-only restore with vehicle matching, schema/source validation,
+  an archive-size preview, explicit replacement confirmation and a stale-
+  revision guard. Restore preserves unrelated config-entry options and rolls
+  back the previous archive/settings if applying the backup fails. A backup
+  without history changes preferences only; it does not erase saved trips.
+- Keep the existing Car dashboard, vehicle entity IDs, telemetry polling and
+  charging policy unchanged.
+
 ## 0.2.0-dev.5
 
 - Make every dashboard/ledger input selectable per vehicle while retaining the
