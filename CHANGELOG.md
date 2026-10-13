@@ -3,6 +3,26 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.2.0-dev.1
+
+- Add an opt-in, app-style NIO Vehicle Dashboard alongside the existing compact
+  card and existing user dashboards. Its ET5 Touring illustration is bundled
+  locally; other models deliberately show a neutral NIO icon instead of
+  misleading ET5 artwork. Model and language remain per-vehicle choices.
+- Show native SoC, range, odometer and charging information without EVCC.
+  Optional EVCC readings and the existing, separately enabled trip/charging
+  ledger add context. An empty ledger shows a clear Settings route; it does not
+  invent trips, prices or history. Its primary labels use Dutch for Dutch users
+  and English otherwise, with locale-aware numbers and dates.
+- Preserve the existing compact card, entity IDs, telemetry/polling behavior,
+  ledger archive, and the maintainer's personal Car dashboard. Correct the
+  ledger's trip explanation so it does not claim every trip is range-derived
+  after native SoC became available.
+- Add frontend and integration regression checks for a no-EVCC setup, artwork
+  selection, localization and bundled static assets. This is a development
+  release for early testers, not a claim that every NIO model or colour has
+  matching artwork.
+
 ## 0.1.1-dev.21
 
 - Correct a historical false 1 km trip caused by a late odometer update near

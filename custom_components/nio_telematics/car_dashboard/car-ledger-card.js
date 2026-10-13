@@ -1,4 +1,50 @@
 /* Car Ledger: snapshot UI. Source updates never replace the visible session list. */
+const LEDGER_ENGLISH = {
+  'Laden':'Charging','Ritten':'Trips','Verbruik':'Consumption','Stilstand':'Parked',
+  'Vernieuwen':'Refresh','Autohistoriek':'Vehicle history','Laatste laadsessies':'Recent charging',
+  'Laatste ritten':'Recent trips','Alle laadsessies':'All charging sessions','Alle ritten':'All trips',
+  'Terug naar de laatste drie':'Back to recent three','Alle stilstandperiodes':'All parked periods',
+  'Nog geen laadsessies':'No charging sessions yet',
+  'De eerste rit verschijnt zodra de auto nieuwe metingen doorgeeft.':'The first trip appears after the car reports new readings.',
+  'Ritten en laadkosten laden…':'Loading trips and charging…',
+  'Alle stilstandperiodes':'All parked periods','Laatste stilstandperiodes':'Recent parked periods',
+  'Nog geen geregistreerde bereikafname bij stilstand.':'No parked battery loss recorded yet.',
+  'Laatste rit':'Last trip','Huidige rit':'Current trip','Sinds laadbeurt':'Since charging',
+  'Sinds laatste laadbeurt':'Since last charge','Laatste 100 km':'Last 100 km',
+  'Vandaag':'Today','Maand':'Month','Jaar':'Year','Gemiddeld verbruik':'Average consumption',
+  'Gem. verbruik':'Average consumption','Rijkosten':'Driving cost','Afstand':'Distance',
+  'Gebruikt':'Used','Batterij':'Battery','Laadkosten':'Charging cost','Totaal':'Total',
+  'Geladen':'Charged','Gem. tarief':'Average tariff','Grafieken & bereik':'Charts & range',
+  'Bereik bij dit verbruik':'Range at this consumption','Rittellers & instellingen':'Trip counters & settings',
+  'Rekeninstellingen':'Calculation settings','Nieuwe ritteller':'New trip counter',
+  'Ritteller opnieuw starten':'Reset trip counter','Ritdetails':'Trip details',
+  'Energie gebruikt':'Energy used','Batterij bij vertrek':'Battery at departure',
+  'Batterij bij aankomst':'Battery at arrival','Duur':'Duration','Lading toevoegen':'Add charge',
+  'Lading controleren':'Review charge','Lading bevestigen':'Confirm charge',
+  'Laadprijs':'Charging price','Laadvoordeel':'Charging benefit','Tarief':'Tariff',
+  'Thuis':'Home','Werk':'Work','Snellader':'Fast charger','Onderweg':'Away',
+  'Prijs aanvullen':'Add price','Bon & energie':'Receipt & energy',
+  'Berekende energie':'Estimated energy','Gem.':'Avg.','Zon':'Solar',
+  'Geladen kWh':'Charged kWh','Prijs per kWh':'Price per kWh',
+  'Totaal op bon (optioneel)':'Receipt total (optional)','Locatie':'Location',
+  'Start':'Start','Einde':'End','Opslaan':'Save','Sluiten':'Close','Reset':'Reset',
+  'Meer tonen':'Show more','Alle stilstandperiodes':'All parked periods',
+  'Geschat uit batterijafname':'Estimated from battery decrease',
+  'Dit was geen lading':'This was not a charge',
+  'De auto meldde meer bereik. Bevestig alleen als dit een echte lading was.':'The car reported more range. Confirm only if it was actually charged.',
+  'De prijs van de al aanwezige batterij is nodig om rijkosten vanaf de start te berekenen. Laat leeg als die onbekend is.':'The initial battery price is needed to calculate driving cost from the start. Leave it blank if unknown.',
+  'Prijs energie bij start van registratie (€/kWh)':'Initial battery price (€/kWh)',
+  'Referentieverbruik (kWh/100 km)':'Reference consumption (kWh/100 km)',
+  'Vorige auto (l/100 km)':'Previous car (l/100 km)',
+  'Benzineprijs (€/l)':'Petrol price (€/l)',
+  'Wacht op een nieuwe meting van de auto; bewaarde waarden maken geen nieuwe rit.':'Waiting for a fresh car reading; retained values do not create a new trip.',
+  'Geschatte energieafname tussen metingen met dezelfde kilometerstand. Los van rijverbruik; oorzaken zijn niet gemeten.':'Estimated battery loss between readings at the same odometer. Separate from driving consumption; the cause was not measured.',
+  'Rit bezig':'Trip in progress','Meting ontbreekt':'Reading missing',
+  'Verbruik wordt zichtbaar na de eerste gemeten rit.':'Consumption appears after the first measured trip.',
+  'Vergelijking benzine':'Petrol comparison','Benzine voor deze afstand':'Petrol for this distance',
+  'Besparing':'Savings','Verbruik t.o.v. referentie':'Consumption versus reference',
+  'Nog niet beschikbaar':'Not available','Laden en ritten laden…':'Loading charging and trips…',
+};
 class CarLedgerCard extends HTMLElement {
   constructor() {
     super(); this.attachShadow({mode:'open'}); this.tab='charging'; this.period='month'; this.full=false;
@@ -8,6 +54,35 @@ class CarLedgerCard extends HTMLElement {
     this._touchEnd=e=>{if(this.touchY!=null&&e.changedTouches[0]?.clientY-this.touchY>110&&window.scrollY<30)this.refresh();this.touchY=null;};
   }
   setConfig(config){this.config=config;this.render();}
+  get displayLocale(){return this.config?.language||this._hass?.language||'nl-BE';}
+  translate(value){
+    if(this.displayLocale.toLowerCase().startsWith('nl'))return value;
+    const raw=String(value),leading=raw.match(/^\s*/)[0],trailing=raw.match(/\s*$/)[0];
+    const middle=raw.trim();
+    if(LEDGER_ENGLISH[middle])return leading+LEDGER_ENGLISH[middle]+trailing;
+    const more=middle.match(/^Meer tonen \((\d+)\)$/);
+    if(more)return `${leading}Show more (${more[1]})${trailing}`;
+    const tripCount=middle.match(/^(\d+) ritten$/);
+    if(tripCount)return `${leading}${tripCount[1]} trips${trailing}`;
+    const battery=middle.match(/^Verbruik: (.+?) kWh × verschil in berekende SoC\. Rijkosten gebruiken de gemiddelde prijs van de energie in de batterij\. Thuis telt de EVCC-waarde mee, inclusief misgelopen teruglevering\. Laadverliezen zijn niet afzonderlijk gemeten\.$/);
+    if(battery)return `${leading}Consumption: ${battery[1]} kWh × change in calculated SoC. Driving cost uses the average price of energy in the battery. Home charging includes the EVCC value, including foregone export. Charging losses are not measured separately.${trailing}`;
+    if(middle.startsWith('Kilometerstand ')&&middle.includes('Tijden volgen de ontvangen metingen.')){
+      const match=middle.match(/^Kilometerstand (.+?) km\. Tijden volgen de ontvangen metingen\. Verbruik is geschat uit batterijmetingen met (.+?) kWh bruikbare capaciteit\. Afname zonder kilometerverandering telt afzonderlijk als stilstandsverlies\.(.*)$/);
+      if(match)return `${leading}Odometer ${match[1]} km. Times follow the received readings. Consumption is estimated from battery readings using ${match[2]} kWh usable capacity. Loss without odometer change is counted separately as parked loss.${match[3]?' Energy is unknown because of missing readings or charging.':''}${trailing}`;
+    }
+    for(const [nl,en] of Object.entries({'Vergoeding ':'Reimbursement ','Gem. ':'Avg. ',' Meer tonen':' Show more',' ritten':' trips'})){
+      if(middle.startsWith(nl))return leading+en+middle.slice(nl.length)+trailing;
+    }
+    return value;
+  }
+  localize(root=this.shadowRoot){
+    if(this.displayLocale.toLowerCase().startsWith('nl'))return;
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+    for(let node=walker.nextNode();node;node=walker.nextNode())node.textContent=this.translate(node.textContent);
+    for(const element of root.querySelectorAll('[title],[aria-label],[placeholder]')){
+      for(const name of ['title','aria-label','placeholder'])if(element.hasAttribute(name))element.setAttribute(name,this.translate(element.getAttribute(name)));
+    }
+  }
   getCardSize(){return 8;}
   getGridOptions(){return {columns:12,rows:'auto'};}
   set hass(hass){this._hass=hass;if(!this.snapshot&&!this.loading&&this.isConnected)this.refresh();}
@@ -19,10 +94,10 @@ class CarLedgerCard extends HTMLElement {
     catch(e){this.error=e.message||'Rittenregistratie nog niet beschikbaar';if(!this.snapshot)this.render();else this.refreshState();}
     finally{this.loading=false;this.refreshState();}
   }
-  refreshState(){const b=this.shadowRoot.querySelector('[data-action="refresh"]');if(b){b.disabled=this.loading;b.setAttribute('aria-busy',String(this.loading));}const err=this.shadowRoot.querySelector('.error');if(err)err.textContent=this.error;}
+  refreshState(){const b=this.shadowRoot.querySelector('[data-action="refresh"]');if(b){b.disabled=this.loading;b.setAttribute('aria-busy',String(this.loading));}const err=this.shadowRoot.querySelector('.error');if(err)err.textContent=this.translate(this.error);}
   esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-  n(v,d=1){return v==null||!Number.isFinite(Number(v))?'—':Number(v).toLocaleString('nl-BE',{minimumFractionDigits:d,maximumFractionDigits:d});}
-  date(t,opts){return new Date(t*1000).toLocaleString('nl-BE',opts||{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
+  n(v,d=1){return v==null||!Number.isFinite(Number(v))?'—':Number(v).toLocaleString(this.displayLocale,{minimumFractionDigits:d,maximumFractionDigits:d});}
+  date(t,opts){return new Date(t*1000).toLocaleString(this.displayLocale,opts||{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
   value(label,v,unit='',d=1){return `<div class="metric"><span>${label}</span><strong>${this.n(v,d)}${unit?`<small>${unit}</small>`:''}</strong></div>`;}
   category(c){return {home:'Thuis',work:'Werk',supercharger:'Snellader',other:'Onderweg'}[c]||'Onderweg';}
   tripEnergy(t){return t.segments.every(s=>s.kwh!=null)?t.segments.reduce((sum,s)=>sum+s.kwh,0):null;}
@@ -161,7 +236,7 @@ class CarLedgerCard extends HTMLElement {
     for(const p of rows){
       const key=this.monthKey(p.end);
       if(this.full&&month!==key){month=key;html+=`<div class="month parked-month"><h3>${this.date(p.end,{month:'long',year:'numeric'})}</h3><p>${total(all.filter(r=>this.monthKey(r.end)===key))}</p></div>`;}
-      html+=`<button class="session" data-parked="${this.esc(p.id)}"><div class="row session-head"><span>${this.date(p.start)} → ${this.date(p.end)}</span></div><div class="metrics three">${this.value('Duur',(p.end-p.start)/60,'min',0)}${this.value('Verbruikt',p.kwh,'kWh',2)}${this.value('Batterij',p.soc_used_pct,'%')}</div><div class="muted">Geschat uit bereikafname</div></button>`;
+      html+=`<button class="session" data-parked="${this.esc(p.id)}"><div class="row session-head"><span>${this.date(p.start)} → ${this.date(p.end)}</span></div><div class="metrics three">${this.value('Duur',(p.end-p.start)/60,'min',0)}${this.value('Verbruikt',p.kwh,'kWh',2)}${this.value('Batterij',p.soc_used_pct,'%')}</div><div class="muted">Geschat uit batterijafname</div></button>`;
     }
     if(this.full&&all.length>this.pageSize)html+=`<button class="more" data-action="more">Meer tonen (${all.length-this.pageSize})</button>`;
     html+=`<button class="more" data-action="full">${this.full?'Terug naar de laatste drie':'Alle stilstandperiodes'} <span>›</span></button>`;
@@ -171,6 +246,7 @@ class CarLedgerCard extends HTMLElement {
   render(){
     if(!this.config)return;
     this.shadowRoot.innerHTML=`<style>${CarLedgerCard.styles}</style><ha-card><div class="row top"><nav class="segmented main-tabs" aria-label="Autohistoriek">${[['charging','Laden'],['trips','Ritten'],['insight','Verbruik'],['parked','Stilstand']].map(([key,label])=>`<button data-tab="${key}" aria-pressed="${this.tab===key}" class="${this.tab===key?'selected':''}">${label}</button>`).join('')}</nav><button class="icon refresh" data-action="refresh" title="Vernieuwen" aria-label="Vernieuwen"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M20 12a8 8 0 1 0-2.4 5.7"/></svg></button></div><div class="error" role="status">${this.esc(this.error)}</div>${this.snapshot?(this.tab==='insight'?this.insight():this.tab==='parked'?this.parkedHistory():this.history()):'<div class="empty">Ritten en laadkosten laden…</div>'}</ha-card>`;
+    this.localize();
     this.shadowRoot.addEventListener('click',this._clickHandler ||= e=>this.click(e));
     this.refreshState();
   }
@@ -207,7 +283,7 @@ class CarLedgerCard extends HTMLElement {
   }
   tripDialog(t){
     const cap=this.snapshot.settings.capacity_kwh;const energy=this.tripEnergy(t);
-    this.dialog('Ritdetails',`<p>${this.date(t.start)} → ${this.date(t.end)}</p><div class="metrics two">${this.value('Afstand',t.distance_km,'km')}${this.value('Energie gebruikt',energy,'kWh',2)}${this.value('Batterij bij vertrek',t.start_energy/cap*100,'%')}${this.value('Batterij bij aankomst',t.end_energy/cap*100,'%')}</div><p class="muted">Kilometerstand ${this.n(t.start_odo,0)} → ${this.n(t.end_odo,0)} km. Tijden volgen de ontvangen metingen. Verbruik is berekend uit bereik met ${cap} kWh beschikbare batterij. Afname zonder kilometerverandering telt afzonderlijk als stilstandsverlies.${energy==null?' Energie ontbreekt door ontbrekende metingen of tussentijds laden.':''}</p>`,null);
+    this.dialog('Ritdetails',`<p>${this.date(t.start)} → ${this.date(t.end)}</p><div class="metrics two">${this.value('Afstand',t.distance_km,'km')}${this.value('Energie gebruikt',energy,'kWh',2)}${this.value('Batterij bij vertrek',t.start_energy/cap*100,'%')}${this.value('Batterij bij aankomst',t.end_energy/cap*100,'%')}</div><p class="muted">Kilometerstand ${this.n(t.start_odo,0)} → ${this.n(t.end_odo,0)} km. Tijden volgen de ontvangen metingen. Verbruik is geschat uit batterijmetingen met ${cap} kWh bruikbare capaciteit. Afname zonder kilometerverandering telt afzonderlijk als stilstandsverlies.${energy==null?' Energie ontbreekt door ontbrekende metingen of tussentijds laden.':''}</p>`,null);
   }
   settingsDialog(){
     const p=this.snapshot.preferences;
@@ -217,6 +293,7 @@ class CarLedgerCard extends HTMLElement {
   dialog(title,content,save,c){
     const el=document.createElement('dialog');el.className='modal';el.innerHTML=`<form><div class="row"><h2>${this.esc(title)}</h2><button type="button" class="icon" data-close aria-label="Sluiten">×</button></div>${content}<p class="form-error" role="alert"></p>${save?'<button class="save" type="submit">Opslaan</button>':''}</form>`;
     this.shadowRoot.append(el);el.addEventListener('close',()=>el.remove());el.querySelector('[data-close]').onclick=()=>el.close();
+    this.localize(el);
     el.addEventListener('click',async e=>{if(e.target===el)el.close();if(e.target.closest('[data-dismiss]')){try{await this.update('dismiss_candidate',{ident:c.id});el.close();}catch(err){el.querySelector('.form-error').textContent=err.message;}}});
     el.querySelector('form').onsubmit=async e=>{e.preventDefault();if(!save){el.close();return;}const button=el.querySelector('.save');button.disabled=true;try{await save(new FormData(e.target));el.close();}catch(err){el.querySelector('.form-error').textContent=err.message;button.disabled=false;}};el.showModal();
   }

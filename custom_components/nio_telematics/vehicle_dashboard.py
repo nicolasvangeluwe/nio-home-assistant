@@ -218,8 +218,18 @@ async def async_setup_vehicle_dashboard(hass):
     """Register the opt-in card without creating a view."""
     websocket_api.async_register_command(hass, websocket_get)
     websocket_api.async_register_command(hass, websocket_save)
-    path = Path(__file__).with_name("nio-vehicle-card.js")
-    url = "/nio_telematics/nio-vehicle-card.js"
+    component_path = Path(__file__).parent
     await hass.http.async_register_static_paths(
-        [StaticPathConfig(url, str(path), False)]
+        [
+            StaticPathConfig(
+                "/nio_telematics/nio-vehicle-card.js",
+                str(component_path / "nio-vehicle-card.js"),
+                False,
+            ),
+            StaticPathConfig(
+                "/nio_telematics/et5-touring-hero.webp",
+                str(component_path / "et5-touring-hero.webp"),
+                False,
+            ),
+        ]
     )

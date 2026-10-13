@@ -1,5 +1,6 @@
 """Dashboard preferences remain optional, per car and free of secrets."""
 
+from pathlib import Path
 from unittest.mock import patch
 
 from homeassistant.core import HomeAssistant
@@ -12,6 +13,15 @@ from custom_components.nio_telematics.vehicle_dashboard import (
     _vehicle,
     preferences_for_entry,
 )
+
+
+def test_dashboard_bundles_local_vehicle_artwork() -> None:
+    assets = Path(__file__).resolve().parents[1] / "custom_components/nio_telematics"
+    artwork = (assets / "et5-touring-hero.webp").read_bytes()
+    assert artwork.startswith(b"RIFF") and artwork[8:12] == b"WEBP"
+    source = (assets / "nio-vehicle-card.js").read_text(encoding="utf-8")
+    assert "nio-vehicle-dashboard" in source
+    assert "/nio_telematics/et5-touring-hero.webp" in source
 
 
 def test_dashboard_defaults_do_not_require_evcc() -> None:
