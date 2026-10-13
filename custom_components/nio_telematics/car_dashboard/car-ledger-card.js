@@ -179,7 +179,7 @@ class CarLedgerCard extends HTMLElement {
     if(b.dataset.tab){this.tab=b.dataset.tab;this.full=false;this.pageSize=36;this.render();await this.refresh();return;}
     if(b.dataset.period){this.period=b.dataset.period;this.render();return;}
     if(b.dataset.unit){this.graphUnit=b.dataset.unit;this.render();return;}
-    if(b.dataset.charge){this.chargeDialog(this.snapshot.charges.find(c=>c.id===b.dataset.charge));return;}
+    if(b.dataset.charge){const charge=this.snapshot.charges.find(c=>c.id===b.dataset.charge);if(charge?.ongoing)return;this.chargeDialog(charge);return;}
     if(b.dataset.trip){this.tripDialog(this.snapshot.trips.find(t=>t.id===b.dataset.trip));return;}
     if(b.dataset.parked){const p=this.snapshot.parked_periods.find(r=>r.id===b.dataset.parked);this.dialog('Stilstand',`<p>${this.date(p.start)} → ${this.date(p.end)}</p><div class="metrics three">${this.value('Duur',(p.end-p.start)/60,'min',0)}${this.value('Verbruikt',p.kwh,'kWh',2)}${this.value('Batterij',p.soc_used_pct,'%')}</div><p class="muted">Geschatte energieafname tussen metingen met dezelfde kilometerstand. Los van rijverbruik; oorzaken zijn niet gemeten.</p>`);return;}
     if(b.dataset.reset){const c=this.snapshot.counters.find(c=>c.id===b.dataset.reset);this.dialog('Ritteller opnieuw starten',`<p>${this.esc(c.name)} vanaf nu opnieuw tellen?</p>`,async()=>this.update('counter',{ident:c.id,name:c.name}));return;}

@@ -3,6 +3,23 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.1.1-dev.21
+
+- Correct a historical false 1 km trip caused by a late odometer update near
+  the end of a real drive. An admin-only, validated replay can merge the short
+  incomplete tail into its preceding native-SoC trip while retaining the real
+  trip ID, all raw samples and unrelated charging/history records. Future
+  updates within the trip-idle window remain part of one trip; genuine later
+  drives still start a new trip.
+- Show an identified ongoing EVCC home session before it appears in completed
+  session history. Its live card is a provisional view of the current energy
+  and cost readings, not a completed charging record or new archived charge.
+  It becomes the normal historical session when EVCC publishes the completed
+  row. Prevent editing the unfinished entry as an archived receipt.
+- Add regression coverage for late odometer/SoC alignment, idempotent merging,
+  active-to-completed session transition and preserved evidence. No vehicle
+  API calls, polling cadence, entity IDs or charging policy change.
+
 ## 0.1.1-dev.20
 
 - Fix the optional Car ledger's native-SoC trip calculations. Fresh unchanged

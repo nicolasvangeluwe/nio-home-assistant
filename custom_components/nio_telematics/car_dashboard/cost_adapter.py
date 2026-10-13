@@ -189,8 +189,9 @@ class CostRecorder:
             if (
                 result.get("status") == "complete"
                 and not charge.get("manual_cost")
-                and abs(result["cost_split_kwh"] - charge["kwh"]) <= 0.0011
+                and charge.get("kwh") is not None
                 and charge.get("cost_eur") is not None
+                and abs(result["cost_split_kwh"] - charge["kwh"]) <= 0.0011
                 and abs(result["cost_split_total_eur"] - charge["cost_eur"]) <= 0.00001
             ):
                 charge.update(

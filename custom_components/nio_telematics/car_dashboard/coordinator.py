@@ -17,7 +17,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DEFAULTS, DOMAIN
 from .cost_adapter import CostRecorder
-from .ledger import Ledger, number
+from .ledger import Ledger, number, provisional_home_charge
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,6 +34,7 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
         self.ledger = None
         self.cost_recorder = CostRecorder(self)
         self.source_status = "waiting_for_fresh_sample"
+        self.active_home_id = None
 
     async def async_start(self):
         self.ledger = Ledger(self.settings, await self.store.async_load())
@@ -72,11 +73,30 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
             before = self.ledger.data["revision"]
             now = dt_util.utcnow().timestamp()
             history = self.hass.states.get(self.settings["home_history"])
+            connected = self.hass.states.get(self.settings["home_connected"])
+            if not connected or connected.state != "on":
+                self.active_home_id = None
+            elif history and history.attributes.get("active_session_id") not in (
+                None,
+                "",
+            ):
+                self.active_home_id = "home-" + str(
+                    history.attributes["active_session_id"]
+                )
             if history:
                 self.ledger.import_home(
                     history.attributes.get("sessions", []),
                     active_session_id=history.attributes.get("active_session_id"),
                 )
+            if (
+                self.active_home_id
+                and not (history and history.attributes.get("active_session_id"))
+                and self.active_home_id in self.ledger.data["charges"]
+                and not self.ledger.data["charges"][self.active_home_id].get(
+                    "ongoing"
+                )
+            ):
+                self.active_home_id = None
             odo = self.hass.states.get(self.settings["odometer"])
             rng = self.hass.states.get(self.settings["range"])
             soc = (
@@ -84,7 +104,6 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
                 if self.settings["soc"]
                 else None
             )
-            connected = self.hass.states.get(self.settings["home_connected"])
             self.ledger.tick(now)
             if self.settings["soc"]:
                 # Odometer reports define distance windows. A fresh unchanged
@@ -159,9 +178,40 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
             )
 
     def snapshot(self):
-        result = self.ledger.snapshot(
-            dt_util.utcnow().timestamp(), self.hass.config.time_zone
-        )
+        now = dt_util.utcnow().timestamp()
+        result = self.ledger.snapshot(now, self.hass.config.time_zone)
+        connected = self.hass.states.get(self.settings["home_connected"])
+        if self.active_home_id and connected and connected.state == "on":
+            active = result["active_home_charge"]
+            if active is None:
+                # EVCC lists a session in history only after it completes. A
+                # connected, identified session still needs a live card; keep
+                # this provisional projection out of the durable trip ledger.
+                evidence = self.ledger.data.get("cost_split_results", {}).get(
+                    self.active_home_id, {}
+                )
+                signature = evidence.get("signature", [])
+                start = number(signature[1]) if len(signature) > 1 else None
+                if start is None or not 0 < start <= now:
+                    start = connected.last_changed.timestamp()
+                sources = self.settings.get("cost_sources") or {}
+
+                def live_value(key):
+                    state = (
+                        self.hass.states.get(sources[key]) if key in sources else None
+                    )
+                    return number(state.state) if state else None
+
+                active = provisional_home_charge(
+                    self.active_home_id,
+                    start,
+                    now,
+                    live_value("energy"),
+                    live_value("total_cost"),
+                    live_value("solar"),
+                )
+                result["active_home_charge"] = active
+                result["charges"].insert(0, active)
         result["source_status"] = self.source_status
         result["source_config"] = dict(self.settings)
         return self.cost_recorder.enrich(result)

@@ -19,6 +19,27 @@ def number(value):
         return None
 
 
+def provisional_home_charge(ident, start, now, energy, cost, solar):
+    """Project an identified live EVCC session without archiving it."""
+    if not ident or not 0 < start <= now:
+        raise ValueError("An active session ID and valid start are required")
+    return {
+        "id": ident,
+        "kind": "home",
+        "category": "home",
+        "start": start,
+        "end": now,
+        "kwh": number(energy),
+        "cost_eur": number(cost),
+        "reimbursement_eur": None,
+        "benefit_eur": None,
+        "solar_pct": number(solar),
+        "confirmed": True,
+        "ongoing": True,
+        "provisional": True,
+    }
+
+
 class Ledger:
     def __init__(self, settings=None, data=None):
         from .const import DEFAULTS
@@ -785,20 +806,44 @@ class Ledger:
         self.data["recovery_completed"] = True
         self.changed()
 
-    def repair_native_trip(self, ident, reports, now):
-        """Replace one erroneous native trip from complete source reports.
+    def repair_native_trip(self, ident, reports, now, merge_tail_id=None):
+        """Replace a native trip (and optionally its false short tail) from reports.
 
         The caller supplies timestamp-aligned, fresh odometer/SoC evidence.
         All other trips, charges, old samples and source transitions stay intact.
         The coordinator persists this mutation atomically with the HA Store.
         """
         old = next((r for r in self.data["trips"] if r["id"] == ident), None)
+        tail = next(
+            (r for r in self.data["trips"] if r["id"] == merge_tail_id), None
+        ) if merge_tail_id else None
         if (
             old is None
             or not isinstance(reports, list)
             or not 2 <= len(reports) <= 1000
         ):
             raise ValueError("A saved trip and 2–1000 source reports are required")
+        if merge_tail_id and tail is None:
+            # A repeated, already-applied repair must not remove anything else.
+            previous = self.data["native_replays"].get(ident, {})
+            if merge_tail_id in previous.get("merged_ids", []):
+                return False
+            raise ValueError("The selected tail trip does not exist")
+        if tail and (
+            tail is old
+            or old["end"] > tail["start"]
+            or tail["start"] - old["end"] > 15 * 60
+            or old["end_odo"] != tail["start_odo"]
+            or not 0 < tail["distance_km"] <= 2
+            or tail.get("complete", True)
+            or any(
+                trip not in (old, tail)
+                and old["start"] < trip["end"]
+                and trip["start"] < tail["end"]
+                for trip in self.data["trips"]
+            )
+        ):
+            raise ValueError("Tail is not an adjacent incomplete odometer update")
         if not any(
             sample.get("energy_source") == "native_soc"
             and old["start"] <= sample["t"] <= old["end"]
@@ -840,15 +885,18 @@ class Ledger:
             )
             previous = t
         digest = sha256(json.dumps(rows, sort_keys=True).encode()).hexdigest()
-        if self.data["native_replays"].get(ident, {}).get("digest") == digest:
+        if (
+            self.data["native_replays"].get(ident, {}).get("digest") == digest
+            and not tail
+        ):
             return False
         if (
             rows[0]["odo"] != old["start_odo"]
-            or rows[-1]["odo"] != old["end_odo"]
+            or rows[-1]["odo"] != (tail or old)["end_odo"]
             or rows[0]["t"] < old["start"]
-            or rows[-1]["t"] > max(old["end"], now)
+            or rows[-1]["t"] > max((tail or old)["end"], now)
             or any(
-                trip["id"] != ident
+                trip not in (old, tail)
                 and trip["start"] < rows[-1]["t"]
                 and trip["end"] > rows[0]["t"]
                 for trip in self.all_trips()
@@ -875,8 +923,9 @@ class Ledger:
         if (
             len(scratch.data["trips"]) != 1
             or scratch.data["active"] is not None
-            or scratch.data["trips"][0]["distance_km"] != old["distance_km"]
-            or scratch.data["trips"][0]["end_odo"] != old["end_odo"]
+            or scratch.data["trips"][0]["distance_km"]
+            != old["distance_km"] + (tail["distance_km"] if tail else 0)
+            or scratch.data["trips"][0]["end_odo"] != (tail or old)["end_odo"]
             or scratch.data["charges"] != original_charges
         ):
             raise ValueError("Replay disagrees with archived trip distance or charges")
@@ -884,12 +933,18 @@ class Ledger:
         replacement["id"] = ident
         replacement["source"] = "native_source_replay"
         self.data["trips"][self.data["trips"].index(old)] = replacement
+        if tail:
+            self.data["trips"].remove(tail)
         self.data["parked_losses"] = [
             loss
             for loss in self.data["parked_losses"]
             if not (rows[0]["t"] <= loss["start"] and loss["end"] <= rows[-1]["t"])
         ] + scratch.data["parked_losses"]
-        self.data["native_replays"][ident] = {"digest": digest, "reports": rows}
+        self.data["native_replays"][ident] = {
+            "digest": digest,
+            "reports": rows,
+            "merged_ids": [tail["id"]] if tail else [],
+        }
         self.changed()
         return True
 

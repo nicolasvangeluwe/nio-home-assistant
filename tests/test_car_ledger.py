@@ -21,6 +21,7 @@ spec = importlib.util.spec_from_file_location("car_ledger.ledger", root / "ledge
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 Ledger = module.Ledger
+provisional_home_charge = module.provisional_home_charge
 
 
 class CalculationTests(unittest.TestCase):
@@ -366,6 +367,83 @@ class CalculationTests(unittest.TestCase):
         self.assertIn("home-114", self.ledger.data["charges"])
         before = json.loads(json.dumps(self.ledger.data))
         self.assertFalse(self.ledger.repair_native_trip(ident, reports, self.t + 4000))
+        self.assertEqual(self.ledger.data, before)
+
+    def test_active_home_session_without_completed_history_is_projection_only(self):
+        self.ledger.import_home([], active_session_id=115)
+        self.assertEqual(self.ledger.data["charges"], {})
+        card = provisional_home_charge("home-115", self.t, self.t + 600, 0.46, 0.05, 89)
+        self.assertEqual(card["id"], "home-115")
+        self.assertTrue(card["ongoing"])
+        self.assertAlmostEqual(card["kwh"], 0.46)
+        self.assertEqual(self.ledger.data["charges"], {})
+        self.ledger.import_home(
+            [[115, self.t, self.t + 1200, 2.0, 85, 0.24, 0.645, 0.405]],
+            active_session_id=None,
+        )
+        self.assertEqual(len(self.ledger.data["charges"]), 1)
+        self.assertFalse(self.ledger.data["charges"]["home-115"].get("ongoing"))
+
+    def test_late_odometer_tail_stays_in_one_trip_and_legacy_split_can_merge(self):
+        # An unchanged-distance SoC report precedes the final odometer tick.
+        readings = [
+            (self.t, 1000, 80),
+            (self.t + 120, 1001, 79.5),
+            (self.t + 240, 1002, 79),
+            (self.t + 360, 1002, 78.5),
+            (self.t + 480, 1003, 78.5),
+        ]
+        for t, odo, soc in readings:
+            self.ledger.ingest(t, odo, None, soc_pct=soc)
+        self.ledger.tick(self.t + 2400)
+        combined = deepcopy(self.ledger.data["trips"][0])
+        self.assertEqual(combined["distance_km"], 3)
+        self.assertAlmostEqual(sum(s["kwh"] for s in combined["segments"]), 1.35)
+
+        # Mimic two adjacent, already-archived records from the old adapter.
+        primary = deepcopy(combined)
+        primary["segments"] = primary["segments"][:-1]
+        primary.update(
+            end=self.t + 240,
+            last_movement=self.t + 240,
+            end_odo=1002,
+            end_energy=71.1,
+            distance_km=2,
+        )
+        tail = deepcopy(combined)
+        tail["id"] = "legacy-false-tail"
+        tail["segments"] = [dict(combined["segments"][-1], kwh=None, complete=False)]
+        tail.update(
+            start=self.t + 360,
+            start_odo=1002,
+            start_energy=70.65,
+            distance_km=1,
+            complete=False,
+        )
+        self.ledger.data["trips"] = [primary, tail]
+        raw = deepcopy(self.ledger.data["samples"])
+        reports = [
+            dict(t=t, odo=odo, soc_pct=soc, soc_time=t - 10, home_connected=False)
+            for t, odo, soc in readings
+        ]
+        self.assertTrue(
+            self.ledger.repair_native_trip(
+                primary["id"], reports, self.t + 3000, merge_tail_id=tail["id"]
+            )
+        )
+        self.assertEqual(len(self.ledger.data["trips"]), 1)
+        repaired = self.ledger.data["trips"][0]
+        self.assertEqual(repaired["id"], primary["id"])
+        self.assertEqual(repaired["distance_km"], 3)
+        self.assertEqual(repaired["end_odo"], 1003)
+        self.assertAlmostEqual(sum(s["kwh"] for s in repaired["segments"]), 1.35)
+        self.assertEqual(self.ledger.data["samples"], raw)
+        before = deepcopy(self.ledger.data)
+        self.assertFalse(
+            self.ledger.repair_native_trip(
+                primary["id"], reports, self.t + 4000, merge_tail_id=tail["id"]
+            )
+        )
         self.assertEqual(self.ledger.data, before)
 
     def test_reconfiguration_keeps_archives_and_starts_new_baseline(self):
