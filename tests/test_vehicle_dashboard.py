@@ -1,12 +1,14 @@
 """Dashboard preferences remain optional, per car and free of secrets."""
 
+import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers.storage import Store
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.nio_telematics.car_dashboard.coordinator import (
@@ -19,6 +21,7 @@ from custom_components.nio_telematics.vehicle_dashboard import (
     _vehicle,
     async_reconcile_ledger,
     preferences_for_entry,
+    websocket_backup,
 )
 
 
@@ -223,3 +226,77 @@ async def test_selected_sources_reach_optional_ledger(hass: HomeAssistant) -> No
     assert settings["odometer"] == "sensor.chosen_odometer"
     assert settings["home_connected"] == "binary_sensor.charger_connected"
     assert settings["cost_sources"] == costs
+
+
+async def test_dashboard_backup_preview_and_restore_preserve_vehicle_identity(
+    hass: HomeAssistant,
+) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Test car",
+        data={"vin": "HJNNBDLH3SB701418"},
+        options={"unrelated": {"keep": True}, "vehicle_dashboard": {"language": "nl"}},
+    )
+    entry.add_to_hass(hass)
+    settings_store = Store(hass, 1, "nio_telematics.car_dashboard_settings")
+    hass.data["nio_telematics_car_dashboard"] = {
+        "recorders": {},
+        "settings": {},
+        "store": settings_store,
+        "lock": asyncio.Lock(),
+    }
+    history_store = Store(hass, 1, f"nio_car_dashboard.{entry.entry_id}")
+    original = {
+        "trips": [],
+        "charges": {},
+        "samples": [],
+        "counters": [],
+        "parked_losses": [],
+        "source_transitions": [],
+        "native_replays": {},
+        "last": None,
+        "active": None,
+        "opening": None,
+        "preferences": {},
+        "revision": 3,
+    }
+    await history_store.async_save(original)
+    connection = SimpleNamespace(
+        user=SimpleNamespace(is_admin=True), send_result=Mock(), send_error=Mock()
+    )
+    await websocket_backup(
+        hass,
+        connection,
+        {"id": 1, "entry_id": entry.entry_id, "action": "export"},
+    )
+    backup = connection.send_result.call_args.args[1]
+    assert "vin" not in backup
+    assert backup["history"]["revision"] == 3
+
+    backup["preferences"]["language"] = "en"
+    backup["history"]["revision"] = 4
+    await websocket_backup(
+        hass,
+        connection,
+        {"id": 2, "entry_id": entry.entry_id, "action": "preview", "backup": backup},
+    )
+    preview = connection.send_result.call_args.args[1]
+    assert preview["current"]["revision"] == 3
+    assert (await history_store.async_load())["revision"] == 3
+
+    await websocket_backup(
+        hass,
+        connection,
+        {
+            "id": 3,
+            "entry_id": entry.entry_id,
+            "action": "restore",
+            "backup": backup,
+            "expected_revision": 3,
+            "confirmation": "RESTORE",
+        },
+    )
+    assert not connection.send_error.called
+    assert entry.options["unrelated"] == {"keep": True}
+    assert entry.options["vehicle_dashboard"]["language"] == "en"
+    assert (await history_store.async_load())["revision"] == 4

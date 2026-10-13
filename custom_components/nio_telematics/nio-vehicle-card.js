@@ -56,6 +56,62 @@ const NIO_COST_INPUTS = {
   de:['Quellen für erfasste Kosten','Ladeenergie (kumulierte kWh)','Solarladeenergie (kumulierte kWh)','Ladekosten (kumulierte Währung)','Netzbezugspreis (Währung/kWh)','Einspeisepreis (Währung/kWh)'],
   fr:['Sources des coûts enregistrés','Énergie de charge (kWh cumulés)','Énergie solaire de charge (kWh cumulés)','Coût de charge (devise cumulée)','Prix du réseau (devise/kWh)','Prix de revente solaire (devise/kWh)']
 };
+const NIO_FIELD_HELP = {
+  en: {
+    vehicle: 'Optional. Leave empty to use the matching NIO sensor. Select another Home Assistant entity only if you need an override.',
+    evcc_connected: 'Optional charger connection sensor. Accepts on/off, connected/disconnected or true/false; EVCC is not required.',
+    evcc_power: 'Optional charger power sensor in W or kW. This is shown beside charging status.',
+    evcc_history: 'Optional EVCC-compatible charging-session history. Leave empty if your charger does not provide it.',
+    electricity_price: 'Optional current electricity price per kWh, for the overview only.',
+    reimbursement_rate: 'Optional reimbursement rate per kWh, for the overview only.',
+    battery_capacity_kwh: 'Usable battery capacity in kWh. Required only for trip and charging history.',
+    full_range_km: 'Range shown by your car at 100% charge, in km. Required only for trip and charging history.',
+    ledger_enabled: 'Store trips and charging history locally in Home Assistant. Disabling it does not erase saved history.',
+    costs: 'Optional recorded-cost inputs. Supply all five from the same accounting source, or leave all empty.'
+  },
+  nl: {
+    vehicle: 'Optioneel. Leeg gebruikt de bijbehorende NIO-sensor. Kies alleen een andere Home Assistant-entiteit als je die wilt gebruiken.',
+    evcc_connected: 'Optionele sensor voor de laderverbinding. Aan/uit of verbonden/niet verbonden; EVCC is niet verplicht.',
+    evcc_power: 'Optionele sensor voor laadvermogen in W of kW.',
+    evcc_history: 'Optionele EVCC-compatibele laadsessiehistoriek. Laat leeg als je lader dit niet levert.',
+    electricity_price: 'Optionele actuele stroomprijs per kWh voor het overzicht.',
+    reimbursement_rate: 'Optioneel vergoedingstarief per kWh voor het overzicht.',
+    battery_capacity_kwh: 'Bruikbare batterijcapaciteit in kWh. Alleen nodig voor rit- en laadgeschiedenis.',
+    full_range_km: 'Bereik dat je auto bij 100% toont, in km. Alleen nodig voor rit- en laadgeschiedenis.',
+    ledger_enabled: 'Sla ritten en laadsessies lokaal in Home Assistant op. Uitschakelen wist de opgeslagen geschiedenis niet.',
+    costs: 'Optionele kostenbronnen. Vul alle vijf uit dezelfde boekhouding in, of laat ze allemaal leeg.'
+  },
+  de: {
+    vehicle: 'Optional. Leer verwendet den passenden NIO-Sensor. Nur für eine andere Home-Assistant-Entität ausfüllen.',
+    evcc_connected: 'Optionaler Sensor für die Ladegerätverbindung. EVCC ist nicht erforderlich.',
+    evcc_power: 'Optionaler Ladeleistungssensor in W oder kW.',
+    evcc_history: 'Optionaler EVCC-kompatibler Sitzungsverlauf. Sonst leer lassen.',
+    electricity_price: 'Optionaler aktueller Strompreis pro kWh für die Übersicht.',
+    reimbursement_rate: 'Optionaler Erstattungssatz pro kWh für die Übersicht.',
+    battery_capacity_kwh: 'Nutzbare Batteriekapazität in kWh. Nur für Fahrten- und Ladeverlauf erforderlich.',
+    full_range_km: 'Bei 100% im Auto angezeigte Reichweite in km. Nur für den Verlauf erforderlich.',
+    ledger_enabled: 'Fahrten und Ladevorgänge lokal in Home Assistant speichern. Ausschalten löscht den Verlauf nicht.',
+    costs: 'Optionale Kostenquellen. Alle fünf aus derselben Abrechnung eintragen oder alle leer lassen.'
+  },
+  fr: {
+    vehicle: 'Facultatif. Vide utilise le capteur NIO correspondant. Renseignez-le seulement pour choisir une autre entité Home Assistant.',
+    evcc_connected: 'Capteur de connexion à la borne facultatif. EVCC n’est pas obligatoire.',
+    evcc_power: 'Capteur de puissance de charge facultatif, en W ou kW.',
+    evcc_history: 'Historique de sessions compatible EVCC facultatif. Sinon, laissez vide.',
+    electricity_price: 'Prix actuel de l’électricité par kWh, facultatif pour la vue d’ensemble.',
+    reimbursement_rate: 'Taux de remboursement par kWh, facultatif pour la vue d’ensemble.',
+    battery_capacity_kwh: 'Capacité utile de la batterie en kWh. Requise seulement pour l’historique.',
+    full_range_km: 'Autonomie affichée à 100% par la voiture, en km. Requise seulement pour l’historique.',
+    ledger_enabled: 'Conserver les trajets et charges localement dans Home Assistant. Désactiver ne supprime pas l’historique.',
+    costs: 'Sources de coûts facultatives. Indiquez les cinq d’une même comptabilité ou laissez-les vides.'
+  }
+};
+const NIO_BACKUP_WORDS = {
+  en: ['Backup & restore','Download backup','Choose backup file','Restore backup','Backup contains {imported} trips and {charges} charges; this car currently has {current} trips and {currentCharges} charges. Restoring replaces existing history.','Export your current data first. OAuth credentials are never included.','Replace this car’s dashboard settings and saved history with the selected backup?'],
+  nl: ['Back-up en herstel','Back-up downloaden','Back-upbestand kiezen','Back-up herstellen','Back-up bevat {imported} ritten en {charges} laadsessies; deze auto heeft nu {current} ritten en {currentCharges} laadsessies. Herstel vervangt de bestaande geschiedenis.','Exporteer eerst je huidige gegevens. OAuth-gegevens zijn nooit inbegrepen.','Instellingen en geschiedenis van deze auto vervangen door deze back-up?'],
+  de: ['Sicherung und Wiederherstellung','Sicherung herunterladen','Sicherungsdatei wählen','Sicherung wiederherstellen','Sicherung enthält {imported} Fahrten und {charges} Ladevorgänge; dieses Auto hat derzeit {current} Fahrten und {currentCharges} Ladevorgänge. Die Wiederherstellung ersetzt den Verlauf.','Aktuelle Daten zuerst exportieren. OAuth-Zugangsdaten sind nie enthalten.','Einstellungen und Verlauf dieses Autos durch diese Sicherung ersetzen?'],
+  fr: ['Sauvegarde et restauration','Télécharger la sauvegarde','Choisir un fichier','Restaurer','Sauvegarde : {imported} trajets et {charges} charges ; voiture actuelle : {current} trajets et {currentCharges} charges. La restauration remplace l’historique.','Exportez d’abord vos données actuelles. Les identifiants OAuth ne sont jamais inclus.','Remplacer les réglages et l’historique de cette voiture par cette sauvegarde ?']
+};
 
 class NioVehicleCard extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});this.vehicles=[];this.loading=false;this.openDetails=false;this.error='';}
@@ -83,6 +139,10 @@ class NioVehicleCard extends HTMLElement {
       return this._hass.states[power]?[{name:match[1].replace(/_/g,' '),connected:id,power}]:[];
     });
   }
+  fieldHelp(key, language){
+    const message=(NIO_FIELD_HELP[language]||NIO_FIELD_HELP.en)[key]||NIO_FIELD_HELP.en[key];
+    return `<details class="field-help"><summary aria-label="Help">?</summary><p>${this.esc(message)}</p></details>`;
+  }
   locale(){const setting=this.vehicle?.preferences?.language||'auto';return setting==='auto'?this._hass?.language||'en':setting;}
   stamp(entity){const state=this.state(entity);const raw=state?.attributes?.last_valid_sample||state?.attributes?.source_sample;if(!raw)return null;const date=new Date(raw);return Number.isNaN(date.getTime())?null:new Intl.DateTimeFormat(this.locale(),{dateStyle:'short',timeStyle:'short'}).format(date);}
   artwork(model){
@@ -105,17 +165,51 @@ class NioVehicleCard extends HTMLElement {
     const householdFields=[['evcc_connected',w.connected],['evcc_power',w.power],['evcc_history',w.history],['electricity_price',w.price],['reimbursement_rate',w.reimbursement]];
     const inputLanguage=this.locale().replace('_','-').split('-')[0].toLowerCase();
     const costLabels=NIO_COST_INPUTS[inputLanguage]||NIO_COST_INPUTS.en;
+    const backupWords=NIO_BACKUP_WORDS[inputLanguage]||NIO_BACKUP_WORDS.en;
     const costFields=['cost_energy','cost_solar','cost_total_cost','cost_grid_price','cost_export_price'].map((key,i)=>[key,costLabels[i+1]]);
     const fields=[...vehicleFields,...householdFields,...costFields];
     const entities=Object.keys(this._hass.states).sort();
     const presets=this.evccPresets();
     const options=entities.map(id=>`<option value="${this.esc(id)}"></option>`).join('');
     const dialog=document.createElement('dialog');
-    const sourceInputs=vehicleFields.map(([key,label,nativeKey])=>`<label>${this.esc(label)}<input name="${key}" list="nio-entities" value="${this.esc(p[key]||'')}" placeholder="${this.esc(v.native_entities?.[nativeKey]||'NIO default')}"></label>`).join('');
-    const extraInputs=householdFields.map(([key,label])=>`<label>${this.esc(label)}<input name="${key}" list="nio-entities" value="${this.esc(p[key]||'')}"></label>`).join('');
-    const costInputs=`<details class="advanced"><summary>${this.esc(costLabels[0])}</summary>${costFields.map(([key,label])=>`<label>${this.esc(label)}<input name="${key}" list="nio-entities" value="${this.esc(p[key]||'')}"></label>`).join('')}</details>`;
+    const sourceInputs=vehicleFields.map(([key,label,nativeKey])=>`<div class="field-row"><label>${this.esc(label)}<input name="${key}" list="nio-entities" value="${this.esc(p[key]||'')}" placeholder="${this.esc(v.native_entities?.[nativeKey]||'NIO default')}"></label>${this.fieldHelp('vehicle',inputLanguage)}</div>`).join('');
+    const extraInputs=householdFields.map(([key,label])=>`<div class="field-row"><label>${this.esc(label)}<input name="${key}" list="nio-entities" value="${this.esc(p[key]||'')}"></label>${this.fieldHelp(key,inputLanguage)}</div>`).join('');
+    const costInputs=`<details class="advanced"><summary>${this.esc(costLabels[0])}</summary><p class="source-hint">${this.esc((NIO_FIELD_HELP[inputLanguage]||NIO_FIELD_HELP.en).costs)}</p>${costFields.map(([key,label])=>`<label>${this.esc(label)}<input name="${key}" list="nio-entities" value="${this.esc(p[key]||'')}"></label>`).join('')}</details>`;
     const presetPicker=presets.length?`<label>${this.esc(NIO_EVCC_PROMPT[inputLanguage]||NIO_EVCC_PROMPT.en)}<select data-evcc-preset><option value="">—</option>${presets.map((item,i)=>`<option value="${i}">${this.esc(item.name)}</option>`).join('')}</select></label>`:'';
     dialog.innerHTML=`<form><h2>${this.esc(w.settings)}</h2><label>${this.esc(w.model)}<select name="model">${NIO_MODELS.map(m=>`<option value="${m}" ${m===p.model?'selected':''}>${this.esc(m==='auto'?w.automatic:m)}</option>`).join('')}</select></label><label>${this.esc(w.language)}<select name="language">${NIO_LANGUAGES.map(m=>`<option value="${m}" ${m===p.language?'selected':''}>${this.esc(m==='auto'?w.automatic:m)}</option>`).join('')}</select></label><datalist id="nio-entities">${options}</datalist><p class="source-hint">${this.esc(w.sourceHint||'Leave a vehicle source empty to use its NIO entity.')}</p>${sourceInputs}${presetPicker}${extraInputs}<label>${this.esc(w.capacity)} (kWh)<input name="battery_capacity_kwh" type="number" min="1" max="300" step="0.1" value="${p.battery_capacity_kwh??''}"></label><label>${this.esc(w.fullRange)} (km)<input name="full_range_km" type="number" min="1" max="2000" step="1" value="${p.full_range_km??''}"></label><label><input name="ledger_enabled" type="checkbox" ${p.ledger_enabled?'checked':''}> ${this.esc(w.ledgerEnabled)}</label>${costInputs}<p class="error" role="alert"></p><div class="actions"><button type="button" data-cancel>${this.esc(w.cancel)}</button><button type="submit">${this.esc(w.save)}</button></div></form>`;
+    for(const key of ['battery_capacity_kwh','full_range_km','ledger_enabled']){
+      dialog.querySelector(`[name="${key}"]`)?.closest('label')?.insertAdjacentHTML('afterend',this.fieldHelp(key,inputLanguage));
+    }
+    dialog.querySelector('.error').insertAdjacentHTML('beforebegin',`<details class="backup"><summary>${this.esc(backupWords[0])}</summary><p>${this.esc(backupWords[5])}</p><button type="button" data-export>${this.esc(backupWords[1])}</button><label>${this.esc(backupWords[2])}<input type="file" accept=".json,application/json" data-import></label><p data-backup-preview aria-live="polite"></p><button type="button" data-restore hidden>${this.esc(backupWords[3])}</button></details>`);
+    let selectedBackup=null,backupPreview=null;
+    const errorNode=dialog.querySelector('.error');
+    dialog.querySelector('[data-export]').onclick=async()=>{
+      errorNode.textContent='';
+      try{
+        const data=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/backup',entry_id:v.entry_id,action:'export'});
+        const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+        const link=document.createElement('a');link.href=url;link.download=`nio-dashboard-${new Date().toISOString().slice(0,10)}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      }catch(err){errorNode.textContent=err.message||String(err);}
+    };
+    dialog.querySelector('[data-import]').onchange=async event=>{
+      selectedBackup=null;backupPreview=null;dialog.querySelector('[data-restore]').hidden=true;dialog.querySelector('[data-backup-preview]').textContent='';errorNode.textContent='';
+      const file=event.target.files?.[0];if(!file)return;
+      if(file.size>8*1024*1024){errorNode.textContent='Backup exceeds the 8 MB transfer limit';return;}
+      try{
+        selectedBackup=JSON.parse(await file.text());
+        backupPreview=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/backup',entry_id:v.entry_id,action:'preview',backup:selectedBackup});
+        dialog.querySelector('[data-backup-preview]').textContent=backupWords[4].replace('{imported}',backupPreview.imported.trips).replace('{charges}',backupPreview.imported.charges).replace('{current}',backupPreview.current.trips).replace('{currentCharges}',backupPreview.current.charges);
+        dialog.querySelector('[data-restore]').hidden=false;
+      }catch(err){selectedBackup=null;backupPreview=null;errorNode.textContent=err.message||String(err);}
+    };
+    dialog.querySelector('[data-restore]').onclick=async()=>{
+      if(!selectedBackup||!backupPreview||!window.confirm(backupWords[6]))return;
+      errorNode.textContent='';
+      try{
+        const result=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/backup',entry_id:v.entry_id,action:'restore',backup:selectedBackup,expected_revision:backupPreview.current.revision,confirmation:'RESTORE'});
+        this.vehicles=this.vehicles.map(old=>old.entry_id===v.entry_id?result.vehicle:old);dialog.close();this.render();
+      }catch(err){errorNode.textContent=err.message||String(err);dialog.querySelector('[data-restore]').hidden=true;}
+    };
     this.shadowRoot.append(dialog);
     dialog.querySelector('[data-evcc-preset]')?.addEventListener('change',event=>{if(event.target.value==='')return;const choice=presets[Number(event.target.value)];if(!choice)return;dialog.querySelector('[name="evcc_connected"]').value=choice.connected;dialog.querySelector('[name="evcc_power"]').value=choice.power;});
     dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove());
@@ -198,7 +292,7 @@ class NioVehicleDashboard extends NioVehicleCard {
     const host=this.shadowRoot.querySelector('[data-history]');
     if(!host||host.querySelector('car-ledger-card'))return;
     try{
-      if(!customElements.get('car-ledger-card'))await import('/nio_telematics/car-dashboard.js?v=0.2.0-dev.5');
+      if(!customElements.get('car-ledger-card'))await import('/nio_telematics/car-dashboard.js?v=0.3.0-dev.1');
       if(this.vehicle?.entry_id!==entryId||!host.isConnected)return;
       const ledger=document.createElement('car-ledger-card');ledger.setConfig({entry_id:entryId,language:this.locale()});
       const sheet=new CSSStyleSheet();
@@ -232,8 +326,11 @@ class NioVehicleDashboard extends NioVehicleCard {
 }
 NioVehicleDashboard.styles+=' .car-placeholder{display:grid;place-items:center;gap:7px;min-height:175px;color:var(--secondary-text-color);font-size:13px}.car-placeholder svg{width:110px;height:90px;opacity:.7}.empty-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:7px 0}.empty-tabs span{text-align:center;padding:10px 1px;font-size:12px;color:var(--secondary-text-color);border:1px solid color-mix(in srgb,currentColor 14%,transparent);border-radius:10px}.history-setup{display:block;margin:0 auto 16px;padding:9px 13px;border:1px solid color-mix(in srgb,currentColor 22%,transparent);border-radius:10px;background:transparent;color:inherit;font:inherit;font-size:12px;cursor:pointer}';
 NioVehicleCard.styles+=' .source-hint{font-size:11px;line-height:1.45;color:var(--secondary-text-color);margin:14px 0 8px}.advanced{border-top:1px solid var(--divider-color,#8884);margin-top:17px;padding-top:13px}.advanced summary{cursor:pointer;font-size:12px;font-weight:400}';
+NioVehicleCard.styles+=' dialog .field-row{display:flex;align-items:center;gap:8px}dialog .field-row label{flex:1;min-width:0}dialog .field-help{font-size:11px;color:var(--secondary-text-color);margin:3px 0 9px}dialog .field-row .field-help{flex:none;margin:15px 0 0}dialog .field-help summary{display:grid;place-items:center;width:24px;height:24px;border:1px solid color-mix(in srgb,currentColor 30%,transparent);border-radius:50%;cursor:pointer;list-style:none}dialog .field-help summary::-webkit-details-marker{display:none}dialog .field-help summary:focus-visible{outline:2px solid var(--primary-color,#426b66)}dialog .field-help p{margin:6px 0 10px;line-height:1.45}dialog .field-row .field-help[open] p{position:absolute;z-index:2;right:20px;left:20px;padding:10px 12px;border:1px solid var(--divider-color,#8886);border-radius:10px;background:var(--card-background-color,#fff);box-shadow:0 6px 20px #0002}';
 NioVehicleDashboard.styles+=' .car-art{position:relative;isolation:isolate}.car-art:before{content:"";position:absolute;z-index:-1;left:18%;right:18%;bottom:16%;height:12%;border-radius:50%;background:radial-gradient(ellipse,#0003 0%,#0002 46%,transparent 75%);filter:blur(7px)}.car-photo{position:relative;filter:drop-shadow(0 5px 4px #0002)}.metric-icon ha-icon{--mdc-icon-size:22px;width:30px;height:22px;color:var(--secondary-text-color)}.third-icon svg[data-car-icon="power-plug"]{width:22px;height:22px;color:var(--primary-text-color)}.metric strong{font-weight:300}.settings{background:color-mix(in srgb,var(--card-background-color,#fff) 87%,transparent)}';
 NioVehicleDashboard.styles+=' dialog{width:min(92vw,440px);max-height:85dvh;overflow:auto;border:1px solid color-mix(in srgb,currentColor 22%,transparent);border-radius:18px;padding:20px;background:var(--card-background-color,#fff);color:var(--primary-text-color);font-family:"Segoe UI",system-ui,Arial,sans-serif}dialog::backdrop{background:#0008}dialog h2{font-size:19px;font-weight:400;margin:0 0 12px}dialog label{display:block;font-size:12px;margin:12px 0}dialog input,dialog select{display:block;width:100%;margin-top:5px;padding:9px 10px;border:1px solid color-mix(in srgb,currentColor 22%,transparent);border-radius:9px;background:var(--card-background-color,#fff);color:inherit;font:inherit}dialog input[type=checkbox]{display:inline-block;width:16px;height:16px;margin:0 7px 2px 0;vertical-align:middle;accent-color:var(--primary-color,#426b66)}dialog .source-hint{font-size:11px;line-height:1.45;color:var(--secondary-text-color)}dialog .advanced{border-top:1px solid color-mix(in srgb,currentColor 22%,transparent);margin-top:16px;padding-top:12px}dialog .advanced summary{font-size:12px;cursor:pointer}dialog .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}dialog .actions button{border:1px solid color-mix(in srgb,currentColor 22%,transparent);border-radius:10px;padding:9px 14px;background:var(--card-background-color,#fff);color:inherit;font:inherit;cursor:pointer}dialog .actions button[type=submit]{background:var(--primary-color,#426b66);color:white}dialog .error{color:var(--error-color,#b44);font-size:12px}';
+NioVehicleCard.styles+=' dialog .backup{border-top:1px solid color-mix(in srgb,currentColor 22%,transparent);margin-top:16px;padding-top:12px;font-size:12px}dialog .backup summary{cursor:pointer}dialog .backup p{font-size:11px;line-height:1.45;color:var(--secondary-text-color)}dialog .backup button{border:1px solid color-mix(in srgb,currentColor 22%,transparent);border-radius:9px;padding:8px 11px;background:var(--card-background-color,#fff);color:inherit;cursor:pointer}dialog .backup button[hidden]{display:none}dialog .backup input[type=file]{font-size:11px}';
+NioVehicleDashboard.styles+=' dialog .field-row{display:flex;align-items:center;gap:8px}dialog .field-row label{flex:1;min-width:0}dialog .field-help{font-size:11px;color:var(--secondary-text-color);margin:3px 0 9px}dialog .field-row .field-help{flex:none;margin:15px 0 0}dialog .field-help summary{display:grid;place-items:center;width:24px;height:24px;border:1px solid color-mix(in srgb,currentColor 30%,transparent);border-radius:50%;cursor:pointer;list-style:none}dialog .field-help summary::-webkit-details-marker{display:none}dialog .field-help summary:focus-visible{outline:2px solid var(--primary-color,#426b66)}dialog .field-help p{margin:6px 0 10px;line-height:1.45}dialog .field-row .field-help[open] p{position:absolute;z-index:2;right:20px;left:20px;padding:10px 12px;border:1px solid color-mix(in srgb,currentColor 22%,transparent);border-radius:10px;background:var(--card-background-color,#fff);box-shadow:0 6px 20px #0002}dialog .backup{border-top:1px solid color-mix(in srgb,currentColor 22%,transparent);margin-top:16px;padding-top:12px;font-size:12px}dialog .backup summary{cursor:pointer}dialog .backup p{font-size:11px;line-height:1.45;color:var(--secondary-text-color)}dialog .backup button{border:1px solid color-mix(in srgb,currentColor 22%,transparent);border-radius:9px;padding:8px 11px;background:var(--card-background-color,#fff);color:inherit;cursor:pointer}dialog .backup button[hidden]{display:none}dialog .backup input[type=file]{font-size:11px}';
 if(!customElements.get('nio-vehicle-card-editor'))customElements.define('nio-vehicle-card-editor',NioVehicleCardEditor);
 if(!customElements.get('nio-vehicle-card'))customElements.define('nio-vehicle-card',NioVehicleCard);
 if(!customElements.get('nio-vehicle-dashboard'))customElements.define('nio-vehicle-dashboard',NioVehicleDashboard);
