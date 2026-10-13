@@ -301,4 +301,5 @@ async def test_dashboard_backup_preview_and_restore_preserve_vehicle_identity(
     assert not connection.send_error.called, connection.send_error.call_args_list
     assert entry.options["unrelated"] == {"keep": True}
     assert entry.options["vehicle_dashboard"]["language"] == "en"
-    assert (await history_store.async_load())["revision"] == 4
+    restored_store = Store(hass, 1, f"nio_car_dashboard.{entry.entry_id}")
+    assert (await restored_store.async_load())["revision"] == 4
