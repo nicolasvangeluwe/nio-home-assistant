@@ -298,7 +298,7 @@ async def test_dashboard_backup_preview_and_restore_preserve_vehicle_identity(
             "confirmation": "RESTORE",
         },
     )
-    assert not connection.send_error.called
+    assert not connection.send_error.called, connection.send_error.call_args_list
     assert entry.options["unrelated"] == {"keep": True}
     assert entry.options["vehicle_dashboard"]["language"] == "en"
     assert (await history_store.async_load())["revision"] == 4
