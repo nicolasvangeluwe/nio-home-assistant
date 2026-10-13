@@ -3,6 +3,16 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.2.0-dev.2
+
+- Show a live, provisional charging session as ongoing in the optional vehicle
+  dashboard. Its changing projection timestamp is no longer displayed as a
+  completed end time, and the unfinished session is not offered for receipt
+  editing. Completed sessions keep their normal dates and controls.
+- Refresh the bundled history module with this frontend change. Vehicle
+  telemetry, polling, entity IDs, archived ledger data and existing dashboards
+  are unchanged.
+
 ## 0.2.0-dev.1
 
 - Add an opt-in, app-style NIO Vehicle Dashboard alongside the existing compact

@@ -127,7 +127,7 @@ class NioVehicleDashboard extends NioVehicleCard {
     const host=this.shadowRoot.querySelector('[data-history]');
     if(!host||host.querySelector('car-ledger-card'))return;
     try{
-      if(!customElements.get('car-ledger-card'))await import('/nio_telematics/car-dashboard.js');
+      if(!customElements.get('car-ledger-card'))await import('/nio_telematics/car-dashboard.js?v=0.2.0-dev.2');
       if(this.vehicle?.entry_id!==entryId||!host.isConnected)return;
       const ledger=document.createElement('car-ledger-card');ledger.setConfig({entry_id:entryId,language:this.locale()});
       const sheet=new CSSStyleSheet();

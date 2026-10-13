@@ -70,6 +70,20 @@ test('history uses English outside Dutch HA and keeps Dutch for the owner', () =
   assert.equal(Ledger.prototype.translate.call(english, 'Ritten'), 'Trips');
   assert.equal(Ledger.prototype.translate.call(english, 'Laden'), 'Charging');
   assert.equal(Ledger.prototype.translate.call(dutch, 'Ritten'), 'Ritten');
+  assert.equal(Ledger.prototype.translate.call(english, 'Lopende sessie'), 'Ongoing session');
+});
+
+test('ongoing charge is not presented as a completed session', () => {
+  const card = Object.create(Ledger.prototype);
+  card.config = {language: 'nl'};
+  const active = card.chargeCard({id:'home-114',kind:'home',category:'home',start:1700000000,end:1700000900,kwh:0.91,cost_eur:null,benefit_eur:null,confirmed:true,ongoing:true});
+  assert.match(active, /Lopende sessie/);
+  assert.match(active, /class="session active"/);
+  assert.doesNotMatch(active, / → /);
+  assert.doesNotMatch(active, /Prijs aanvullen/);
+  const finished = card.chargeCard({id:'home-113',kind:'home',category:'home',start:1700000000,end:1700000900,kwh:1,cost_eur:0.1,confirmed:true});
+  assert.match(finished, / → /);
+  assert.doesNotMatch(finished, /Lopende sessie/);
 });
 
 test('other NIO models use the approved NIO front icon, not a fabricated model image', () => {

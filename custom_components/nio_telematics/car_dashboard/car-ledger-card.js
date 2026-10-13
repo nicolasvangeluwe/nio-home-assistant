@@ -1,6 +1,7 @@
 /* Car Ledger: snapshot UI. Source updates never replace the visible session list. */
 const LEDGER_ENGLISH = {
   'Laden':'Charging','Ritten':'Trips','Verbruik':'Consumption','Stilstand':'Parked',
+  'Lopende sessie':'Ongoing session',
   'Vernieuwen':'Refresh','Autohistoriek':'Vehicle history','Laatste laadsessies':'Recent charging',
   'Laatste ritten':'Recent trips','Alle laadsessies':'All charging sessions','Alle ritten':'All trips',
   'Terug naar de laatste drie':'Back to recent three','Alle stilstandperiodes':'All parked periods',
@@ -161,8 +162,9 @@ class CarLedgerCard extends HTMLElement {
   endDate(c){return this.localISO(new Date(c.start*1000))===this.localISO(new Date(c.end*1000))?this.date(c.end,{hour:'2-digit',minute:'2-digit'}):this.date(c.end);}
   monthKey(t){const d=new Date(t*1000);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
   chargeCard(c){
-    const needs=c.cost_eur==null||!c.confirmed;
-    return `<button class="session" data-charge="${this.esc(c.id)}"><div class="row session-head"><span>${this.date(c.start)} → ${this.endDate(c)}</span><span class="place">${c.kind==='candidate'?'Lading controleren':this.category(c.category)}${needs?' <span class="receipt" aria-label="Prijs aanvullen">＋€</span>':''}</span></div><div class="metrics three">${this.value('Geladen',c.kwh,'kWh',2)}${this.value('Laadkosten',c.cost_eur,'€',2)}${this.value(c.category==='home'?'Laadvoordeel':'Tarief',c.category==='home'?c.benefit_eur:(c.cost_eur!=null&&c.kwh?c.cost_eur/c.kwh:null),c.category==='home'?'€':'€/kWh',2)}</div><div class="muted">${c.category==='home'?`${c.reimbursement_eur==null?'':`Vergoeding ${this.n(c.reimbursement_eur,2)} €`}${c.solar_pct==null?'':` · ${this.n(c.solar_pct,0)}% zon`}`:c.energy_basis==='range_estimate'?'Berekende energie':''}</div></button>`;
+    const needs=!c.ongoing&&(c.cost_eur==null||!c.confirmed);
+    const time=c.ongoing?`${this.date(c.start)} · Lopende sessie`:`${this.date(c.start)} → ${this.endDate(c)}`;
+    return `<button class="session ${c.ongoing?'active':''}" data-charge="${this.esc(c.id)}"><div class="row session-head"><span>${time}</span><span class="place">${c.kind==='candidate'?'Lading controleren':this.category(c.category)}${needs?' <span class="receipt" aria-label="Prijs aanvullen">＋€</span>':''}</span></div><div class="metrics three">${this.value('Geladen',c.kwh,'kWh',2)}${this.value('Laadkosten',c.cost_eur,'€',2)}${this.value(c.category==='home'?'Laadvoordeel':'Tarief',c.category==='home'?c.benefit_eur:(c.cost_eur!=null&&c.kwh?c.cost_eur/c.kwh:null),c.category==='home'?'€':'€/kWh',2)}</div><div class="muted">${c.category==='home'?`${c.reimbursement_eur==null?'':`Vergoeding ${this.n(c.reimbursement_eur,2)} €`}${c.solar_pct==null?'':` · ${this.n(c.solar_pct,0)}% zon`}`:c.energy_basis==='range_estimate'?'Berekende energie':''}</div></button>`;
   }
   tripCard(t){
     const energy=this.tripEnergy(t);

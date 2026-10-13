@@ -43,7 +43,7 @@ the public changelog and release notes, and a live install where possible.
 
 The historical `0.1.1-dev.1` through `0.1.1-dev.21` sequence accumulated
 features as well as fixes; it is not a pattern to continue indefinitely. The
-next feature milestone should use `0.2.0-dev.1` and advance toward `0.2.0`.
+`0.2.0-dev.N` series is the current feature milestone and advances toward `0.2.0`.
 Reserve `1.0.0` for a reliably upgradeable core integration, with setup,
 authentication, key telemetry and documented behavior validated beyond the
 maintainer's single vehicle. A `0.2.0` release need not wait for every optional
