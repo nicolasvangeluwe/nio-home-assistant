@@ -20,7 +20,7 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../custom_components/ni
 });
 const Ledger = ledgerElements.get('car-ledger-card');
 
-function display(chargingState, connection, power) {
+function display(chargingState, connection, power, powerUnit = 'kW') {
   const nodes = new Map();
   const root = {
     querySelector(selector) {
@@ -31,7 +31,7 @@ function display(chargingState, connection, power) {
   };
   const states = {
     soc: { state: '75' }, range: { state: '416' }, odo: { state: '6266' }, limit: { state: '90' },
-    charging: { state: chargingState }, connected: { state: connection }, power: { state: power },
+    charging: { state: chargingState }, connected: { state: connection }, power: { state: power, attributes: {unit_of_measurement: powerUnit} },
   };
   const card = {
     vehicle: { entities: { battery_state_of_charge: 'soc', remaining_range: 'range', odometer: 'odo', maximum_soc: 'limit', charging_state: 'charging' }, preferences: { evcc_connected: 'connected', evcc_power: 'power' } },
@@ -39,6 +39,10 @@ function display(chargingState, connection, power) {
     words: { charging: 'Laden', connectedStatus: 'Verbonden', idle: 'Laadt niet', unavailable: 'Niet beschikbaar', power: 'Vermogen', limit: 'Laadlimiet' },
     state: id => states[id],
     number(id, digits = 0) { const value = Number(states[id]?.state); return Number.isFinite(value) ? value.toFixed(digits) : null; },
+    powerKw: Dashboard.prototype.powerKw,
+    connectedState: Dashboard.prototype.connectedState,
+    formatNumber: Dashboard.prototype.formatNumber,
+    locale: () => 'en',
     stamp: () => '',
     _hass: {},
   };
@@ -57,11 +61,29 @@ test('positive power means charging even when native state is sparse', () => {
   assert.equal(display('unknown', 'on', '4.2').get('[data-value="status"]').textContent, 'Laden · Verbonden');
 });
 
+test('a non-EVCC charger with watts and textual connection is accepted', () => {
+  const nodes = display('unknown', 'connected', '4200', 'W');
+  assert.equal(nodes.get('[data-value="status"]').textContent, 'Laden · Verbonden');
+  assert.equal(nodes.get('[data-value="third"]').textContent, '4.2 kW');
+});
+
 test('no configured EVCC source falls back to native charge limit', () => {
   const nodes = display('not_charging', undefined, undefined);
   assert.equal(nodes.get('[data-value="status"]').textContent, 'Laadt niet');
   assert.equal(nodes.get('[data-label="third"]').textContent, 'Laadlimiet');
   assert.equal(nodes.get('[data-value="third"]').textContent, '90%');
+});
+
+test('EVCC quick setup only offers chargers with matching connection and power', () => {
+  const presets = Dashboard.prototype.evccPresets.call({ _hass: { states: {
+    'binary_sensor.evcc_garage_connected': {},
+    'sensor.evcc_garage_charge_power': {},
+    'binary_sensor.evcc_driveway_connected': {},
+    'sensor.other_charge_power': {},
+  } } });
+  assert.deepEqual(Array.from(presets, item => ({...item})), [{
+    name: 'garage', connected: 'binary_sensor.evcc_garage_connected', power: 'sensor.evcc_garage_charge_power',
+  }]);
 });
 
 test('history uses English outside Dutch HA and keeps Dutch for the owner', () => {
@@ -90,6 +112,10 @@ test('other NIO models use the approved NIO front icon, not a fabricated model i
   const html = Dashboard.prototype.carImage.call({esc: value => value}, 'EL6');
   assert.match(html, /class="car-placeholder"/);
   assert.doesNotMatch(html, /et5-touring-hero/);
+  const range = Dashboard.prototype.rangeIcon.call({}, 'EL6');
+  assert.match(range, /map-marker-distance/);
+  assert.doesNotMatch(range, /range-nio-d/);
+  assert.match(Dashboard.prototype.rangeIcon.call({}, 'ET5 Touring'), /range-nio-d/);
 });
 
 test('automatic model detection prefers ET5 Touring over the shorter ET5 name', () => {

@@ -74,7 +74,7 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
             now = dt_util.utcnow().timestamp()
             history = self.hass.states.get(self.settings["home_history"])
             connected = self.hass.states.get(self.settings["home_connected"])
-            if not connected or connected.state != "on":
+            if not _is_connected(connected):
                 self.active_home_id = None
             elif history and history.attributes.get("active_session_id") not in (
                 None,
@@ -132,7 +132,7 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
                         odo_t,
                         odo.state,
                         km,
-                        bool(connected and connected.state == "on"),
+                        _is_connected(connected),
                         soc_pct=soc_value,
                     ):
                         self.source_status = "fresh_native_soc"
@@ -162,7 +162,7 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
                             t,
                             odo.state,
                             rng.state,
-                            bool(connected and connected.state == "on"),
+                            _is_connected(connected),
                         )
                         self.source_status = "fresh"
                     else:
@@ -181,7 +181,7 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
         now = dt_util.utcnow().timestamp()
         result = self.ledger.snapshot(now, self.hass.config.time_zone)
         connected = self.hass.states.get(self.settings["home_connected"])
-        if self.active_home_id and connected and connected.state == "on":
+        if self.active_home_id and _is_connected(connected):
             active = result["active_home_charge"]
             if active is None:
                 # EVCC lists a session in history only after it completes. A
@@ -257,4 +257,16 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
 def _source_time(state, attribute):
     raw = state.attributes.get(attribute)
     stamp = dt_util.parse_datetime(raw) if isinstance(raw, str) else None
-    return stamp.timestamp() if stamp is not None else None
+    if stamp is not None:
+        return stamp.timestamp()
+    # User-selected HA sensors need not expose NIO's source timestamp.
+    reported = getattr(state, "last_reported", None) or state.last_updated
+    return reported.timestamp() if reported is not None else None
+
+
+def _is_connected(state):
+    return bool(
+        state
+        and str(state.state).lower()
+        in {"on", "true", "1", "connected", "plugged", "plugged_in"}
+    )

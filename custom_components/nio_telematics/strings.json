@@ -24,13 +24,23 @@
     "step": {
       "init": {
         "title": "Vehicle dashboard",
-        "description": "Optional display and household sources. NIO telemetry works without these. Leave a source empty to hide its feature.",
+        "description": "Optional vehicle and household sources. Leave a vehicle source empty to use its NIO entity automatically; connection and power can come from any HA charger, and EVCC is not required. History session import requires the EVCC-compatible format.",
         "data": {
           "model": "Car model for local artwork",
           "language": "Dashboard language (auto follows each viewer's Home Assistant language)",
-          "evcc_connected": "EVCC vehicle connected entity",
-          "evcc_power": "EVCC charging power entity",
-          "evcc_history": "EVCC charging history entity",
+          "soc_entity": "State of charge entity (optional NIO override)",
+          "range_entity": "Remaining range entity (optional NIO override)",
+          "odometer_entity": "Odometer entity (optional NIO override)",
+          "charging_state_entity": "Charging state entity (optional NIO override)",
+          "charge_limit_entity": "Charge limit entity (optional NIO override)",
+          "cost_energy": "Recorded charging energy entity (cumulative kWh)",
+          "cost_solar": "Recorded solar charging energy entity (cumulative kWh)",
+          "cost_total_cost": "Recorded charging cost entity (cumulative currency)",
+          "cost_grid_price": "Grid import price entity (currency/kWh)",
+          "cost_export_price": "Solar export price entity (currency/kWh)",
+          "evcc_connected": "Charger connected entity (EVCC or other HA source)",
+          "evcc_power": "Charging power entity (EVCC or other HA source)",
+          "evcc_history": "EVCC-compatible charging sessions entity",
           "electricity_price": "Electricity price entity",
           "reimbursement_rate": "Reimbursement rate entity",
           "battery_capacity_kwh": "Usable battery capacity (kWh)",
@@ -40,7 +50,8 @@
       }
     },
     "error": {
-      "ledger_calibration_required": "Set usable battery capacity and full-charge range before enabling history."
+      "ledger_calibration_required": "Set usable battery capacity and full-charge range before enabling history.",
+      "incomplete_cost_sources": "Set all five recorded-cost sources or leave them empty."
     }
   },
   "entity": {

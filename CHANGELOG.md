@@ -3,6 +3,22 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.2.0-dev.5
+
+- Make every dashboard/ledger input selectable per vehicle while retaining the
+  discovered NIO entities as defaults. Existing EVCC and ledger settings remain
+  compatible; changing energy sources begins a new ledger baseline without
+  rewriting archived trips.
+- Add an EVCC quick picker for matching charger connection/power entities, but
+  also accept any Home Assistant charger with on/off or connected/disconnected
+  state and power in W or kW. EVCC-compatible session history and five recorded
+  cost sources remain optional and explicit; absent prices are never zero.
+- Give the ET5 Touring image a softer ground shadow and use the approved
+  lightweight power icon. The ET5-specific range silhouette is no longer shown
+  for other models, which retain neutral artwork until their own assets exist.
+- Add mapping and frontend regression checks. Vehicle polling, OAuth, entity
+  IDs, charging policy and the owner's separate Car dashboard are unchanged.
+
 ## 0.2.0-dev.4
 
 - Retain the last valid odometer reading when NIO's latest vehicle-status
