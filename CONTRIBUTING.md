@@ -31,6 +31,24 @@ the only documented source for HACS installation and releases.
   create release notes unless requested by the maintainer.
 - Ensure pytest, hassfest, and HACS validation pass.
 
+## Release versions
+
+This project uses pre-1.0 semantic versions. A new `0.x.0` line marks a
+user-facing feature milestone; `0.x.y` fixes behavior in that line without a
+feature milestone. During testing, append `-dev.N` to the *upcoming* version
+and start `N` at 1 for each new base version. Publish development builds as
+normal GitHub releases, clearly labelled as development builds, so HACS shows
+their notes. Commit the matching changelog entry before tagging; verify CI,
+the public changelog and release notes, and a live install where possible.
+
+The historical `0.1.1-dev.1` through `0.1.1-dev.21` sequence accumulated
+features as well as fixes; it is not a pattern to continue indefinitely. The
+next feature milestone should use `0.2.0-dev.1` and advance toward `0.2.0`.
+Reserve `1.0.0` for a reliably upgradeable core integration, with setup,
+authentication, key telemetry and documented behavior validated beyond the
+maintainer's single vehicle. A `0.2.0` release need not wait for every optional
+NIO API field to work.
+
 ## Privacy and security
 
 Never post or commit Client IDs, Client Secrets, OAuth tokens, authorization
