@@ -47,7 +47,6 @@ _SAFE_RESPONSE_HEADERS = {
     "x-ratelimit-reset",
 }
 _MILLISECONDS_PER_SECOND = 1_000
-_ENERGY_WINDOW_SECONDS = 10 * 60
 _RATE_LIMIT_MARKER = re.compile(
     r"rate[_ -]?limit|too[_ -]?many|throttl|request[_ -]?frequen",
     re.IGNORECASE,
@@ -188,16 +187,10 @@ class NioApiClient:
 
     async def async_get_change_record(self, vin: str, resource: str) -> dict[str, Any]:
         """Return the newest record from a documented change endpoint."""
-        params = None
-        if resource == "soc_status":
-            end = int(time.time() * _MILLISECONDS_PER_SECOND)
-            params = {
-                "start_time": end - _ENERGY_WINDOW_SECONDS * _MILLISECONDS_PER_SECOND,
-                "end_time": end,
-            }
+        # NIO defaults an omitted SoC window to the latest ten minutes. Its
+        # current API rejects the equivalent explicit millisecond timestamps.
         payload = await self._async_get(
             f"{TELEMATICS_PATH}/vehicles/{vin}/{resource}/changes",
-            params=params,
         )
         data = payload.get("data")
         if not isinstance(data, list) or not data:

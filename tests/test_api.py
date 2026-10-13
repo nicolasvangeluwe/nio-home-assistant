@@ -117,10 +117,7 @@ async def test_sparse_soc_changes_keep_each_fields_newest_value() -> None:
         "_field_timestamps": {"soc": 1000, "remaining_range": 2000},
     }
     request = oauth_session.async_request.await_args
-    assert (
-        request.kwargs["params"]["end_time"] - request.kwargs["params"]["start_time"]
-        == 600_000
-    )
+    assert "params" not in request.kwargs
 
 
 async def test_invalid_newer_energy_event_does_not_erase_valid_older_event() -> None:
