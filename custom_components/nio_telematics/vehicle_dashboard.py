@@ -365,6 +365,8 @@ async def websocket_backup(hass, connection, msg):
                     entry, options={**entry.options, OPTIONS_KEY: preferences}
                 )
                 await async_reconcile_ledger(hass, entry)
+                if history is not None:
+                    await data["store"].async_save(data["settings"])
             except Exception:
                 restarted = data["recorders"].pop(entry.entry_id, None)
                 if restarted:

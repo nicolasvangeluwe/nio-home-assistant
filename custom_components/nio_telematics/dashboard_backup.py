@@ -10,7 +10,16 @@ from hashlib import sha256
 FORMAT = "nio-telematics-dashboard"
 VERSION = 1
 MAX_BYTES = 8 * 1024 * 1024
-FORBIDDEN_KEYS = {"access_token", "refresh_token", "client_secret", "password", "vin"}
+FORBIDDEN_KEYS = {
+    "access_token",
+    "refresh_token",
+    "client_secret",
+    "api_key",
+    "authorization",
+    "password",
+    "token",
+    "vin",
+}
 HISTORY_COLLECTIONS = {
     "trips": list,
     "charges": dict,
