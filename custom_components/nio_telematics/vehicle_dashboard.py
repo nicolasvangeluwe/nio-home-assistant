@@ -343,7 +343,7 @@ async def websocket_backup(hass, connection, msg):
                 raise ValueError(
                     "History changed since preview; review the restore again"
                 )
-            old_options = deepcopy(entry.options)
+            old_options = deepcopy(dict(entry.options))
             old_settings = deepcopy(data["settings"].get(entry.entry_id))
             recorder = data["recorders"].pop(entry.entry_id, None)
             if recorder:
