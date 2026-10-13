@@ -8,7 +8,7 @@ On my EU ET5 Touring, it receives live **battery SoC, remaining range, odometer 
 
 **Charge limit:** the entity labelled *Maximum state of charge* comes from NIO's `max_soc` field—the limit set in the car (90% on my test car). *Charging target* is a different API field and has reported 0% while parked; do not use that value as your saved charge limit.
 
-SoC and range keep their last valid readings when NIO sends sparse updates. Check each sensor's sample time before relying on it for an automation. See the [changelog](CHANGELOG.md) for technical details and release history.
+SoC, range and odometer keep their last valid readings when NIO sends sparse updates or Home Assistant restarts. Check each sensor's sample time before relying on it for an automation. See the [changelog](CHANGELOG.md) for technical details and release history.
 
 NIO may deny individual telemetry feeds for some vehicles or accounts. The integration keeps any permitted vehicle data available and identifies denied feeds in its API availability diagnostics; it cannot override NIO's access decision. An actual expired OAuth grant still requests reauthentication.
 
