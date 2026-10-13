@@ -19,10 +19,12 @@ from .const import (
 )
 from .models import normalize_vin
 from .vehicle_dashboard import (
+    COST_PREFERENCES,
     LANGUAGES,
     MODELS,
     OPTIONS_KEY,
     PREFERENCES_SCHEMA,
+    SOURCE_PREFERENCES,
     preferences_for_entry,
 )
 
@@ -119,11 +121,16 @@ class NioOptionsFlow(config_entries.OptionsFlow):
     ) -> config_entries.ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            preferences = PREFERENCES_SCHEMA(user_input)
+            current = preferences_for_entry(self.hass, self.config_entry)
+            preferences = PREFERENCES_SCHEMA({**current, **user_input})
             if preferences["ledger_enabled"] and not all(
                 preferences[key] for key in ("battery_capacity_kwh", "full_range_km")
             ):
                 errors["base"] = "ledger_calibration_required"
+            elif any(preferences[key] for key in COST_PREFERENCES) and not all(
+                preferences[key] for key in COST_PREFERENCES
+            ):
+                errors["base"] = "incomplete_cost_sources"
             else:
                 return self.async_create_entry(
                     title="",
@@ -142,6 +149,8 @@ class NioOptionsFlow(config_entries.OptionsFlow):
             ),
         }
         for key in (
+            *SOURCE_PREFERENCES,
+            *COST_PREFERENCES,
             "evcc_connected",
             "evcc_power",
             "evcc_history",

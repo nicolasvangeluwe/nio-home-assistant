@@ -20,12 +20,12 @@ After installing the integration:
 
 1. In **Settings → Dashboards → Resources**, add `/nio_telematics/nio-vehicle-card.js` as a **JavaScript module**, then reload Home Assistant in your browser.
 2. Edit a dashboard, choose **Add card → NIO Vehicle Dashboard**, and select your NIO. The simpler **NIO Vehicle** card remains available too.
-3. The overview works with NIO alone. Use its **Settings** button to choose your model/language and, if wanted, EVCC connection/power entities. Leave those inputs empty if you do not use EVCC.
-4. To record trips and charging history, enable **Trip and charging history** in Settings and enter your car's usable battery capacity and its range at 100% charge. The NIO odometer and range entities must be enabled. History starts from actual recorded readings; it cannot reconstruct missing journeys.
+3. The overview works with NIO alone. In **Settings**, choose the model and language. SoC, range, odometer, charging state and charge limit use their NIO entities by default; you can select a different Home Assistant entity for any of them. EVCC users can choose a detected charger to fill connection and power in one step. Any HA charger can supply those two readings manually, and EVCC is not required.
+4. To record trips and charging history, enable **Trip and charging history** and enter usable battery capacity and the range at 100% charge. Odometer and range sources must be available. History starts from actual recorded readings; it cannot reconstruct missing journeys. For home charging imports, the optional session entity must expose EVCC-compatible session data.
 
 The overview offers 14 European language choices. History is Dutch on a Dutch installation and uses English for other languages; further translations are in progress. The ET5 Touring image currently has one colour. Model-specific images and colours are planned, not silently simulated.
 
-History survives HACS updates. Changing its energy inputs starts a new baseline without rewriting old trips. Optional EVCC session entities add home charging records; recorded cost sources can split completed sessions when dated evidence is available. Missing history and the initial battery-stock price stay unknown, never €0 by assumption. Electricity-price and reimbursement entities are references, not a way to backprice old trips. Charging rules remain in Home Assistant.
+History is stored by Home Assistant outside HACS-managed integration files, so updates preserve it. Changing its energy inputs starts a new baseline without rewriting old trips. Five optional, advanced cost-source entities can split completed sessions when dated evidence is available. Missing history and the initial battery-stock price stay unknown, never €0 by assumption. Electricity-price and reimbursement entities are references, not a way to backprice old trips. Charging rules remain in Home Assistant. A separate export/import tool is planned; it is not available yet.
 
 ## Install
 

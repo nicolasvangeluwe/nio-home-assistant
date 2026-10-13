@@ -13,6 +13,7 @@ from homeassistant.helpers import entity_registry as er
 
 from .car_dashboard import async_configure_recorder
 from .car_dashboard import manager as ledger_manager
+from .car_dashboard.cost_split import SOURCE_KEYS as COST_SOURCE_KEYS
 from .const import DOMAIN
 
 OPTIONS_KEY = "vehicle_dashboard"
@@ -41,10 +42,36 @@ SENSOR_KEYS = (
     "charging_state",
     "maximum_soc",
 )
+SOURCE_PREFERENCES = {
+    "soc_entity": "battery_state_of_charge",
+    "range_entity": "remaining_range",
+    "odometer_entity": "odometer",
+    "charging_state_entity": "charging_state",
+    "charge_limit_entity": "maximum_soc",
+}
+COST_PREFERENCES = {f"cost_{key}": key for key in COST_SOURCE_KEYS}
+ENTITY_PREFERENCES = (
+    *SOURCE_PREFERENCES,
+    *COST_PREFERENCES,
+    "evcc_connected",
+    "evcc_power",
+    "evcc_history",
+    "electricity_price",
+    "reimbursement_rate",
+)
 PREFERENCES_SCHEMA = vol.Schema(
     {
         vol.Optional("model", default="auto"): vol.In(MODELS),
         vol.Optional("language", default="auto"): vol.In(LANGUAGES),
+        vol.Optional("soc_entity", default=""): vol.Any("", cv.entity_id),
+        vol.Optional("range_entity", default=""): vol.Any("", cv.entity_id),
+        vol.Optional("odometer_entity", default=""): vol.Any("", cv.entity_id),
+        vol.Optional("charging_state_entity", default=""): vol.Any("", cv.entity_id),
+        vol.Optional("charge_limit_entity", default=""): vol.Any("", cv.entity_id),
+        **{
+            vol.Optional(key, default=""): vol.Any("", cv.entity_id)
+            for key in COST_PREFERENCES
+        },
         vol.Optional("evcc_connected", default=""): vol.Any("", cv.entity_id),
         vol.Optional("evcc_power", default=""): vol.Any("", cv.entity_id),
         vol.Optional("evcc_history", default=""): vol.Any("", cv.entity_id),
@@ -65,13 +92,23 @@ PREFERENCES_SCHEMA = vol.Schema(
 def preferences_for_entry(hass, entry):
     """Adopt existing ledger settings with new display preferences."""
     saved = entry.options.get(OPTIONS_KEY)
-    if saved is not None:
-        return PREFERENCES_SCHEMA(saved)
     config = (
         hass.data.get("nio_telematics_car_dashboard", {})
         .get("settings", {})
         .get(entry.entry_id)
     )
+    if saved is not None:
+        legacy_costs = (config or {}).get("cost_sources", {})
+        return PREFERENCES_SCHEMA(
+            {
+                **{
+                    key: legacy_costs.get(source, "")
+                    for key, source in COST_PREFERENCES.items()
+                    if key not in saved
+                },
+                **saved,
+            }
+        )
     if not config:
         return PREFERENCES_SCHEMA({})
     return PREFERENCES_SCHEMA(
@@ -81,6 +118,10 @@ def preferences_for_entry(hass, entry):
             "full_range_km": config.get("full_range_km"),
             "evcc_connected": config.get("home_connected", ""),
             "evcc_history": config.get("home_history", ""),
+            **{
+                key: config.get("cost_sources", {}).get(source, "")
+                for key, source in COST_PREFERENCES.items()
+            },
         }
     )
 
@@ -95,13 +136,21 @@ def _vehicle(hass, entry, preferences):
         if item.unique_id.startswith(prefix)
         and item.unique_id[len(prefix) :] in SENSOR_KEYS
     }
+    configured = PREFERENCES_SCHEMA(preferences)
+    native_entities = dict(entities)
+    entities.update(
+        {
+            sensor_key: configured[preference_key]
+            for preference_key, sensor_key in SOURCE_PREFERENCES.items()
+            if configured[preference_key]
+        }
+    )
     return {
         "entry_id": entry.entry_id,
         "name": entry.title,
         "entities": entities,
-        "preferences": preferences_for_entry(hass, entry)
-        if OPTIONS_KEY not in entry.options
-        else PREFERENCES_SCHEMA(preferences),
+        "native_entities": native_entities,
+        "preferences": configured,
         "ledger_available": entry.entry_id
         in hass.data.get("nio_telematics_car_dashboard", {}).get("recorders", {}),
     }
@@ -137,18 +186,20 @@ async def websocket_save(hass, connection, msg):
     if entry is None or entry.domain != DOMAIN:
         connection.send_error(msg["id"], "invalid_entry", "Select a NIO vehicle")
         return
-    for key in (
-        "evcc_connected",
-        "evcc_power",
-        "evcc_history",
-        "electricity_price",
-        "reimbursement_rate",
-    ):
+    for key in ENTITY_PREFERENCES:
         entity_id = msg["preferences"].get(key)
         if entity_id and not hass.states.get(entity_id):
             connection.send_error(msg["id"], "invalid_entity", f"{key} does not exist")
             return
     preferences = msg["preferences"]
+    selected_costs = [preferences[key] for key in COST_PREFERENCES]
+    if any(selected_costs) and not all(selected_costs):
+        connection.send_error(
+            msg["id"],
+            "incomplete_cost_sources",
+            "Set all five recorded-cost sources or leave them empty",
+        )
+        return
     if preferences["ledger_enabled"]:
         if not preferences["battery_capacity_kwh"] or not preferences["full_range_km"]:
             connection.send_error(
@@ -163,7 +214,9 @@ async def websocket_save(hass, connection, msg):
             for key in ("odometer", "remaining_range")
         ):
             connection.send_error(
-                msg["id"], "missing_source", "Enable NIO odometer and range first"
+                msg["id"],
+                "missing_source",
+                "Select available odometer and range entities",
             )
             return
     hass.config_entries.async_update_entry(
@@ -198,7 +251,7 @@ async def async_reconcile_ledger(hass, entry):
         raise ValueError("History needs battery capacity and full-range calibration")
     entities = _vehicle(hass, entry, preferences)["entities"]
     if not all(key in entities for key in ("odometer", "remaining_range")):
-        raise ValueError("Enable the NIO odometer and range entities for history")
+        raise ValueError("Select available odometer and range entities for history")
     await async_configure_recorder(
         hass,
         entry.entry_id,
@@ -208,6 +261,11 @@ async def async_reconcile_ledger(hass, entry):
             "soc": entities.get("battery_state_of_charge", ""),
             "home_connected": preferences["evcc_connected"],
             "home_history": preferences["evcc_history"],
+            "cost_sources": (
+                {source: preferences[key] for key, source in COST_PREFERENCES.items()}
+                if all(preferences[key] for key in COST_PREFERENCES)
+                else {}
+            ),
             "capacity_kwh": preferences["battery_capacity_kwh"],
             "full_range_km": preferences["full_range_km"],
         },
