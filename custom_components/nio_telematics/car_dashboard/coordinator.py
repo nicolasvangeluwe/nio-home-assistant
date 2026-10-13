@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from .const import DEFAULTS, DOMAIN
+from .cost_adapter import CostRecorder
 from .ledger import Ledger, number
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,8 +32,8 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
         self.unsub = []
         self.pending = None
         self.ledger = None
+        self.cost_recorder = CostRecorder(self)
         self.source_status = "waiting_for_fresh_sample"
-        self.pending_soc = None
 
     async def async_start(self):
         self.ledger = Ledger(self.settings, await self.store.async_load())
@@ -72,7 +73,10 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
             now = dt_util.utcnow().timestamp()
             history = self.hass.states.get(self.settings["home_history"])
             if history:
-                self.ledger.import_home(history.attributes.get("sessions", []))
+                self.ledger.import_home(
+                    history.attributes.get("sessions", []),
+                    active_session_id=history.attributes.get("active_session_id"),
+                )
             odo = self.hass.states.get(self.settings["odometer"])
             rng = self.hass.states.get(self.settings["range"])
             soc = (
@@ -83,46 +87,38 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
             connected = self.hass.states.get(self.settings["home_connected"])
             self.ledger.tick(now)
             if self.settings["soc"]:
-                # A native event may arrive before the corresponding odometer
-                # snapshot. Hold it briefly, but never pair with distant data.
+                # Odometer reports define distance windows. A fresh unchanged
+                # SoC is still evidence; never gate samples on value changes.
+                # The endpoints are asynchronous, so use source timestamps,
+                # never an unchanged cached odometer as proof of parking.
                 soc_value = number(soc.state) if soc else None
+                soc_t = _source_time(soc, "last_valid_sample") if soc else None
+                odo_t = _source_time(odo, "source_sample") if odo else None
                 if (
                     soc
+                    and odo
                     and soc_value is not None
                     and 0 <= soc_value <= 100
                     and not soc.attributes.get("data_retained", False)
+                    and not odo.attributes.get("data_retained", False)
+                    and number(odo.state) is not None
+                    and soc_t is not None
+                    and odo_t is not None
+                    and -30 <= now - odo_t <= 900
+                    and -30 <= now - soc_t <= 900
+                    and -30 <= odo_t - soc_t <= 180
                 ):
-                    stamp = _source_time(soc, "last_valid_sample")
-                    if stamp is not None and 0 <= now - stamp <= 900:
-                        last = self.ledger.data["last"]
-                        if (
-                            last is None
-                            or last.get("energy_source") != "native_soc"
-                            or last.get("soc") != soc_value
-                        ):
-                            self.pending_soc = (stamp, soc_value)
-                if self.pending_soc and odo:
-                    t, value = self.pending_soc
-                    odo_t = _source_time(odo, "source_sample")
-                    if now - t > 900:
-                        self.pending_soc = None
-                    elif (
-                        odo_t is not None
-                        and abs(odo_t - t) <= 180
-                        and number(odo.state) is not None
+                    km = number(rng.state) if rng else None
+                    if self.ledger.ingest(
+                        odo_t,
+                        odo.state,
+                        km,
+                        bool(connected and connected.state == "on"),
+                        soc_pct=soc_value,
                     ):
-                        km = number(rng.state) if rng else None
-                        if self.ledger.ingest(
-                            t,
-                            odo.state,
-                            km,
-                            bool(connected and connected.state == "on"),
-                            soc_pct=value,
-                        ):
-                            self.source_status = "fresh_native_soc"
-                        self.pending_soc = None
-                    else:
-                        self.source_status = "waiting_for_aligned_odometer"
+                        self.source_status = "fresh_native_soc"
+                else:
+                    self.source_status = "waiting_for_aligned_odometer"
             elif odo and rng:
                 # Retained readings may appear in the header, not as new trip evidence.
                 fresh = not rng.attributes.get("data_retained", False)
@@ -152,6 +148,10 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
                         self.source_status = "fresh"
                     else:
                         self.source_status = "waiting_for_fresh_sample"
+            try:
+                await self.cost_recorder.refresh(now)
+            except Exception:  # Recorder startup/unavailability must not stop trips.
+                _LOGGER.warning("Car cost recording could not refresh", exc_info=True)
             if self.ledger.data["revision"] != before:
                 await self.store.async_save(deepcopy(self.ledger.data))
             self.async_set_updated_data(
@@ -164,7 +164,7 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
         )
         result["source_status"] = self.source_status
         result["source_config"] = dict(self.settings)
-        return result
+        return self.cost_recorder.enrich(result)
 
     async def mutate(self, action, values):
         async with self.lock:
@@ -177,6 +177,8 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
                     self.ledger.counter(now=now, **values)
                 elif action == "recover_history":
                     self.ledger.recover_history(now=now, **values)
+                elif action == "repair_native_trip":
+                    self.ledger.repair_native_trip(now=now, **values)
                 else:
                     if action == "add_charge" and (
                         number(values.get("end")) is None

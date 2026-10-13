@@ -3,6 +3,24 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.1.1-dev.20
+
+- Fix the optional Car ledger's native-SoC trip calculations. Fresh unchanged
+  SoC and odometer reports now establish distance-window evidence; asynchronous
+  readings no longer imply parking merely because an odometer value was cached.
+  Short stops and small SoC corrections no longer invalidate an entire trip.
+- Add an admin-only, idempotent repair operation for a selected archived native
+  trip using retained timestamped source reports. It preserves the trip ID,
+  other archives, charging records and original samples. Energy remains an
+  estimate from whole-percent SoC; a battery correction cannot be identified
+  as driving consumption with certainty.
+- Bundle the previously HA-local recorded charging-cost split and ongoing-home-
+  session handling so HACS updates preserve these capabilities and their
+  separately stored history. Unknown initial battery value remains unknown;
+  this release does not invent a driving price or alter charging policy.
+- Add regression tests for trip replay, short stops, SoC rebounds, persistence,
+  active-session completion and cost allocation. No entity IDs change.
+
 ## 0.1.1-dev.19
 
 - Keep a vehicle's integration loaded when NIO returns `access_denied` for the

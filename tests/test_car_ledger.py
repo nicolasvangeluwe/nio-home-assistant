@@ -6,6 +6,7 @@ import pathlib
 import sys
 import types
 import unittest
+from copy import deepcopy
 
 root = (
     pathlib.Path(__file__).parents[1]
@@ -92,6 +93,27 @@ class CalculationTests(unittest.TestCase):
         self.assertEqual(len(self.ledger.data["charges"]), 2)
         self.assertEqual(self.ledger.data["charges"]["home-1"]["cost_eur"], 4)
         self.assertEqual(self.ledger.data["charges"]["home-2"]["cost_eur"], 0)
+
+    def test_ongoing_home_charge_survives_restart_and_completes_same_id(self):
+        start = [114, self.t, self.t + 100, 2.5, 90, 0.1, 0.8, 0.7]
+        self.ledger.import_home([start])
+        self.ledger.import_home([], active_session_id=114)
+        self.assertEqual(self.ledger.snapshot(self.t + 200)["charges"], [])
+        self.assertEqual(
+            self.ledger.snapshot(self.t + 200)["active_home_charge"]["id"],
+            "home-114",
+        )
+        restored = Ledger(
+            self.ledger.settings, json.loads(json.dumps(self.ledger.data))
+        )
+        restored.import_home([start], active_session_id=114)
+        self.assertEqual(restored.statistics(self.t, self.t + 200)["charged_kwh"], 0)
+        final = [114, self.t, self.t + 300, 5.1, 95, 0.3, 1.6, 1.3]
+        restored.import_home([final])
+        restored.import_home([final])
+        self.assertEqual(len(restored.data["charges"]), 1)
+        self.assertEqual(restored.statistics(self.t, self.t + 400)["charged_kwh"], 5.1)
+        self.assertIsNone(restored.snapshot(self.t + 400)["active_home_charge"])
 
     def test_gap_does_not_claim_complete_energy_or_cost(self):
         self.ledger.preferences({"opening_price_eur_kwh": 0.3})
@@ -253,6 +275,98 @@ class CalculationTests(unittest.TestCase):
         self.assertEqual(len(self.ledger.data["trips"]), 1)
         self.assertAlmostEqual(self.ledger.data["trips"][0]["segments"][0]["kwh"], 0.9)
         self.assertFalse(self.ledger.data["charges"])
+
+    def test_native_unchanged_reports_anchor_departure_after_home_charge(self):
+        self.ledger.import_home(
+            [[114, self.t - 3600, self.t - 1800, 36.85, 50, 5.014619, 0, 0]]
+        )
+        self.ledger.ingest(self.t, 6208, 400, soc_pct=89.5)
+        self.ledger.ingest(self.t + 120, 6208, 400, soc_pct=89.5)
+        self.ledger.ingest(self.t + 240, 6209, 399, soc_pct=89.5)
+        trip = self.ledger.data["active"]
+        self.assertEqual(trip["start"], self.t + 120)
+        self.assertEqual(trip["segments"][0]["kwh"], 0)
+        self.assertFalse(self.ledger.data["parked_losses"])
+
+    def test_native_short_stop_is_not_parked_loss(self):
+        self.ledger.ingest(self.t, 6208, 400, soc_pct=89.5)
+        self.ledger.ingest(self.t + 120, 6209, 399, soc_pct=89.5)
+        self.ledger.ingest(self.t + 240, 6209, 398, soc_pct=89)
+        self.assertEqual(self.ledger.data["parked_losses"], [])
+        self.ledger.ingest(self.t + 360, 6211, 397, soc_pct=88.5)
+        trip = self.ledger.data["active"]
+        self.assertAlmostEqual(sum(s["kwh"] for s in trip["segments"]), 0.9)
+        self.assertAlmostEqual(trip["segments"][-1]["kwh"], 0.9)
+        self.assertEqual(self.ledger.data["parked_losses"], [])
+
+    def test_native_rebound_resolves_without_public_charge_or_blank_trip(self):
+        self.ledger.ingest(self.t, 6208, 400, soc_pct=84)
+        self.ledger.ingest(self.t + 120, 6212, 396, soc_pct=84.5)
+        self.assertIsNone(self.ledger.data["active"]["segments"][0]["kwh"])
+        self.ledger.ingest(self.t + 240, 6216, 392, soc_pct=83.5)
+        trip = self.ledger.data["active"]
+        self.assertTrue(trip["complete"])
+        self.assertEqual(self.ledger.data["charges"], {})
+        self.assertAlmostEqual(sum(s["kwh"] for s in trip["segments"]), 0.45)
+        self.assertAlmostEqual(
+            self.ledger.statistics(self.t, self.t + 240)["used_kwh"], 0.45
+        )
+
+    def test_native_parked_loss_only_after_trip_closure(self):
+        self.ledger.ingest(self.t, 6208, 400, soc_pct=89.5)
+        self.ledger.ingest(self.t + 120, 6209, 399, soc_pct=89)
+        self.ledger.ingest(self.t + 240, 6209, 399, soc_pct=88.5)
+        self.assertEqual(self.ledger.data["parked_losses"], [])
+        self.ledger.tick(self.t + 120 + 25 * 60)
+        self.assertEqual(len(self.ledger.data["trips"]), 1)
+        self.assertAlmostEqual(self.ledger.data["parked_losses"][0]["kwh"], 0.45)
+        before = json.loads(json.dumps(self.ledger.data))
+        restored = Ledger(self.ledger.settings, before)
+        restored.tick(self.t + 3600)
+        self.assertEqual(restored.data["parked_losses"], before["parked_losses"])
+
+    def test_native_replay_preserves_trip_id_archive_and_raw_samples(self):
+        self.ledger.ingest(self.t, 1000, 400, soc_pct=90)
+        self.ledger.ingest(self.t + 600, 1001, 399, soc_pct=89.5)
+        self.ledger.ingest(self.t + 700, 1001, 398, soc_pct=89)
+        self.ledger.ingest(self.t + 800, 1002, 397, soc_pct=89)
+        self.ledger.tick(self.t + 2500)
+        ident = self.ledger.data["trips"][0]["id"]
+        raw = deepcopy(self.ledger.data["samples"])
+        self.ledger.data["parked_losses"].append(
+            dict(start=self.t + 600, end=self.t + 700, kwh=0.45, complete=True)
+        )
+        self.ledger.data["charges"]["home-114"] = dict(
+            id="home-114",
+            kind="home",
+            start=self.t - 3600,
+            end=self.t - 1800,
+            kwh=36.85,
+            cost_eur=5.014619,
+            confirmed=True,
+            category="home",
+        )
+        reports = [
+            dict(t=t, odo=odo, soc_pct=soc, soc_time=t - 10, home_connected=False)
+            for t, odo, soc in (
+                (self.t, 1000, 90),
+                (self.t + 120, 1000, 90),
+                (self.t + 600, 1001, 89.5),
+                (self.t + 720, 1001, 89),
+                (self.t + 840, 1002, 89),
+            )
+        ]
+        self.assertTrue(self.ledger.repair_native_trip(ident, reports, self.t + 3000))
+        repaired = self.ledger.data["trips"][0]
+        self.assertEqual(repaired["id"], ident)
+        self.assertEqual(repaired["start"], self.t + 120)
+        self.assertEqual(repaired["distance_km"], 2)
+        self.assertEqual(self.ledger.data["parked_losses"], [])
+        self.assertEqual(self.ledger.data["samples"], raw)
+        self.assertIn("home-114", self.ledger.data["charges"])
+        before = json.loads(json.dumps(self.ledger.data))
+        self.assertFalse(self.ledger.repair_native_trip(ident, reports, self.t + 4000))
+        self.assertEqual(self.ledger.data, before)
 
     def test_reconfiguration_keeps_archives_and_starts_new_baseline(self):
         self.drive()

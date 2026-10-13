@@ -1,7 +1,9 @@
 """Deterministic car ledger. No HA dependency, network calls or destructive edits."""
 
+import json
 from copy import deepcopy
 from datetime import datetime
+from hashlib import sha256
 from math import isfinite
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -44,6 +46,7 @@ class Ledger:
         self.data.setdefault("source_transition_energy", None)
         self.data.setdefault("initial_capacity_kwh", self.settings["capacity_kwh"])
         self.data.setdefault("pending_epoch", None)
+        self.data.setdefault("native_replays", {})
         if "source_transitions" not in self.data:
             first = self.data["source_transition_at"]
             self.data["source_transitions"] = (
@@ -105,6 +108,10 @@ class Ledger:
             ):
                 continue
             rows = [r for r in samples if trip["start"] <= r["t"] <= trip["end"]]
+            # Native SoC needs distance-window replay, not the legacy
+            # adjacent-sample range classifier.
+            if any(r.get("energy_source") == "native_soc" for r in rows):
+                continue
             if (
                 len(rows) < 2
                 or rows[0]["t"] != trip["start"]
@@ -190,8 +197,38 @@ class Ledger:
         trip = self.data["active"]
         if not trip:
             return
+        last = self.data["last"]
+        if (
+            last
+            and last.get("energy_source") == "native_soc"
+            and last["t"] > trip["last_movement"]
+            and last["odo"] == trip["end_odo"]
+            and last["energy"] < trip["end_energy"]
+            and not last.get("home_connected")
+            and not any(
+                charge["kind"] != "dismissed"
+                and charge["start"] < last["t"]
+                and charge["end"] > trip["last_movement"]
+                for charge in self.data["charges"].values()
+            )
+            and all(segment["kwh"] is not None for segment in trip["segments"])
+        ):
+            # Only after the trip has actually closed can a stationary SoC
+            # decrease be separated from a short traffic stop.
+            self.data["parked_losses"].append(
+                {
+                    "start": trip["last_movement"],
+                    "end": last["t"],
+                    "kwh": trip["end_energy"] - last["energy"],
+                    "end_energy": last["energy"],
+                    "complete": True,
+                }
+            )
         if incomplete:
             trip["complete"] = False
+        if any(segment["kwh"] is None for segment in trip["segments"]):
+            trip["complete"] = False
+        trip.pop("energy_anchor", None)
         self.data["trips"].append(trip)
         self.data["active"] = None
         self.changed()
@@ -287,6 +324,14 @@ class Ledger:
                         "complete": True,
                     }
                     self.data["active"] = trip
+                    if source == "native_soc":
+                        trip["energy_anchor"] = old["energy"]
+                if source == "native_soc":
+                    # Unchanged-distance reports are real samples, but their
+                    # energy must stay with the next movement window until
+                    # the trip is closed. A 0.5% upward correction is likewise
+                    # held until a later reading establishes the net change.
+                    delta = trip.get("energy_anchor", old["energy"]) - sample["energy"]
                 charging = (
                     home_connected
                     or old.get("home_connected")
@@ -299,7 +344,7 @@ class Ledger:
                 )
                 complete = delta >= 0 and not charging
                 segment = {
-                    "start": old["t"],
+                    "start": trip.get("last_movement", old["t"]),
                     "end": t,
                     "km": distance,
                     "kwh": delta if complete else None,
@@ -309,15 +354,32 @@ class Ledger:
                     "end_energy": sample["energy"],
                 }
                 trip["segments"].append(segment)
+                if source == "native_soc" and complete:
+                    pending = [segment]
+                    for prior in reversed(trip["segments"][:-1]):
+                        if prior["kwh"] is not None:
+                            break
+                        pending.append(prior)
+                    if len(pending) > 1:
+                        total_km = sum(row["km"] for row in pending)
+                        for row in pending:
+                            row["kwh"] = delta * row["km"] / total_km
+                            row["complete"] = True
+                            row["native_correction_resolved"] = True
+                    trip["energy_anchor"] = sample["energy"]
                 trip["distance_km"] += distance
                 trip.update(
                     end=t,
                     last_movement=t,
                     end_odo=odo,
                     end_energy=sample["energy"],
-                    complete=trip["complete"] and complete,
+                    complete=trip["complete"]
+                    and (complete or (source == "native_soc" and not charging)),
                 )
-            elif delta < -self.energy(2):
+            elif delta < -self.energy(2) and not (
+                source == "native_soc"
+                and -delta <= self.settings["capacity_kwh"] * 0.01
+            ):
                 home_overlap = (
                     home_connected
                     or old.get("home_connected")
@@ -365,7 +427,11 @@ class Ledger:
                         "energy_basis": source,
                         "cost_basis": "unknown",
                     }
-            elif delta > 0 and not home_connected:
+            elif (
+                delta > 0
+                and not home_connected
+                and not (source == "native_soc" and self.data["active"] is not None)
+            ):
                 # Classification follows measured distance, even during short stops.
                 self.data["parked_losses"].append(
                     {
@@ -383,8 +449,16 @@ class Ledger:
         self.changed()
         return True
 
-    def import_home(self, rows):
+    def import_home(self, rows, active_session_id=None):
         changed = False
+        active_id = (
+            "home-" + str(active_session_id) if active_session_id is not None else None
+        )
+        if active_id in self.data["charges"]:
+            active = self.data["charges"][active_id]
+            if not active.get("ongoing"):
+                active["ongoing"] = True
+                changed = True
         for row in rows:
             if not isinstance(row, (list, tuple)) or len(row) < 8:
                 continue
@@ -392,6 +466,8 @@ class Ledger:
             if None in (start, end, kwh) or kwh <= 0 or end < start:
                 continue
             ident = "home-" + str(row[0])
+            if ident == active_id:
+                continue
             existing = self.data["charges"].get(ident, {})
             charge = {
                 "id": ident,
@@ -515,7 +591,11 @@ class Ledger:
         value = stock * (initial_price or 0)
         events = []
         for charge in self.data["charges"].values():
-            if charge["kind"] != "dismissed" and charge["end"] > opening["t"]:
+            if (
+                charge["kind"] != "dismissed"
+                and not charge.get("ongoing")
+                and charge["end"] > opening["t"]
+            ):
                 events.append((charge["end"], 0, "charge", charge))
         for trip in self.all_trips():
             for segment in trip["segments"]:
@@ -598,7 +678,9 @@ class Ledger:
         charges = [
             c
             for c in self.data["charges"].values()
-            if c["kind"] != "dismissed" and start <= c["end"] <= end
+            if c["kind"] != "dismissed"
+            and not c.get("ongoing")
+            and start <= c["end"] <= end
         ]
         confirmed = [c for c in charges if c.get("confirmed")]
         charged = sum(c["kwh"] for c in confirmed)
@@ -703,6 +785,114 @@ class Ledger:
         self.data["recovery_completed"] = True
         self.changed()
 
+    def repair_native_trip(self, ident, reports, now):
+        """Replace one erroneous native trip from complete source reports.
+
+        The caller supplies timestamp-aligned, fresh odometer/SoC evidence.
+        All other trips, charges, old samples and source transitions stay intact.
+        The coordinator persists this mutation atomically with the HA Store.
+        """
+        old = next((r for r in self.data["trips"] if r["id"] == ident), None)
+        if (
+            old is None
+            or not isinstance(reports, list)
+            or not 2 <= len(reports) <= 1000
+        ):
+            raise ValueError("A saved trip and 2–1000 source reports are required")
+        if not any(
+            sample.get("energy_source") == "native_soc"
+            and old["start"] <= sample["t"] <= old["end"]
+            for sample in self.data["samples"]
+        ):
+            raise ValueError("Trip is not a recorded native-SoC trip")
+        rows = []
+        previous = 0.0
+        for report in reports:
+            if not isinstance(report, dict):
+                raise ValueError("Invalid source report")
+            t, odo, soc, soc_t = map(
+                number,
+                (
+                    report.get("t"),
+                    report.get("odo"),
+                    report.get("soc_pct"),
+                    report.get("soc_time"),
+                ),
+            )
+            if (
+                None in (t, odo, soc, soc_t)
+                or t <= previous
+                or t > now + 60
+                or odo <= 0
+                or not 0 <= soc <= 100
+                or not -30 <= t - soc_t <= 180
+                or not isinstance(report.get("home_connected"), bool)
+            ):
+                raise ValueError("Invalid chronological native source report")
+            rows.append(
+                {
+                    "t": t,
+                    "odo": odo,
+                    "soc_pct": soc,
+                    "soc_time": soc_t,
+                    "home_connected": report["home_connected"],
+                }
+            )
+            previous = t
+        digest = sha256(json.dumps(rows, sort_keys=True).encode()).hexdigest()
+        if self.data["native_replays"].get(ident, {}).get("digest") == digest:
+            return False
+        if (
+            rows[0]["odo"] != old["start_odo"]
+            or rows[-1]["odo"] != old["end_odo"]
+            or rows[0]["t"] < old["start"]
+            or rows[-1]["t"] > max(old["end"], now)
+            or any(
+                trip["id"] != ident
+                and trip["start"] < rows[-1]["t"]
+                and trip["end"] > rows[0]["t"]
+                for trip in self.all_trips()
+            )
+            or any(
+                rows[0]["t"] <= transition["t"] <= rows[-1]["t"]
+                for transition in self.data["source_transitions"]
+            )
+        ):
+            raise ValueError("Reports do not cover only the selected trip")
+        scratch = Ledger(self.settings)
+        original_charges = deepcopy(self.data["charges"])
+        scratch.data["charges"] = deepcopy(original_charges)
+        for row in rows:
+            if not scratch.ingest(
+                row["t"],
+                row["odo"],
+                None,
+                row["home_connected"],
+                soc_pct=row["soc_pct"],
+            ):
+                raise ValueError("Source report could not be replayed")
+        scratch.tick(max(now, rows[-1]["t"] + self.settings["trip_idle_minutes"] * 60))
+        if (
+            len(scratch.data["trips"]) != 1
+            or scratch.data["active"] is not None
+            or scratch.data["trips"][0]["distance_km"] != old["distance_km"]
+            or scratch.data["trips"][0]["end_odo"] != old["end_odo"]
+            or scratch.data["charges"] != original_charges
+        ):
+            raise ValueError("Replay disagrees with archived trip distance or charges")
+        replacement = scratch.data["trips"][0]
+        replacement["id"] = ident
+        replacement["source"] = "native_source_replay"
+        self.data["trips"][self.data["trips"].index(old)] = replacement
+        self.data["parked_losses"] = [
+            loss
+            for loss in self.data["parked_losses"]
+            if not (rows[0]["t"] <= loss["start"] and loss["end"] <= rows[-1]["t"])
+        ] + scratch.data["parked_losses"]
+        self.data["native_replays"][ident] = {"digest": digest, "reports": rows}
+        self.changed()
+        return True
+
     def preferences(self, values):
         allowed = {
             "opening_price_eur_kwh",
@@ -756,7 +946,11 @@ class Ledger:
         local = datetime.fromtimestamp(now, tz)
         midnight = local.replace(hour=0, minute=0, second=0, microsecond=0)
         charges = sorted(
-            (c for c in self.data["charges"].values() if c["kind"] != "dismissed"),
+            (
+                c
+                for c in self.data["charges"].values()
+                if c["kind"] != "dismissed" and not c.get("ongoing")
+            ),
             key=lambda c: c["end"],
             reverse=True,
         )
@@ -830,6 +1024,14 @@ class Ledger:
             "revision": self.data["revision"],
             "trips": list(reversed(self.all_trips())),
             "charges": charges,
+            "active_home_charge": next(
+                (
+                    deepcopy(c)
+                    for c in self.data["charges"].values()
+                    if c.get("ongoing")
+                ),
+                None,
+            ),
             "active_trip_id": (self.data["active"] or {}).get("id"),
             "statistics": statistics,
             "counters": counters,

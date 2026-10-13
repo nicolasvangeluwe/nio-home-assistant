@@ -15,6 +15,7 @@ from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN as LEDGER_DOMAIN
 from .coordinator import CarLedgerCoordinator
+from .cost_split import SOURCE_KEYS
 from .ledger import Ledger
 
 NIO_DOMAIN = "nio_telematics"
@@ -26,6 +27,10 @@ CONFIG_SCHEMA = vol.Schema(
         vol.Optional("soc", default=""): vol.Any("", cv.entity_id),
         vol.Optional("home_connected", default=""): vol.Any("", cv.entity_id),
         vol.Optional("home_history", default=""): vol.Any("", cv.entity_id),
+        vol.Optional("cost_sources", default={}): vol.Any(
+            vol.Schema({}),
+            vol.Schema({vol.Required(key): cv.entity_id for key in SOURCE_KEYS}),
+        ),
         vol.Required("capacity_kwh"): vol.All(
             vol.Coerce(float), vol.Range(min=1, max=300)
         ),
@@ -75,6 +80,7 @@ async def websocket_get(hass, connection, msg):
                 "counter",
                 "preferences",
                 "recover_history",
+                "repair_native_trip",
             ]
         ),
         vol.Optional("values", default={}): dict,
@@ -107,6 +113,11 @@ async def async_configure_recorder(hass, entry_id, settings):
     entry = hass.config_entries.async_get_entry(entry_id)
     if not entry or entry.domain != NIO_DOMAIN:
         raise ValueError("Select an existing NIO integration")
+    if "cost_sources" not in settings:
+        saved_sources = (
+            manager(hass)["settings"].get(entry_id, {}).get("cost_sources", {})
+        )
+        settings = {**settings, "cost_sources": saved_sources}
     settings = CONFIG_SCHEMA(settings)
     for key in ("odometer", "range", "soc", "home_connected", "home_history"):
         entity_id = settings[key]
