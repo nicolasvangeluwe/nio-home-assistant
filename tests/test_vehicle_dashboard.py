@@ -28,11 +28,11 @@ from custom_components.nio_telematics.vehicle_dashboard import (
 
 def test_dashboard_bundles_local_vehicle_artwork() -> None:
     assets = Path(__file__).resolve().parents[1] / "custom_components/nio_telematics"
-    artwork = (assets / "et5-touring-hero.webp").read_bytes()
-    assert artwork.startswith(b"RIFF") and artwork[8:12] == b"WEBP"
+    artwork = (assets / "et5-touring-studio.png").read_bytes()
+    assert artwork.startswith(b"\x89PNG\r\n\x1a\n")
     source = (assets / "nio-vehicle-card.js").read_text(encoding="utf-8")
     assert "nio-vehicle-dashboard" in source
-    assert "/nio_telematics/et5-touring-hero.webp" in source
+    assert "/nio_telematics/et5-touring-studio.png" in source
 
 
 def test_dashboard_defaults_do_not_require_evcc() -> None:

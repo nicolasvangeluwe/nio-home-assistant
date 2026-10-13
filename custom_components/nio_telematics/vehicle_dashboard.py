@@ -456,5 +456,10 @@ async def async_setup_vehicle_dashboard(hass):
                 str(component_path / "et5-touring-hero.webp"),
                 False,
             ),
+            StaticPathConfig(
+                "/nio_telematics/et5-touring-studio.png",
+                str(component_path / "et5-touring-studio.png"),
+                False,
+            ),
         ]
     )
