@@ -16,7 +16,10 @@ from custom_components.nio_telematics.api import (
 )
 from custom_components.nio_telematics.availability import overall_availability
 from custom_components.nio_telematics.const import CONF_VIN
-from custom_components.nio_telematics.coordinator import NioDataUpdateCoordinator
+from custom_components.nio_telematics.coordinator import (
+    NioDataUpdateCoordinator,
+    _retain_vehicle_odometer,
+)
 from custom_components.nio_telematics.sensor import SENSORS, NioSocSensor
 
 
@@ -50,6 +53,63 @@ async def test_temporary_refresh_failure_remains_retryable(hass: HomeAssistant) 
 
     with pytest.raises(UpdateFailed, match="temporarily unavailable"):
         await coordinator._async_update_data()
+
+
+def test_sparse_vehicle_snapshot_retains_only_valid_odometer() -> None:
+    first = _retain_vehicle_odometer(
+        None, {"mileage": 6266, "sample_timestamp": 1_760_000_000_000}
+    )
+    sparse = _retain_vehicle_odometer(
+        first, {"vehl_state": "locked", "sample_timestamp": 1_760_000_030_000}
+    )
+    assert sparse["mileage"] == 6266
+    assert sparse["_odometer_sample_timestamp"] == 1_760_000_000_000
+    assert sparse["_odometer_retained"] is True
+    assert "vehl_state" in sparse
+    assert "vehl_state" not in first
+
+    invalid = _retain_vehicle_odometer(
+        sparse, {"mileage": 0xFFFFFFFF, "sample_timestamp": 1_760_000_060_000}
+    )
+    assert invalid["mileage"] == 6266
+    assert invalid["_odometer_retained"] is True
+
+    fresh = _retain_vehicle_odometer(
+        invalid, {"mileage": 6270, "sample_timestamp": 1_760_000_090_000}
+    )
+    assert fresh["mileage"] == 6270
+    assert fresh["_odometer_sample_timestamp"] == 1_760_000_090_000
+    assert fresh["_odometer_retained"] is False
+
+
+async def test_background_poll_keeps_mileage_from_sparse_vehicle_status(
+    hass: HomeAssistant,
+) -> None:
+    entry = MagicMock()
+    entry.data = {CONF_VIN: "LJNABC12345678901"}
+    client = MagicMock()
+
+    async def get_change_record(_vin: str, resource: str) -> dict:
+        if resource != "soc_status":
+            raise NioResourceNotFoundError("No recent data")
+        return {"soc": 75, "sample_timestamp": 1_760_000_000_000}
+
+    client.async_get_change_record = AsyncMock(side_effect=get_change_record)
+    client.async_get_latest_vehicle_record = AsyncMock(
+        side_effect=[
+            {"mileage": 6266, "sample_timestamp": 1_760_000_000_000},
+            {"vehl_state": "locked", "sample_timestamp": 1_760_000_120_000},
+        ]
+    )
+    coordinator = NioDataUpdateCoordinator(hass, entry, client)
+    for _ in range(12):
+        coordinator.async_set_updated_data(await coordinator._async_update_data())
+
+    vehicle = coordinator.data.telemetry["vehicle_status"]
+    assert vehicle["mileage"] == 6266
+    assert vehicle["_odometer_sample_timestamp"] == 1_760_000_000_000
+    assert vehicle["_odometer_retained"] is True
+    assert vehicle["vehl_state"] == "locked"
 
 
 async def test_denied_energy_feed_does_not_block_other_vehicle_data(

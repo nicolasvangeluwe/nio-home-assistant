@@ -99,6 +99,8 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
             self._telemetry[resource] = (
                 _merge_sparse_energy(self._telemetry.get(resource), record)
                 if resource == "soc_status"
+                else _retain_vehicle_odometer(self._telemetry.get(resource), record)
+                if resource == "vehicle_status"
                 else record
             )
             endpoint_status[resource] = "success"
@@ -245,4 +247,33 @@ def _merge_sparse_energy(previous: dict | None, current: dict) -> dict:
         previous.get("sample_timestamp") or 0,
         current.get("sample_timestamp") or 0,
     )
+    return merged
+
+
+def _valid_odometer(value: object) -> bool:
+    """Reject missing, nonfinite and NIO's documented invalid mileage markers."""
+    if value is None or isinstance(value, bool):
+        return False
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(number) and 0 <= number < 0xFFFFFFFE
+
+
+def _retain_vehicle_odometer(previous: dict | None, current: dict) -> dict:
+    """Keep only the last valid mileage when a latest snapshot omits it."""
+    merged = dict(current)
+    prior = previous or {}
+    if _valid_odometer(current.get("mileage")):
+        merged["_odometer_sample_timestamp"] = current.get("sample_timestamp")
+        merged["_odometer_retained"] = False
+    elif _valid_odometer(prior.get("mileage")):
+        merged["mileage"] = prior["mileage"]
+        merged["_odometer_sample_timestamp"] = prior.get(
+            "_odometer_sample_timestamp", prior.get("sample_timestamp")
+        )
+        merged["_odometer_retained"] = True
+    else:
+        merged.pop("mileage", None)
     return merged

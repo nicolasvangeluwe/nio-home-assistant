@@ -3,6 +3,18 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.2.0-dev.4
+
+- Retain the last valid odometer reading when NIO's latest vehicle-status
+  response omits mileage or uses an invalid marker. Keep the mileage's own
+  source timestamp instead of falsely dating it to a newer sparse response.
+- Restore the last valid odometer reading after Home Assistant restarts,
+  including a one-time lookup of recent Recorder history if an older release
+  left the entity `unknown`. Mark retained readings and preserve the entity ID.
+- Add regression tests for sparse responses, invalid markers and recovery.
+  SoC/range polling, ledger history, charging policy and dashboard layout are
+  unchanged.
+
 ## 0.2.0-dev.3
 
 - Request NIO's documented default ten-minute `soc_status/changes` window

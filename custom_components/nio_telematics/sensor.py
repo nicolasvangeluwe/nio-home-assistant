@@ -644,6 +644,8 @@ async def async_setup_entry(
         if description.key == "remaining_range"
         else NioSocSensor(coordinator, description)
         if description.key == "battery_state_of_charge"
+        else NioOdometerSensor(coordinator, description)
+        if description.key == "odometer"
         else NioSensor(coordinator, description)
         for description in SENSORS
     )
@@ -689,6 +691,71 @@ class NioSensorEntity(NioEntity):
 
 class NioSensor(NioSensorEntity, SensorEntity):
     """Representation of a NIO telemetry sensor."""
+
+
+class NioOdometerSensor(NioSensorEntity, RestoreSensor):
+    """Keep real mileage through sparse snapshots and Home Assistant restarts."""
+
+    _restored_odometer: float | None = None
+    _restored_sample_time: str | None = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last_state = await self.async_get_last_state()
+        if last_state is not None and (
+            value := _odometer_number(last_state.state)
+        ) is not None:
+            self._restored_odometer = value
+            self._restored_sample_time = (
+                last_state.attributes.get("source_sample")
+                or last_state.last_changed.isoformat()
+            )
+            return
+        # Older releases could replace a valid mileage with unknown. Recover
+        # the latest real value once from this entity's Recorder history.
+        if DATA_INSTANCE not in self.hass.data or self.entity_id is None:
+            return
+        from homeassistant.components.recorder import get_instance, history
+
+        try:
+            states = await get_instance(self.hass).async_add_executor_job(
+                partial(
+                    history.get_significant_states,
+                    self.hass,
+                    datetime.now(UTC) - timedelta(days=30),
+                    entity_ids=[self.entity_id],
+                    include_start_time_state=False,
+                    no_attributes=False,
+                )
+            )
+        except (KeyError, RuntimeError, SQLAlchemyError):
+            return
+        if result := _last_recorded_odometer(states.get(self.entity_id, [])):
+            self._restored_odometer, self._restored_sample_time = result
+
+    @property
+    def native_value(self) -> float | None:
+        current = _odometer_number(super().native_value)
+        return current if current is not None else self._restored_odometer
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        attributes = dict(super().extra_state_attributes or {})
+        telemetry = self.coordinator.data.telemetry.get("vehicle_status", {})
+        current = _odometer_number(
+            self.entity_description.value_fn(self.coordinator.data)
+        )
+        sample = NioSocStatus.from_payload(
+            {"sample_timestamp": telemetry.get("_odometer_sample_timestamp")}
+        ).event_time
+        attributes["source_sample"] = (
+            sample.isoformat() if sample else self._restored_sample_time
+        )
+        attributes["data_retained"] = bool(
+            telemetry.get("_odometer_retained")
+            or (current is None and self._restored_odometer is not None)
+        )
+        return attributes
 
 
 class NioSocSensor(NioSensorEntity, RestoreSensor):
@@ -812,6 +879,17 @@ def _range_number(value: Any) -> float | None:
     return number if math.isfinite(number) and number >= 0 else None
 
 
+def _odometer_number(value: Any) -> float | None:
+    """Accept physical mileage but not missing or NIO sentinel readings."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) and 0 <= number < 0xFFFFFFFE else None
+
+
 def _soc_number(value: Any) -> float | None:
     """Accept only a finite SoC in the physical 0–100% range."""
     if isinstance(value, bool):
@@ -837,4 +915,16 @@ def _last_recorded_range(states: list[State]) -> tuple[float, str] | None:
     for state in reversed(states):
         if (value := _range_number(state.state)) is not None:
             return value, state.last_changed.isoformat()
+    return None
+
+
+def _last_recorded_odometer(states: list[State]) -> tuple[float, str] | None:
+    """Skip unknown and invalid states in the odometer's Recorder history."""
+    for state in reversed(states):
+        if (value := _odometer_number(state.state)) is not None:
+            sample = state.attributes.get("source_sample")
+            return (
+                value,
+                sample if isinstance(sample, str) else state.last_changed.isoformat(),
+            )
     return None
