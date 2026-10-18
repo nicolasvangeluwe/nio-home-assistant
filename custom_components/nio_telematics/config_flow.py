@@ -59,8 +59,15 @@ class NioConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, domain=D
     ) -> config_entries.ConfigFlowResult:
         """Collect the vehicle identity after OAuth and create the entry."""
         data = {**data, CONF_SCOPE_REVISION: OAUTH_SCOPE_REVISION}
-        if self.source == config_entries.SOURCE_REAUTH:
-            reauth_entry = self._get_reauth_entry()
+        if self.source in (
+            config_entries.SOURCE_REAUTH,
+            config_entries.SOURCE_RECONFIGURE,
+        ):
+            reauth_entry = (
+                self._get_reauth_entry()
+                if self.source == config_entries.SOURCE_REAUTH
+                else self._get_reconfigure_entry()
+            )
             return self.async_update_reload_and_abort(
                 reauth_entry,
                 data={**reauth_entry.data, **data},
@@ -73,12 +80,16 @@ class NioConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, domain=D
     ) -> config_entries.ConfigFlowResult:
         """Re-run OAuth flow when the existing token/scopes are no longer valid."""
         self._get_reauth_entry()
-        # Reauth can start outside an HTTP request, so Home Assistant cannot
-        # auto-select the sole OAuth implementation. Select the implementation
-        # already stored on the entry explicitly before generating the redirect.
-        return await self.async_step_pick_implementation(
-            {"implementation": entry_data["auth_implementation"]}
-        )
+        # Do not force the old client: it may have been deleted or replaced.
+        # A successful OAuth callback updates the existing vehicle entry.
+        return await self.async_step_pick_implementation()
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Let the owner choose different application credentials."""
+        self._get_reconfigure_entry()
+        return await self.async_step_pick_implementation()
 
     async def async_step_vehicle(
         self, user_input: dict[str, Any] | None = None

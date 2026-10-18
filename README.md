@@ -1,6 +1,6 @@
-# NIO Open Telematics for Home Assistant
+# Open Telematics for NIO (EU)
 
-Bring your NIO into Home Assistant using NIO's official EU Open Telematics API. This is an independent, read-only integration: it shows vehicle data but does not control charging or the car.
+Bring your NIO into Home Assistant using NIO's official EU Open Telematics API. This is an independent, unofficial, read-only integration—not affiliated with or endorsed by NIO. It shows vehicle data but does not control charging or the car.
 
 ## What works today
 
@@ -35,9 +35,11 @@ Settings now has short help beside optional inputs and a **Backup & restore** se
 
 1. Add this repository to HACS as an **Integration** ([how to add a custom repository](https://www.hacs.xyz/docs/faq/custom_repositories/)), download the latest development release, then restart Home Assistant.
 2. Create a **Personal Application** in the [NIO developer console](https://open-eu.nio.com/console) with OAuth Authorization Code. Set its redirect URI to `https://my.home-assistant.io/redirect/oauth`.
-3. In **Settings → Devices & services**, add **NIO Open Telematics**. Enter the application's Client ID and Secret, authorize with NIO, then enter your car's name and VIN.
+3. In **Settings → Devices & services**, add **Open Telematics for NIO (EU)**. Enter the application's Client ID and Secret, authorize with NIO, then enter your car's name and VIN.
 
 You can enable additional sensors on the vehicle's **Entities** page. Existing Home Assistant enable/disable choices survive updates. For manual installation, copy `custom_components/nio_telematics` into your Home Assistant configuration and restart.
+
+To switch to a different NIO Personal Application later, add its Client ID and Secret in Home Assistant's **Application Credentials**, then use **Reconfigure** on the existing vehicle integration. Select the new application and authorize it; the vehicle and its existing entities stay in place. An expired grant uses the same credential picker during reauthentication.
 
 ## Try it and tell us what you find
 

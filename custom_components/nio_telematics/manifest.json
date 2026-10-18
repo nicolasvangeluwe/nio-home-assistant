@@ -1,6 +1,6 @@
 {
   "domain": "nio_telematics",
-  "name": "NIO Open Telematics",
+  "name": "Open Telematics for NIO (EU)",
   "after_dependencies": ["frontend", "http", "recorder", "websocket_api"],
   "codeowners": ["@nicolasvangeluwe"],
   "config_flow": true,
@@ -10,5 +10,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/nicolasvangeluwe/nio-home-assistant/issues",
   "requirements": [],
-  "version": "0.3.0-dev.3"
+  "version": "0.4.0-dev.1"
 }

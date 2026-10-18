@@ -3,6 +3,19 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.4.0-dev.1
+
+- Add Home Assistant's application-credential picker to reauthentication and
+  reconfiguration. Owners can choose a replacement NIO Personal Application
+  without removing their vehicle; the existing entry, entity IDs, dashboard
+  settings and trip/charging history remain in place. The selected client and
+  token are saved only after successful OAuth authorization.
+- Rename the displayed integration and HACS repository to **Open Telematics
+  for NIO (EU)** to make its independent, unofficial status clearer. The
+  technical domain and existing entity IDs are unchanged.
+- Includes the NOMI-inspired, locally bundled icon introduced in dev.3.
+  The separate HACS catalogue image is not changed by this release.
+
 ## 0.3.0-dev.3
 
 - Replace the bundled local integration icon with the selected NOMI-inspired
