@@ -3,6 +3,16 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.3.0-dev.3
+
+- Replace the bundled local integration icon with the selected NOMI-inspired
+  face, underline and upper-left Home Assistant marker. Include 256 px and
+  512 px icon files and retain full-resolution artwork for the separate
+  companion-app handoff.
+- This changes artwork only. Vehicle polling, entities, dashboard behavior,
+  saved preferences and trip/charging history are unchanged. The HACS
+  catalogue image is managed separately from the locally bundled icon.
+
 ## 0.3.0-dev.2
 
 - Refine the optional ET5 Touring dashboard hero with a locally bundled,
