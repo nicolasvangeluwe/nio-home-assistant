@@ -31,6 +31,14 @@ from .oauth import (
 class NioOAuth2Implementation(LocalOAuth2ImplementationWithPkce):
     """Handle NIO's PKCE, Basic authentication, and wrapped token envelope."""
 
+    _credential_name: str | None = None
+
+    @property
+    @override
+    def name(self) -> str:
+        """Show the owner's saved application-credential label in HA flows."""
+        return self._credential_name or self.client_id
+
     def _safe_token_error(
         self,
         error_type: type[OAuth2TokenRequestError],
@@ -134,7 +142,7 @@ async def async_get_auth_implementation(
     credential: ClientCredential,
 ) -> AbstractOAuth2Implementation:
     """Return NIO's custom OAuth implementation."""
-    return NioOAuth2Implementation(
+    implementation = NioOAuth2Implementation(
         hass,
         auth_domain,
         credential.client_id,
@@ -143,6 +151,8 @@ async def async_get_auth_implementation(
         client_secret=credential.client_secret,
         code_verifier_length=128,
     )
+    implementation._credential_name = credential.name
+    return implementation
 
 
 async def async_get_description_placeholders(

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from aiohttp import BasicAuth
+from homeassistant.components.application_credentials import ClientCredential
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.config_entry_oauth2_flow import (
     OAuth2TokenRequestError,
@@ -14,6 +15,7 @@ from homeassistant.helpers.config_entry_oauth2_flow import (
 
 from custom_components.nio_telematics.application_credentials import (
     NioOAuth2Implementation,
+    async_get_auth_implementation,
 )
 from custom_components.nio_telematics.const import DOMAIN
 
@@ -36,6 +38,21 @@ def test_authorize_request_uses_nios_default_scope_set() -> None:
 def test_credentials_help_uses_home_assistant_oauth_redirect() -> None:
     """The credentials help exposes Home Assistant's exact OAuth callback."""
     assert '"redirect_url": "https://my.home-assistant.io/redirect/oauth"' in SOURCE
+
+
+async def test_credential_picker_shows_saved_name(hass: HomeAssistant) -> None:
+    """The implementation picker distinguishes multiple saved NIO clients."""
+    named = await async_get_auth_implementation(
+        hass, "nio-named", ClientCredential("client-one", "secret", "Home Assistant")
+    )
+    unnamed = await async_get_auth_implementation(
+        hass, "nio-unnamed", ClientCredential("client-two", "secret")
+    )
+
+    assert named.name == "Home Assistant"
+    assert unnamed.name == "client-two"
+    assert named.domain == "nio-named"
+    assert unnamed.domain == "nio-unnamed"
 
 
 def implementation(hass: HomeAssistant) -> NioOAuth2Implementation:

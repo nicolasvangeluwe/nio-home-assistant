@@ -3,6 +3,21 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.4.0-dev.2
+
+- Show each saved Home Assistant application credential's own name in the
+  reauthentication/reconfiguration picker, with its client ID as a fallback
+  when no name was saved. The selected implementation and OAuth behavior are
+  unchanged.
+- Reduce and separate the upper-left Home Assistant badge on the locally
+  bundled integration icon. The approved face and underline are unchanged.
+- NIO's live authorization service rejected individually requested callback
+  URLs when two callbacks were stored comma-separated, despite its published
+  setup guidance. For now, use a dedicated NIO Personal Application with only
+  `https://my.home-assistant.io/redirect/oauth` as its redirect URI. The
+  existing HA vehicle entry can be reconfigured to its new credentials; its
+  entity IDs, dashboard preferences, and stored trip/charging history remain.
+
 ## 0.4.0-dev.1
 
 - Add Home Assistant's application-credential picker to reauthentication and

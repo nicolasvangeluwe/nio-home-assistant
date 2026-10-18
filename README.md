@@ -34,7 +34,7 @@ Settings now has short help beside optional inputs and a **Backup & restore** se
 [![Open this repository in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=nicolasvangeluwe&repository=nio-home-assistant&category=integration)
 
 1. Add this repository to HACS as an **Integration** ([how to add a custom repository](https://www.hacs.xyz/docs/faq/custom_repositories/)), download the latest development release, then restart Home Assistant.
-2. Create a **Personal Application** in the [NIO developer console](https://open-eu.nio.com/console) with OAuth Authorization Code. Set its redirect URI to `https://my.home-assistant.io/redirect/oauth`.
+2. Create a **Personal Application** in the [NIO developer console](https://open-eu.nio.com/console) with OAuth Authorization Code. Set its only redirect URI to `https://my.home-assistant.io/redirect/oauth`. Although NIO's guide describes comma-separated callbacks, its live authorization service currently rejects an individual callback from such a list; use a separate NIO application for another client.
 3. In **Settings → Devices & services**, add **Open Telematics for NIO (EU)**. Enter the application's Client ID and Secret, authorize with NIO, then enter your car's name and VIN.
 
 You can enable additional sensors on the vehicle's **Entities** page. Existing Home Assistant enable/disable choices survive updates. For manual installation, copy `custom_components/nio_telematics` into your Home Assistant configuration and restart.
