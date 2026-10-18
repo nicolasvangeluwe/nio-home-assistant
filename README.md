@@ -35,11 +35,13 @@ Settings now has short help beside optional inputs and a **Backup & restore** se
 
 1. Add this repository to HACS as an **Integration** ([how to add a custom repository](https://www.hacs.xyz/docs/faq/custom_repositories/)), download the latest development release, then restart Home Assistant.
 2. Create a **Personal Application** in the [NIO developer console](https://open-eu.nio.com/console) with OAuth Authorization Code. Set its only redirect URI to `https://my.home-assistant.io/redirect/oauth`. Although NIO's guide describes comma-separated callbacks, its live authorization service currently rejects an individual callback from such a list; use a separate NIO application for another client.
-3. In **Settings → Devices & services**, add **Open Telematics for NIO (EU)**. Enter the application's Client ID and Secret, authorize with NIO, then enter your car's name and VIN.
+3. In **Settings → Devices & services**, add **Open Telematics for NIO (EU)**. Enter the application's Client ID and Secret, authorize with NIO, then enter your car's name and VIN. The integration requests the read-only vehicle scopes automatically; you do not need to edit the authorization URL.
 
 You can enable additional sensors on the vehicle's **Entities** page. Existing Home Assistant enable/disable choices survive updates. For manual installation, copy `custom_components/nio_telematics` into your Home Assistant configuration and restart.
 
 To switch to a different NIO Personal Application later, add its Client ID and Secret in Home Assistant's **Application Credentials**, then use **Reconfigure** on the existing vehicle integration. Select the new application and authorize it; the vehicle and its existing entities stay in place. An expired grant uses the same credential picker during reauthentication.
+
+An upgrade that changes requested permissions may prompt **Reauthenticate** in Home Assistant. Complete that flow once using your saved NIO application credential; do not delete and re-add the vehicle. A completed login does not guarantee NIO permits every vehicle feed: if the API availability diagnostic still reports `access_denied`, include your model, country, integration version and sanitized endpoint results in a [bug report](https://github.com/nicolasvangeluwe/nio-home-assistant/issues).
 
 ## Try it and tell us what you find
 

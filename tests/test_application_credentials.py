@@ -17,7 +17,7 @@ from custom_components.nio_telematics.application_credentials import (
     NioOAuth2Implementation,
     async_get_auth_implementation,
 )
-from custom_components.nio_telematics.const import DOMAIN
+from custom_components.nio_telematics.const import DOMAIN, OAUTH_SCOPES
 
 SOURCE = (
     Path(__file__).parents[1]
@@ -27,12 +27,20 @@ SOURCE = (
 ).read_text(encoding="utf-8")
 
 
-def test_authorize_request_uses_nios_default_scope_set() -> None:
-    """The implementation must not override PKCE data with a scope parameter."""
+def test_authorize_request_includes_supported_scopes_and_pkce(
+    hass: HomeAssistant,
+) -> None:
+    """HA setup requests vehicle data without requiring URL edits by owners."""
+    data = implementation(hass).extra_authorize_data
 
-    assert "OAUTH_SCOPES" not in SOURCE
-    assert '"scope"' not in SOURCE
-    assert "'scope'" not in SOURCE
+    assert data["scope"] == " ".join(OAUTH_SCOPES)
+    assert "vehicle:read" in OAUTH_SCOPES
+    assert "vehicle:energy:read" in OAUTH_SCOPES
+    assert "vehicle:connectivity:read" not in OAUTH_SCOPES
+    assert "aftersales:read" not in OAUTH_SCOPES
+    assert data["code_challenge"]
+    assert data["code_challenge_method"] == "S256"
+    assert "client-secret-marker" not in str(data)
 
 
 def test_credentials_help_uses_home_assistant_oauth_redirect() -> None:

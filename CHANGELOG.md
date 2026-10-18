@@ -3,6 +3,22 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.4.0-dev.3
+
+- Request the NIO Personal Application's ten read-only vehicle scopes during
+  initial authorization and reauthentication, including Vehicle and Energy.
+  Home Assistant's PKCE fields are preserved. Owners no longer need to edit
+  an OAuth URL to obtain telemetry access.
+- Require one native Home Assistant reauthentication for existing entries so
+  their tokens receive the new scope request; preserve the vehicle entry,
+  entity IDs, dashboard preferences and trip/charging history.
+- Document that a successful login may still leave NIO-denied feeds unavailable.
+  The Danish Firefly `access_denied` report persisted even with explicit scopes
+  and is not claimed fixed by this change.
+- Remove the Home Assistant badge from the locally bundled NOMI-inspired icon
+  and use a transparent background while preserving its face and underline.
+  Add a geometry-matched light variant for dark Home Assistant themes.
+
 ## 0.4.0-dev.2
 
 - Show each saved Home Assistant application credential's own name in the

@@ -19,7 +19,7 @@ from homeassistant.helpers.config_entry_oauth2_flow import (
 from multidict import CIMultiDict, CIMultiDictProxy
 from yarl import URL
 
-from .const import AUTHORIZE_PATH, OAUTH_BASE_URL, TOKEN_PATH
+from .const import AUTHORIZE_PATH, OAUTH_BASE_URL, OAUTH_SCOPES, TOKEN_PATH
 from .oauth import (
     REAUTH_RESULT_CODES,
     TRANSIENT_RESULT_CODES,
@@ -32,6 +32,12 @@ class NioOAuth2Implementation(LocalOAuth2ImplementationWithPkce):
     """Handle NIO's PKCE, Basic authentication, and wrapped token envelope."""
 
     _credential_name: str | None = None
+
+    @property
+    @override
+    def extra_authorize_data(self) -> dict[str, str]:
+        """Request NIO's vehicle-read grant while retaining HA's PKCE fields."""
+        return {**super().extra_authorize_data, "scope": " ".join(OAUTH_SCOPES)}
 
     @property
     @override

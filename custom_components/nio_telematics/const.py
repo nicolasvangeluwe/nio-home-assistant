@@ -16,10 +16,24 @@ CONF_VIN: Final = "vin"
 CONF_VEHICLE_NAME: Final = "vehicle_name"
 CONF_SCOPE_REVISION: Final = "scope_revision"
 
-# NIO grants the application's full permitted scope set when the OAuth
-# authorization request omits ``scope``. Do not send an explicit list: NIO
-# rejects the entire request if it contains a scope unavailable to that app.
-OAUTH_SCOPE_REVISION: Final = 2
+# NIO's Personal Application console lists these read-only vehicle scopes.
+# An omitted scope completed OAuth on a newly created app but its telemetry
+# requests returned access_denied; an explicit grant restored live readings.
+# Do not add unsupported legacy scopes such as vehicle:connectivity:read or
+# aftersales:read: NIO rejects the complete authorization with invalid_scope.
+OAUTH_SCOPES: Final = (
+    "vehicle:read",
+    "vehicle:dynamics:read",
+    "vehicle:location:read",
+    "vehicle:energy:read",
+    "vehicle:body:read",
+    "vehicle:cabin:read",
+    "vehicle:powertrain:read",
+    "vehicle:diagnostics:read",
+    "vehicle:adas:read",
+    "vehicle:nomi:read",
+)
+OAUTH_SCOPE_REVISION: Final = 3
 
 DEFAULT_SCAN_INTERVAL: Final = timedelta(seconds=15)
 ATTR_EVENT_TIME: Final = "event_time"
