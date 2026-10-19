@@ -16,6 +16,9 @@ Use this before releases and when opening PRs.
 - Keep the already-resolved timezone and rolling 100 km calculations from
   v0.4.0-dev.4. These changes are source-only until a future release and HA
   installation are separately verified.
+- Bound display-only short-trip grouping to the configured trip idle period
+  and keep legs separate across recorded parked loss. This prevents separate
+  same-day drives from appearing as one trip; archived trips are unchanged.
 
 ## 0.4.0-dev.4
 

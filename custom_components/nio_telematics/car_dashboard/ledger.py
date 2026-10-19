@@ -211,12 +211,31 @@ class Ledger:
                     for r in self.data["source_transitions"]
                 )
             )
+            # A short leg is only part of the same journey while the idle
+            # interval remains open. Same-day and odometer continuity alone
+            # can join separate morning and evening drives.
+            gap = (
+                trip["start"] - previous.get("last_movement", previous["end"])
+                if previous
+                else None
+            )
+            nearby = (
+                gap is not None and 0 <= gap <= self.settings["trip_idle_minutes"] * 60
+            )
+            parked_between = previous and any(
+                (number(loss.get("kwh")) or 0) > 0
+                and loss["start"] < trip["start"]
+                and loss["end"] > previous["end"]
+                for loss in self.data["parked_losses"]
+            )
             if (
                 previous
                 and previous["distance_km"] < 5
                 and same_day
+                and nearby
                 and previous["end_odo"] == trip["start_odo"]
                 and not blocked
+                and not parked_between
             ):
                 previous["segments"].extend(trip["segments"])
                 previous["distance_km"] += trip["distance_km"]

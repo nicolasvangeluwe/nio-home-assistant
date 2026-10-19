@@ -240,6 +240,78 @@ class CalculationTests(unittest.TestCase):
         self.assertEqual(snap["statistics"]["last_trip"]["distance_km"], 5)
         self.assertNotIn("current_trip", snap["statistics"])
 
+    def short_trip_pair(self, gap_seconds):
+        ledger = Ledger({"capacity_kwh": 90, "full_range_km": 450})
+        ledger.ingest(self.t, 100, None, soc_pct=52)
+        ledger.ingest(self.t + 120, 104, None, soc_pct=51)
+        ledger.close_trip()
+        ledger.ingest(self.t + 120 + gap_seconds, 104, None, soc_pct=51)
+        ledger.ingest(self.t + 240 + gap_seconds, 105, None, soc_pct=50.5)
+        ledger.close_trip()
+        return ledger
+
+    def test_short_legs_group_only_within_idle_window(self):
+        nearby = self.short_trip_pair(500)
+        self.assertEqual([trip["distance_km"] for trip in nearby.display_trips()], [5])
+        beyond_idle = self.short_trip_pair(1501)
+        self.assertEqual(
+            [trip["distance_km"] for trip in beyond_idle.display_trips()], [4, 1]
+        )
+
+    def test_morning_and_evening_trips_remain_distinct_without_archive_edits(self):
+        ledger = Ledger({"capacity_kwh": 90, "full_range_km": 450})
+        ledger.ingest(self.t, 100, None, soc_pct=52)
+        ledger.ingest(self.t + 480, 104, None, soc_pct=51)
+        ledger.close_trip()
+        ledger.ingest(self.t + 8 * 3600, 104, None, soc_pct=51)
+        ledger.ingest(self.t + 8 * 3600 + 720, 109, None, soc_pct=50)
+        ledger.close_trip()
+        saved = deepcopy(ledger.data)
+        trips = ledger.display_trips()
+        self.assertEqual([trip["distance_km"] for trip in trips], [4, 5])
+        self.assertEqual(
+            [trip["id"] for trip in trips], [trip["id"] for trip in saved["trips"]]
+        )
+        self.assertEqual(
+            [
+                round(sum(segment["kwh"] for segment in trip["segments"]), 2)
+                for trip in trips
+            ],
+            [0.9, 0.9],
+        )
+        self.assertEqual(
+            ledger.snapshot(self.t + 8 * 3600 + 800)["statistics"]["last_trip"][
+                "distance_km"
+            ],
+            5,
+        )
+        self.assertEqual(ledger.data, saved)
+
+    def test_parked_loss_charge_and_source_epoch_block_short_leg_grouping(self):
+        parked = self.short_trip_pair(500)
+        parked.data["parked_losses"].append(
+            {"start": self.t + 120, "end": self.t + 400, "kwh": 0.45, "complete": True}
+        )
+        self.assertEqual(len(parked.display_trips()), 2)
+
+        charging = self.short_trip_pair(500)
+        charging.data["charges"]["home-test"] = {
+            "kind": "home",
+            "start": self.t + 200,
+            "end": self.t + 400,
+        }
+        self.assertEqual(len(charging.display_trips()), 2)
+
+        transitioned = self.short_trip_pair(500)
+        transitioned.data["source_transitions"].append({"t": self.t + 300})
+        self.assertEqual(len(transitioned.display_trips()), 2)
+
+        irrelevant = self.short_trip_pair(500)
+        irrelevant.data["parked_losses"].append(
+            {"start": self.t - 600, "end": self.t - 300, "kwh": 0.45}
+        )
+        self.assertEqual(len(irrelevant.display_trips()), 1)
+
     def test_recovery_is_persistent_and_idempotent(self):
         samples = [
             {"t": self.t, "odo": 1000, "range": 250, "home_connected": False},
