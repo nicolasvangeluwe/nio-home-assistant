@@ -270,7 +270,7 @@ def _check_import_history(hass, preferences, history):
     }
     try:
         Ledger(settings, history).snapshot(
-            dt_util.utcnow().timestamp(), hass.config.time_zone
+            dt_util.utcnow().timestamp(), dt_util.get_default_time_zone()
         )
     except (ValueError, KeyError, TypeError, IndexError, ZeroDivisionError) as err:
         raise ValueError("Backup history cannot be read by this version") from err

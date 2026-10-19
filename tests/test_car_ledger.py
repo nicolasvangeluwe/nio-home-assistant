@@ -7,6 +7,7 @@ import sys
 import types
 import unittest
 from copy import deepcopy
+from datetime import datetime, timedelta, timezone
 
 root = (
     pathlib.Path(__file__).parents[1]
@@ -33,6 +34,26 @@ class CalculationTests(unittest.TestCase):
         self.ledger.ingest(self.t, 1000, 250)
         self.ledger.ingest(self.t + 600, 1010, 240)
         self.ledger.ingest(self.t + 1200, 1020, 230)
+
+    def test_snapshot_uses_pre_resolved_timezone_for_local_dates(self):
+        local_tz = timezone(timedelta(hours=2))
+        now = datetime(2026, 10, 1, 0, 30, tzinfo=local_tz).timestamp()
+        self.ledger.add_charge(now - 300, now - 60, 5, price=0.2)
+        self.assertEqual(self.ledger.snapshot(now)["charging_daily"][0]["date"], "2026-09-30")
+        self.assertEqual(
+            self.ledger.snapshot(now, local_tz)["charging_daily"][0]["date"],
+            "2026-10-01",
+        )
+
+    def test_parked_periods_use_pre_resolved_timezone_at_month_boundary(self):
+        local_tz = timezone(timedelta(hours=2))
+        boundary = datetime(2026, 10, 1, 0, 0, tzinfo=local_tz).timestamp()
+        self.ledger.data["parked_losses"] = [
+            {"start": boundary - 600, "end": boundary - 60, "kwh": 0.2, "complete": True},
+            {"start": boundary - 60, "end": boundary + 600, "kwh": 0.3, "complete": True},
+        ]
+        self.assertEqual(len(self.ledger.parked_periods()), 1)
+        self.assertEqual(len(self.ledger.parked_periods(local_tz)), 2)
 
     def test_consumption_from_unrounded_energy(self):
         self.drive()
@@ -163,6 +184,25 @@ class CalculationTests(unittest.TestCase):
         self.ledger.add_charge(self.t + 3700, self.t + 3800, 20, price=0.4)
         snap = self.ledger.snapshot(self.t + 4000)
         self.assertEqual(snap["statistics"]["last_100km"]["distance_km"], 0)
+
+    def test_native_rolling_100km_survives_a_later_charge(self):
+        self.ledger.ingest(self.t, 1000, None, soc_pct=90)
+        for index in range(1, 13):
+            self.ledger.ingest(
+                self.t + index * 600,
+                1000 + index * 10,
+                None,
+                soc_pct=90 - index * 3,
+            )
+        self.ledger.close_trip()
+        self.ledger.add_charge(self.t + 7350, self.t + 7400, 5, price=0.2)
+        before = deepcopy(self.ledger.data)
+        rolling = self.ledger.snapshot(self.t + 7500)["statistics"]["last_100km"]
+        self.assertEqual(self.ledger.data, before)
+        self.assertEqual(rolling["basis"], "native_soc_driving")
+        self.assertEqual(rolling["distance_km"], 100)
+        self.assertTrue(rolling["energy_complete"])
+        self.assertAlmostEqual(rolling["consumption_kwh_100km"], 27)
 
     def test_last_trip_excludes_current_trip_and_boundary_segment(self):
         self.drive()

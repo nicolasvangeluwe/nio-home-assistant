@@ -179,7 +179,7 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
 
     def snapshot(self):
         now = dt_util.utcnow().timestamp()
-        result = self.ledger.snapshot(now, self.hass.config.time_zone)
+        result = self.ledger.snapshot(now, dt_util.get_default_time_zone())
         connected = self.hass.states.get(self.settings["home_connected"])
         if self.active_home_id and _is_connected(connected):
             active = result["active_home_charge"]

@@ -2,11 +2,10 @@
 
 import json
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from hashlib import sha256
 from math import isfinite
 from uuid import uuid4
-from zoneinfo import ZoneInfo
 
 
 def number(value):
@@ -964,10 +963,9 @@ class Ledger:
             self.data["preferences"][key] = value
         self.changed()
 
-    def parked_periods(self, timezone="UTC"):
+    def parked_periods(self, tz=timezone.utc):
         """Expose recorded stationary decreases, joining only touching intervals."""
         periods = []
-        tz = ZoneInfo(timezone)
         for row in sorted(self.data["parked_losses"], key=lambda r: r["start"]):
             if (
                 not row.get("complete")
@@ -996,8 +994,7 @@ class Ledger:
             period["soc_used_pct"] = period["kwh"] / self.settings["capacity_kwh"] * 100
         return list(reversed(periods))
 
-    def snapshot(self, now, timezone="UTC"):
-        tz = ZoneInfo(timezone)
+    def snapshot(self, now, tz=timezone.utc):
         local = datetime.fromtimestamp(now, tz)
         midnight = local.replace(hour=0, minute=0, second=0, microsecond=0)
         charges = sorted(
@@ -1025,7 +1022,29 @@ class Ledger:
         statistics = {
             key: self.statistics(start, now) for key, start in periods.items()
         }
-        statistics["last_100km"] = self.statistics(last_charge, now, 100)
+        # Driving consumption is a rolling distance window, not a window since
+        # the last charge. Do not combine different energy-source epochs.
+        native_rows = [
+            row for row in self.data["samples"]
+            if row.get("energy_source") == "native_soc"
+        ]
+        native_start = max(
+            [row["t"] for row in self.data["source_transitions"]]
+            or [native_rows[0]["t"] if native_rows else now + 1]
+        )
+        last = self.data["last"] or {}
+        rolling = self.statistics(native_start, now, 100)
+        if rolling["segments"]:
+            rolling = self.statistics(
+                max(native_start, rolling["segments"][0]["start"]), now, 100
+            )
+        if last.get("energy_source") != "native_soc":
+            rolling = self.statistics(now + 1, now)
+        rolling["basis"] = "native_soc_driving"
+        rolling["window_km"] = 100
+        rolling["calculated_at"] = now
+        rolling["remaining_kwh"] = last.get("energy")
+        statistics["last_100km"] = rolling
         completed = self.data["trips"]
         last_trip = max(completed, key=lambda r: r["end"]) if completed else None
         statistics["last_trip"] = (
@@ -1091,7 +1110,7 @@ class Ledger:
             "statistics": statistics,
             "counters": counters,
             "preferences": deepcopy(pref),
-            "parked_periods": self.parked_periods(timezone),
+            "parked_periods": self.parked_periods(tz),
             "charging_daily": sorted(buckets.values(), key=lambda b: b["date"]),
             "tracking_started": (self.data["opening"] or {}).get("t"),
             "settings": self.settings,

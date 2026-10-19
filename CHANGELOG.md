@@ -3,6 +3,17 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.4.0-dev.4
+
+- Pass Home Assistant's already-resolved timezone object to the optional car
+  ledger and backup validation. Local-day grouping remains unchanged, without
+  potentially blocking zone-file reads on the Home Assistant event loop. This
+  addresses the HACS review feedback from Frenck.
+- Carry the verified native-SoC rolling 100 km range calculation into the
+  maintained package. A charge no longer resets that driving-distance window;
+  source epochs and incomplete energy still remain distinct. This preserves
+  the narrow fix already active on the maintainer's Home Assistant instance.
+
 ## 0.4.0-dev.3
 
 - Request the NIO Personal Application's ten read-only vehicle scopes during
