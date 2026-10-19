@@ -2,7 +2,7 @@
 
 import json
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from hashlib import sha256
 from math import isfinite
 from uuid import uuid4
@@ -88,6 +88,7 @@ class Ledger:
         """Keep archives, but never compare a new source/calibration to the old one."""
         self.close_trip(incomplete=True)
         self.data["last"] = None
+        self.data.pop("native_soc_reports", None)
         self.data["pending_epoch"] = {
             "capacity_kwh": new_settings["capacity_kwh"],
             "full_range_km": new_settings["full_range_km"],
@@ -106,6 +107,133 @@ class Ledger:
             self.data["source_transition_at"] = sample["t"]
             self.data["source_transition_energy"] = sample["energy"]
 
+    def observe_native_sources(
+        self, odo_t, odo, soc_t, soc, connected=False, connected_since=None
+    ):
+        """Pair source clocks, never future SoC; persist the small alignment buffer."""
+        values = list(map(number, (odo_t, odo, soc_t, soc)))
+        if any(v is None for v in values):
+            return False
+        odo_t, odo, soc_t, soc = values
+        if odo <= 0 or not 0 <= soc <= 100:
+            return False
+        reports = self.data.setdefault("native_soc_reports", [])
+        if not any(r["t"] == soc_t and r["soc"] == soc for r in reports):
+            reports.append({"t": soc_t, "soc": soc})
+            reports.sort(key=lambda r: r["t"])
+            self.data["native_soc_reports"] = reports = reports[-2000:]
+            self.changed()
+        prior = [r for r in reports if 0 <= odo_t - r["t"] <= 180]
+        accepted = False
+        if prior:
+            reading = max(prior, key=lambda r: r["t"])
+            accepted = self.ingest(
+                odo_t,
+                odo,
+                None,
+                connected,
+                soc_pct=reading["soc"],
+                home_connected_since=connected_since,
+            )
+        # The last arrival sample can follow its odometer sample. It updates
+        # that endpoint, rather than becoming parked loss or next-trip energy.
+        self.reconcile_native_endpoint(
+            odo, soc_t, soc, connected=connected, connected_since=connected_since
+        )
+        return accepted
+
+    def reconcile_native_endpoint(
+        self, odo, soc_t, soc, *, connected=False, connected_since=None
+    ):
+        if connected and (connected_since is None or connected_since <= soc_t):
+            return False
+        candidates = [
+            r
+            for r in self.all_trips()
+            if r["end_odo"] == odo
+            and 0 <= soc_t - r["last_movement"] <= 180
+            and r.get("native_alignment_version") == 2
+        ]
+        if not candidates:
+            return False
+        trip = max(candidates, key=lambda r: r["end"])
+        if soc_t <= trip.get("endpoint_soc_time", trip["end"]):
+            return False
+        if any(
+            charge["kind"] != "dismissed"
+            and charge["start"] <= soc_t
+            and charge["end"] >= trip["last_movement"]
+            for charge in self.data["charges"].values()
+        ):
+            return False
+        energy = soc / 100 * self.settings["capacity_kwh"]
+        # Upward events may be charging or BMS corrections. Do not turn them
+        # into negative consumption, erase energy, or cross a charge boundary.
+        if energy > trip["end_energy"] + 1e-9 or not all(
+            row["kwh"] is not None for row in trip["segments"]
+        ):
+            return False
+        delta = trip["end_energy"] - energy
+        trip["segments"][-1]["kwh"] += delta
+        trip["segments"][-1]["end_energy"] = energy
+        trip["end_energy"] = energy
+        trip["endpoint_soc_time"] = soc_t
+        trip["endpoint_basis"] = "bounded_arrival_estimate"
+        if self.data["active"] is trip:
+            trip["energy_anchor"] = energy
+        last = self.data["last"]
+        if last and last["odo"] == odo and last["t"] <= soc_t:
+            last.update(energy=energy, soc=soc, endpoint_soc_time=soc_t)
+        self.changed()
+        return True
+
+    def display_trips(self, tz=UTC):
+        """Group short legs without deleting raw trips or moving parked energy."""
+        grouped = []
+        for raw in sorted(self.all_trips(), key=lambda r: r["start"]):
+            trip = deepcopy(raw)
+            trip["leg_ids"] = [raw["id"]]
+            previous = grouped[-1] if grouped else None
+            same_day = (
+                previous
+                and datetime.fromtimestamp(previous["end"], tz).date()
+                == datetime.fromtimestamp(trip["start"], tz).date()
+            )
+            blocked = previous and (
+                any(
+                    c["kind"] != "dismissed"
+                    and c["start"] < trip["start"]
+                    and c["end"] > previous["end"]
+                    for c in self.data["charges"].values()
+                )
+                or any(
+                    previous["end"] <= r["t"] <= trip["start"]
+                    for r in self.data["source_transitions"]
+                )
+            )
+            if (
+                previous
+                and previous["distance_km"] < 5
+                and same_day
+                and previous["end_odo"] == trip["start_odo"]
+                and not blocked
+            ):
+                previous["segments"].extend(trip["segments"])
+                previous["distance_km"] += trip["distance_km"]
+                previous["leg_ids"].extend(trip["leg_ids"])
+                previous.update(
+                    end=trip["end"],
+                    last_movement=trip["last_movement"],
+                    end_odo=trip["end_odo"],
+                    end_energy=trip["end_energy"],
+                    complete=previous["complete"] and trip["complete"],
+                )
+                if self.data["active"] and raw["id"] == self.data["active"]["id"]:
+                    previous["id"] = raw["id"]
+            else:
+                grouped.append(trip)
+        return grouped
+
     def energy(self, range_km):
         return max(
             0,
@@ -121,6 +249,8 @@ class Ledger:
         """Correct legacy trip energy from retained evidence, preserving trip IDs."""
         samples = sorted(self.data["samples"], key=lambda r: r["t"])
         for trip in self.all_trips():
+            if trip.get("native_alignment_version") == 2:
+                continue
             # Archived range-based trips are immutable after migration.
             if (
                 self.data["source_transition_at"] is not None
@@ -263,7 +393,14 @@ class Ledger:
             self.close_trip()
 
     def ingest(
-        self, timestamp, odometer, range_km, home_connected=False, *, soc_pct=None
+        self,
+        timestamp,
+        odometer,
+        range_km,
+        home_connected=False,
+        *,
+        soc_pct=None,
+        home_connected_since=None,
     ):
         t, odo, km = map(number, (timestamp, odometer, range_km))
         soc = number(soc_pct)
@@ -298,8 +435,38 @@ class Ledger:
         if old and t <= old["t"]:
             return False
         self.tick(t)
-        if home_connected:
+        arrival = bool(
+            old
+            and source == "native_soc"
+            and home_connected
+            and number(home_connected_since) is not None
+            and old["t"] <= home_connected_since <= t
+            and t - home_connected_since <= 180
+            and 0 < odo - old["odo"] <= 2
+            and energy <= old["energy"]
+        )
+        departure = bool(
+            old
+            and source == "native_soc"
+            and not home_connected
+            and old.get("home_connected")
+            and number(home_connected_since) is not None
+            and old["t"] <= home_connected_since <= t
+            and t - home_connected_since <= 180
+            and 0 < odo - old["odo"] <= 2
+            and energy <= old["energy"]
+        )
+        if home_connected and not arrival:
             self.close_trip()
+        if arrival and self.data["active"] is None and self.data["trips"]:
+            previous = self.data["trips"][-1]
+            if (
+                previous["end_odo"] == old["odo"]
+                and t - previous["last_movement"] <= 180
+                and previous["end"] <= home_connected_since
+            ):
+                self.data["active"] = self.data["trips"].pop()
+                self.data["active"]["energy_anchor"] = previous["end_energy"]
         if old and old.get("energy_source", "range_estimate") != source:
             # The two energy estimates have different baselines. Never turn
             # their difference into a trip, stationary loss or charge.
@@ -345,6 +512,7 @@ class Ledger:
                     }
                     self.data["active"] = trip
                     if source == "native_soc":
+                        trip["native_alignment_version"] = 2
                         trip["energy_anchor"] = old["energy"]
                 if source == "native_soc":
                     # Unchanged-distance reports are real samples, but their
@@ -362,7 +530,22 @@ class Ledger:
                         for c in self.data["charges"].values()
                     )
                 )
-                complete = delta >= 0 and not charging
+                if arrival or departure:
+                    # A bounded cable transition is a movement endpoint, not
+                    # evidence that the complete driving window was charging.
+                    charging = False
+                complete = (
+                    delta >= 0 and not charging and not (gap and source == "native_soc")
+                )
+                invalid_reason = (
+                    "charging"
+                    if charging
+                    else "gap"
+                    if gap and source == "native_soc"
+                    else "native_rebound"
+                    if delta < 0
+                    else None
+                )
                 segment = {
                     "start": trip.get("last_movement", old["t"]),
                     "end": t,
@@ -370,6 +553,7 @@ class Ledger:
                     "kwh": delta if complete else None,
                     "complete": complete,
                     "sparse": gap,
+                    "invalid_reason": invalid_reason,
                     "start_energy": old["energy"],
                     "end_energy": sample["energy"],
                 }
@@ -377,7 +561,10 @@ class Ledger:
                 if source == "native_soc" and complete:
                     pending = [segment]
                     for prior in reversed(trip["segments"][:-1]):
-                        if prior["kwh"] is not None:
+                        if (
+                            prior["kwh"] is not None
+                            or prior.get("invalid_reason") != "native_rebound"
+                        ):
                             break
                         pending.append(prior)
                     if len(pending) > 1:
@@ -394,7 +581,10 @@ class Ledger:
                     end_odo=odo,
                     end_energy=sample["energy"],
                     complete=trip["complete"]
-                    and (complete or (source == "native_soc" and not charging)),
+                    and (
+                        complete
+                        or (source == "native_soc" and not charging and not gap)
+                    ),
                 )
             elif delta < -self.energy(2) and not (
                 source == "native_soc"
@@ -463,6 +653,8 @@ class Ledger:
                     }
                 )
         self.data["last"] = sample
+        if arrival:
+            self.close_trip()
         # Small samples only; trips and charges are never age-pruned.
         self.data["samples"].append(sample)
         self.data["samples"] = self.data["samples"][-2000:]
@@ -812,16 +1004,25 @@ class Ledger:
         All other trips, charges, old samples and source transitions stay intact.
         The coordinator persists this mutation atomically with the HA Store.
         """
-        old = next((r for r in self.data["trips"] if r["id"] == ident), None)
-        tail = next(
-            (r for r in self.data["trips"] if r["id"] == merge_tail_id), None
-        ) if merge_tail_id else None
+        was_active = bool(self.data["active"] and self.data["active"]["id"] == ident)
+        old = (
+            self.data["active"]
+            if was_active
+            else next((r for r in self.data["trips"] if r["id"] == ident), None)
+        )
+        tail = (
+            next((r for r in self.data["trips"] if r["id"] == merge_tail_id), None)
+            if merge_tail_id
+            else None
+        )
         if (
             old is None
             or not isinstance(reports, list)
             or not 2 <= len(reports) <= 1000
         ):
             raise ValueError("A saved trip and 2–1000 source reports are required")
+        if was_active and merge_tail_id:
+            raise ValueError("An active trip cannot merge a saved tail")
         if merge_tail_id and tail is None:
             # A repeated, already-applied repair must not remove anything else.
             previous = self.data["native_replays"].get(ident, {})
@@ -879,6 +1080,8 @@ class Ledger:
                     "odo": odo,
                     "soc_pct": soc,
                     "soc_time": soc_t,
+                    "odo_time": number(report.get("odo_time", t)),
+                    "home_connected_since": number(report.get("home_connected_since")),
                     "home_connected": report["home_connected"],
                 }
             )
@@ -892,7 +1095,7 @@ class Ledger:
         if (
             rows[0]["odo"] != old["start_odo"]
             or rows[-1]["odo"] != (tail or old)["end_odo"]
-            or rows[0]["t"] < old["start"]
+            or rows[0]["t"] < old["start"] - 180
             or rows[-1]["t"] > max((tail or old)["end"], now)
             or any(
                 trip not in (old, tail)
@@ -910,36 +1113,63 @@ class Ledger:
         original_charges = deepcopy(self.data["charges"])
         scratch.data["charges"] = deepcopy(original_charges)
         for row in rows:
-            if not scratch.ingest(
-                row["t"],
+            odo_time = row["odo_time"]
+            if odo_time is None or not 0 <= row["t"] - odo_time <= 180:
+                raise ValueError("Invalid odometer source clock")
+            scratch.observe_native_sources(
+                odo_time,
                 row["odo"],
-                None,
+                row["soc_time"],
+                row["soc_pct"],
                 row["home_connected"],
-                soc_pct=row["soc_pct"],
-            ):
-                raise ValueError("Source report could not be replayed")
-        scratch.tick(max(now, rows[-1]["t"] + self.settings["trip_idle_minutes"] * 60))
+                row["home_connected_since"],
+            )
+        if not was_active:
+            scratch.tick(
+                max(now, rows[-1]["t"] + self.settings["trip_idle_minutes"] * 60)
+            )
         if (
-            len(scratch.data["trips"]) != 1
-            or scratch.data["active"] is not None
-            or scratch.data["trips"][0]["distance_km"]
+            len(scratch.all_trips()) != 1
+            or (scratch.data["active"] is not None) != was_active
+            or scratch.all_trips()[0]["distance_km"]
             != old["distance_km"] + (tail["distance_km"] if tail else 0)
-            or scratch.data["trips"][0]["end_odo"] != (tail or old)["end_odo"]
+            or scratch.all_trips()[0]["end_odo"] != (tail or old)["end_odo"]
             or scratch.data["charges"] != original_charges
         ):
             raise ValueError("Replay disagrees with archived trip distance or charges")
-        replacement = scratch.data["trips"][0]
+        replacement = scratch.all_trips()[0]
         replacement["id"] = ident
         replacement["source"] = "native_source_replay"
-        self.data["trips"][self.data["trips"].index(old)] = replacement
+        if was_active:
+            self.data["active"] = replacement
+        else:
+            self.data["trips"][self.data["trips"].index(old)] = replacement
         if tail:
             self.data["trips"].remove(tail)
+        superseded_losses = deepcopy(self.data["parked_losses"])
         self.data["parked_losses"] = [
             loss
             for loss in self.data["parked_losses"]
             if not (rows[0]["t"] <= loss["start"] and loss["end"] <= rows[-1]["t"])
         ] + scratch.data["parked_losses"]
+        # A legacy trailing-loss interval can end much later than its only
+        # SoC drop. Reallocate only the endpoint delta proved by this replay.
+        endpoint_delta = max(0, (tail or old)["end_energy"] - replacement["end_energy"])
+        for loss in list(self.data["parked_losses"]):
+            if (
+                loss["start"] == (tail or old)["last_movement"]
+                and loss["end"] > rows[-1]["t"]
+                and endpoint_delta > 1e-9
+            ):
+                amount = min(loss["kwh"], endpoint_delta)
+                loss["kwh"] -= amount
+                endpoint_delta -= amount
+                if loss["kwh"] < 1e-9:
+                    self.data["parked_losses"].remove(loss)
         self.data["native_replays"][ident] = {
+            "superseded_parked_losses": superseded_losses,
+            "superseded_trip": deepcopy(old),
+            "superseded_tail": deepcopy(tail),
             "digest": digest,
             "reports": rows,
             "merged_ids": [tail["id"]] if tail else [],
@@ -963,7 +1193,7 @@ class Ledger:
             self.data["preferences"][key] = value
         self.changed()
 
-    def parked_periods(self, tz=timezone.utc):
+    def parked_periods(self, tz=UTC):
         """Expose recorded stationary decreases, joining only touching intervals."""
         periods = []
         for row in sorted(self.data["parked_losses"], key=lambda r: r["start"]):
@@ -994,7 +1224,7 @@ class Ledger:
             period["soc_used_pct"] = period["kwh"] / self.settings["capacity_kwh"] * 100
         return list(reversed(periods))
 
-    def snapshot(self, now, tz=timezone.utc):
+    def snapshot(self, now, tz=UTC):
         local = datetime.fromtimestamp(now, tz)
         midnight = local.replace(hour=0, minute=0, second=0, microsecond=0)
         charges = sorted(
@@ -1022,14 +1252,13 @@ class Ledger:
         statistics = {
             key: self.statistics(start, now) for key, start in periods.items()
         }
-        # Driving consumption is a rolling distance window, not a window since
-        # the last charge. Do not combine different energy-source epochs.
+        # A real rolling driving window spans charges, but never source epochs.
+        # Unknown energy within the latest distance remains unknown, not skipped.
         native_rows = [
-            row for row in self.data["samples"]
-            if row.get("energy_source") == "native_soc"
+            r for r in self.data["samples"] if r.get("energy_source") == "native_soc"
         ]
         native_start = max(
-            [row["t"] for row in self.data["source_transitions"]]
+            [r["t"] for r in self.data["source_transitions"]]
             or [native_rows[0]["t"] if native_rows else now + 1]
         )
         last = self.data["last"] or {}
@@ -1045,7 +1274,9 @@ class Ledger:
         rolling["calculated_at"] = now
         rolling["remaining_kwh"] = last.get("energy")
         statistics["last_100km"] = rolling
-        completed = self.data["trips"]
+        displayed = self.display_trips(tz)
+        active_id = (self.data["active"] or {}).get("id")
+        completed = [r for r in displayed if r["id"] != active_id]
         last_trip = max(completed, key=lambda r: r["end"]) if completed else None
         statistics["last_trip"] = (
             self.statistics(last_trip["start"], last_trip["end"], trip=last_trip)
@@ -1053,7 +1284,7 @@ class Ledger:
             else self.statistics(now + 1, now)
         )
         if self.data["active"]:
-            active = self.data["active"]
+            active = next(r for r in displayed if r["id"] == active_id)
             statistics["current_trip"] = self.statistics(
                 active["start"], active["end"], trip=active
             )
@@ -1096,7 +1327,20 @@ class Ledger:
             )
         return {
             "revision": self.data["revision"],
-            "trips": list(reversed(self.all_trips())),
+            "experience_version": 1,
+            "driving_segments": self.cost_segments(),
+            "battery_timeline": [
+                {
+                    "t": r["t"],
+                    "soc": r["energy"] / self.settings["capacity_kwh"] * 100,
+                    "odo": r["odo"],
+                    "connected": r.get("home_connected", False),
+                }
+                for r in self.data["samples"]
+                if r.get("energy_source") == "native_soc"
+            ],
+            "trip_semantics_version": 2,
+            "trips": list(reversed(displayed)),
             "charges": charges,
             "active_home_charge": next(
                 (

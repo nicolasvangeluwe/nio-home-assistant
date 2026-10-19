@@ -3,6 +3,20 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## Unreleased
+
+- Align native SoC with odometer source timestamps instead of pairing a newer
+  percentage with an older distance report. Retain unchanged SoC reports,
+  reconcile bounded late arrival readings, and keep later stationary losses
+  outside the driving trip. Treat sparse native intervals as unknown rather
+  than measured consumption.
+- Preserve charging/source boundaries, stored trip IDs and raw evidence during
+  audited native-trip repair. Restore the optional dashboard's grouped-trip,
+  battery-history and driving-segment snapshot fields.
+- Keep the already-resolved timezone and rolling 100 km calculations from
+  v0.4.0-dev.4. These changes are source-only until a future release and HA
+  installation are separately verified.
+
 ## 0.4.0-dev.4
 
 - Pass Home Assistant's already-resolved timezone object to the optional car

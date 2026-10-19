@@ -39,7 +39,9 @@ class CalculationTests(unittest.TestCase):
         local_tz = timezone(timedelta(hours=2))
         now = datetime(2026, 10, 1, 0, 30, tzinfo=local_tz).timestamp()
         self.ledger.add_charge(now - 300, now - 60, 5, price=0.2)
-        self.assertEqual(self.ledger.snapshot(now)["charging_daily"][0]["date"], "2026-09-30")
+        self.assertEqual(
+            self.ledger.snapshot(now)["charging_daily"][0]["date"], "2026-09-30"
+        )
         self.assertEqual(
             self.ledger.snapshot(now, local_tz)["charging_daily"][0]["date"],
             "2026-10-01",
@@ -49,8 +51,18 @@ class CalculationTests(unittest.TestCase):
         local_tz = timezone(timedelta(hours=2))
         boundary = datetime(2026, 10, 1, 0, 0, tzinfo=local_tz).timestamp()
         self.ledger.data["parked_losses"] = [
-            {"start": boundary - 600, "end": boundary - 60, "kwh": 0.2, "complete": True},
-            {"start": boundary - 60, "end": boundary + 600, "kwh": 0.3, "complete": True},
+            {
+                "start": boundary - 600,
+                "end": boundary - 60,
+                "kwh": 0.2,
+                "complete": True,
+            },
+            {
+                "start": boundary - 60,
+                "end": boundary + 600,
+                "kwh": 0.3,
+                "complete": True,
+            },
         ]
         self.assertEqual(len(self.ledger.parked_periods()), 1)
         self.assertEqual(len(self.ledger.parked_periods(local_tz)), 2)
@@ -203,6 +215,18 @@ class CalculationTests(unittest.TestCase):
         self.assertEqual(rolling["distance_km"], 100)
         self.assertTrue(rolling["energy_complete"])
         self.assertAlmostEqual(rolling["consumption_kwh_100km"], 27)
+
+    def test_snapshot_retains_history_contract_and_rolling_range(self):
+        self.ledger.observe_native_sources(self.t, 1000, self.t - 10, 52)
+        self.ledger.observe_native_sources(self.t + 120, 1001, self.t + 110, 51.5)
+        snapshot = self.ledger.snapshot(self.t + 120)
+        self.assertEqual(snapshot["experience_version"], 1)
+        self.assertEqual(snapshot["trip_semantics_version"], 2)
+        self.assertIn("driving_segments", snapshot)
+        self.assertTrue(snapshot["battery_timeline"])
+        self.assertEqual(
+            snapshot["statistics"]["last_100km"]["basis"], "native_soc_driving"
+        )
 
     def test_last_trip_excludes_current_trip_and_boundary_segment(self):
         self.drive()
@@ -366,6 +390,53 @@ class CalculationTests(unittest.TestCase):
         restored.tick(self.t + 3600)
         self.assertEqual(restored.data["parked_losses"], before["parked_losses"])
 
+    def test_native_source_clocks_reconcile_late_arrival_without_late_parked_loss(self):
+        ledger = self.ledger
+        ledger.observe_native_sources(self.t, 1000, self.t - 10, 52)
+        ledger.observe_native_sources(self.t + 120, 1000, self.t + 110, 52)
+        # The 51.5% reading is newer than the movement report. It cannot be
+        # used as a departure value until a subsequent distance report arrives.
+        ledger.observe_native_sources(self.t + 240, 1001, self.t + 260, 51.5)
+        ledger.observe_native_sources(self.t + 360, 1002, self.t + 260, 51.5)
+        ledger.observe_native_sources(self.t + 360, 1002, self.t + 390, 51)
+        ledger.observe_native_sources(self.t + 480, 1002, self.t + 470, 51)
+        ledger.observe_native_sources(self.t + 1500, 1002, self.t + 1490, 50.5)
+        ledger.tick(self.t + 2100)
+        trip = ledger.data["trips"][0]
+        self.assertEqual(trip["distance_km"], 2)
+        self.assertAlmostEqual(sum(row["kwh"] for row in trip["segments"]), 0.9)
+        self.assertAlmostEqual(ledger.data["parked_losses"][0]["kwh"], 0.45)
+        self.assertEqual(trip["native_alignment_version"], 2)
+
+    def test_native_alignment_survives_restart_and_duplicate_reports(self):
+        ledger = self.ledger
+        ledger.observe_native_sources(self.t, 1000, self.t - 10, 52)
+        ledger.observe_native_sources(self.t + 120, 1000, self.t + 110, 52)
+        restored = Ledger(ledger.settings, json.loads(json.dumps(ledger.data)))
+        before = deepcopy(restored.data)
+        self.assertFalse(
+            restored.observe_native_sources(self.t + 120, 1000, self.t + 110, 52)
+        )
+        self.assertEqual(restored.data, before)
+        restored.observe_native_sources(self.t + 240, 1001, self.t + 230, 51.5)
+        self.assertAlmostEqual(restored.data["active"]["segments"][0]["kwh"], 0.45)
+
+    def test_late_native_endpoint_does_not_cross_charge_boundary(self):
+        ledger = self.ledger
+        ledger.observe_native_sources(self.t, 1000, self.t - 10, 52)
+        ledger.observe_native_sources(self.t + 120, 1001, self.t + 110, 51.5)
+        trip = ledger.data["active"]
+        before = deepcopy(trip)
+        ledger.observe_native_sources(
+            self.t + 120,
+            1001,
+            self.t + 140,
+            51,
+            connected=True,
+            connected_since=self.t + 130,
+        )
+        self.assertEqual(trip, before)
+
     def test_native_replay_preserves_trip_id_archive_and_raw_samples(self):
         self.ledger.ingest(self.t, 1000, 400, soc_pct=90)
         self.ledger.ingest(self.t + 600, 1001, 399, soc_pct=89.5)
@@ -403,11 +474,38 @@ class CalculationTests(unittest.TestCase):
         self.assertEqual(repaired["start"], self.t + 120)
         self.assertEqual(repaired["distance_km"], 2)
         self.assertEqual(self.ledger.data["parked_losses"], [])
+        self.assertEqual(
+            self.ledger.data["native_replays"][ident]["superseded_parked_losses"],
+            [dict(start=self.t + 600, end=self.t + 700, kwh=0.45, complete=True)],
+        )
         self.assertEqual(self.ledger.data["samples"], raw)
         self.assertIn("home-114", self.ledger.data["charges"])
         before = json.loads(json.dumps(self.ledger.data))
         self.assertFalse(self.ledger.repair_native_trip(ident, reports, self.t + 4000))
         self.assertEqual(self.ledger.data, before)
+
+    def test_native_replay_accepts_bounded_predeparture_baseline(self):
+        ledger = self.ledger
+        ledger.ingest(self.t, 1000, None, soc_pct=52)
+        ledger.ingest(self.t + 120, 1000, None, soc_pct=52)
+        ledger.ingest(self.t + 240, 1001, None, soc_pct=51.5)
+        ledger.tick(self.t + 2000)
+        ident = ledger.data["trips"][0]["id"]
+        reports = [
+            {
+                "t": self.t + offset,
+                "odo_time": self.t + offset,
+                "odo": odo,
+                "soc_time": self.t + offset - 10,
+                "soc_pct": soc,
+                "home_connected": False,
+            }
+            for offset, odo, soc in ((0, 1000, 52), (120, 1000, 52), (240, 1001, 51.5))
+        ]
+        self.assertEqual(ledger.data["trips"][0]["start"], self.t + 120)
+        self.assertTrue(ledger.repair_native_trip(ident, reports, self.t + 2000))
+        self.assertEqual(ledger.data["trips"][0]["id"], ident)
+        self.assertAlmostEqual(ledger.data["trips"][0]["segments"][0]["kwh"], 0.45)
 
     def test_active_home_session_without_completed_history_is_projection_only(self):
         self.ledger.import_home([], active_session_id=115)

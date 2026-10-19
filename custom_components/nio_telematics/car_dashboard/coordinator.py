@@ -92,9 +92,7 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
                 self.active_home_id
                 and not (history and history.attributes.get("active_session_id"))
                 and self.active_home_id in self.ledger.data["charges"]
-                and not self.ledger.data["charges"][self.active_home_id].get(
-                    "ongoing"
-                )
+                and not self.ledger.data["charges"][self.active_home_id].get("ongoing")
             ):
                 self.active_home_id = None
             odo = self.hass.states.get(self.settings["odometer"])
@@ -118,22 +116,19 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
                     and odo
                     and soc_value is not None
                     and 0 <= soc_value <= 100
-                    and not soc.attributes.get("data_retained", False)
-                    and not odo.attributes.get("data_retained", False)
                     and number(odo.state) is not None
                     and soc_t is not None
                     and odo_t is not None
                     and -30 <= now - odo_t <= 900
                     and -30 <= now - soc_t <= 900
-                    and -30 <= odo_t - soc_t <= 180
                 ):
-                    km = number(rng.state) if rng else None
-                    if self.ledger.ingest(
+                    if self.ledger.observe_native_sources(
                         odo_t,
                         odo.state,
-                        km,
+                        soc_t,
+                        soc_value,
                         _is_connected(connected),
-                        soc_pct=soc_value,
+                        connected.last_changed.timestamp() if connected else None,
                     ):
                         self.source_status = "fresh_native_soc"
                 else:
@@ -179,7 +174,7 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
 
     def snapshot(self):
         now = dt_util.utcnow().timestamp()
-        result = self.ledger.snapshot(now, dt_util.get_default_time_zone())
+        result = self.ledger.snapshot(now, self.hass.config.time_zone)
         connected = self.hass.states.get(self.settings["home_connected"])
         if self.active_home_id and _is_connected(connected):
             active = result["active_home_charge"]
