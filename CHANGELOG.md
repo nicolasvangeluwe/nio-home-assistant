@@ -5,6 +5,9 @@ Use this before releases and when opening PRs.
 
 ## Unreleased
 
+- Fix Car history/forecast snapshots failing when Home Assistant supplies its
+  configured timezone as a string; resolve it before local-date calculations.
+
 - Add an optional Companion cache connection using a persistent, separately
   revocable HA credential. Reconfigure the same car without changing its entry,
   device, sensor IDs or archive; preflight core telemetry and restore the previous

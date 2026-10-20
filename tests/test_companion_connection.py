@@ -644,6 +644,25 @@ async def test_flow_and_setup_survive_shared_owner_admission(
         await car.runtime_data.async_shutdown()
 
 
+@pytest.mark.parametrize("instant", ["2026-03-29T01:30:00Z", "2026-10-25T01:30:00Z"])
+async def test_ledger_snapshot_resolves_configured_timezone(hass, freezer, instant):
+    from custom_components.nio_telematics.car_dashboard.coordinator import (
+        CarLedgerCoordinator,
+    )
+    from custom_components.nio_telematics.car_dashboard.ledger import Ledger
+
+    hass.config.set_time_zone("Europe/Brussels")
+    freezer.move_to(instant)
+    coordinator = CarLedgerCoordinator(
+        hass, SimpleNamespace(entry_id="timezone-ledger", data={})
+    )
+    coordinator.ledger = Ledger(coordinator.settings)
+    # Exercise the actual websocket-facing adapter, not just the pure ledger.
+    result = coordinator.snapshot()
+    assert "statistics" in result
+    assert "charging_daily" in result
+
+
 @pytest.mark.parametrize("fresh", [True, False])
 async def test_ledger_switch_creates_one_baseline_and_preserves_archive(
     hass, freezer, fresh
