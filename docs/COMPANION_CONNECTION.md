@@ -1,6 +1,6 @@
 # Optional Companion connection — design handoff
 
-Status: contract proposal only, 20 October 2026. No Companion connection method, backend client, account linking, migration, or HA deployment exists in this integration. Direct NIO OAuth remains the sole supported route. A targeted live HA check on 20 October found the existing `nio_telematics` entry loaded; it did not validate any Companion service or switch.
+Status: isolated contract parser and handoff only, 20 October 2026. No Companion connection method, HTTP client, account linking, migration, or HA deployment exists in this integration. Direct NIO OAuth remains the sole supported route. A targeted live HA check on 20 October found the existing `nio_telematics` entry loaded; it did not validate any Companion service or switch.
 
 ## Product boundary
 
@@ -33,7 +33,7 @@ Once that contract is real, add a source-specific adapter that normalizes Compan
 
 Before a public release, test: unchanged legacy Direct entries; new Direct and Companion setup; authorization renewal/revocation; wrong owner/vehicle and duplicate VIN; partial, sparse, delayed and stale snapshots; 429/5xx retry versus rejected authorization; rollback on failed switch/reload; no duplicate upstream collector; stable entry/device/entity IDs and ledger archive across both switch directions and restarts. Verify a real backend contract and an attended HA migration before documenting Companion setup as available. Direct NIO remains the fallback, not a forced migration.
 
-No runtime code or tests are added by this handoff because implementing a speculative login or response parser would create a nonfunctional connection option and risk existing Direct NIO users.
+The isolated version-1 parser has no import path from the live setup/coordinator. A login, HTTP client or source switch remains absent; these would be nonfunctional and risky before the backend protocol is ready.
 
 ## 20 October readiness and Wednesday continuity boundary
 
@@ -51,3 +51,22 @@ Safe sequence for this deadline:
 4. At 19:00 Wednesday, stop any unproven live experiment. Verify the Direct entry is loaded, its relevant sensors and source timestamps, and OAuth refresh/log health by 20:00. If a parallel client or safe rollback cannot be established, defer backend proof or HA source switching; do **not** sacrifice the working HA application to meet a feature target.
 
 Removing a Companion HA consumer must revoke only that consumer's backend access. Companion history deletion and provider/NIO grant revocation are separate owner actions. A source-switch rollback restores the prior HA entry data; it cannot resurrect a provider application that was deleted or a refresh grant invalidated upstream.
+
+## 20 October backend proof contract review
+
+The backend's local `docs/backend/HA_CONSUMER_API_2026-10-20.md` specifies an unmounted, private `GET /ha/v1/vehicle` proof source. It has one authoritative vehicle and a separate `ha1_` bearer scoped to the HA consumer. There is no deployed route, owner-facing issuance/renewal UI, real owner evidence adapter or live NIO cache. Its proof credential expires within 24 hours, so it is not a supported daily HA connection. A `401 unauthorized` is HA-consumer reauthentication; `503 source_reauthorization_required` is upstream NIO repair and must not launch an HA credential loop. `503 source_disconnected` is a separate owner action; `429` and `503 unavailable` are retryable. These distinctions are enforced only in the isolated parser today.
+
+The backend's nine fields map only partly to existing HA entities:
+
+| Backend field | Existing HA meaning | Current gap |
+| --- | --- | --- |
+| `socPercent` | Battery state of charge | The backend currently permits `vehicle_status` as well as `soc_status`. Direct HA intentionally rejects the former's zero placeholder; the isolated parser withholds dynamics-sourced SoC. Backend must make `soc_status` authoritative or prove another valid source. |
+| `targetSocPercent`, `maximumSocPercent` | Charging target, maximum SoC | Distinct fields; do not substitute target for the user's configured maximum. Coverage and clock evidence remain unproved for another car. |
+| `batteryCurrentA` | High-voltage battery current | Mapping is plausible by unit/field, but needs one-car comparison. |
+| `vehicleState` | Vehicle state | Enum is aligned with the current dynamics sensor; per-field clock must be retained. |
+| `energyChargingState`, `dynamicsChargingState` | Charging state | Distinct NIO enums/sources. The current HA sensor can use an energy observation or a vehicle fallback; do not merge them into an invented universal state. Define precedence and availability with real evidence. |
+| `rangeKm`, `odometerKm` | Remaining range, odometer | Both are intentionally null/`unit_unverified` in this contract. They cannot replace the owner's currently usable values or support the optional distance/trip ledger. |
+
+All other direct endpoint sensors/diagnostics, position, trip and body/cabin fields are absent. The backend explicitly reports no location, controls or history capability. The installed HA vehicle uses native SoC, range, odometer and vehicle state; a switch now would lose material functionality. The parser validates version, ownership claim, VIN shape, all nine field contracts, UTC source/receipt timestamps, freshness quality, expected units/enums and error-code boundaries. It never treats a stale, future-clock, unverified-unit or dynamics-only SoC value as a usable current HA reading. This is a compatibility guard, **not** proof that the backend's ownership assertion is true; only its trusted server adapters can establish that.
+
+Before a live HACS option: the backend must activate real owner/vehicle evidence, establish an independent NIO client or proven safe coexistence, verify range/odometer scaling and source parity, provide durable consumer issuance/renewal/revocation and a stable cache/feed, and prove isolated read/recovery behavior. Then HA needs a source adapter, config flow, switch/rollback tests and an attended migration. None is authorized merely by this parser.
