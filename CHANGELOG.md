@@ -18,6 +18,9 @@ Use this before releases and when opening PRs.
   Source/generation changes establish a new optional-ledger energy baseline.
   A handover-paused entry enables only its validated replacement source;
   failed setup restores its paused state without briefly polling Direct NIO.
+  Add service can change an existing vehicle's connection through a title-only
+  selector, including when HA hides Reconfigure for a disabled entry. Cancellation
+  leaves the entry unchanged; identity is resolved again before validation/commit.
   This feature is source-only pending backend readiness and an attended rollout.
 - Align native SoC with odometer source timestamps instead of pairing a newer
   percentage with an older distance report. Retain unchanged SoC reports,

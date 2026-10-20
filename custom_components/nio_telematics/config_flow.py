@@ -8,6 +8,7 @@ from typing import Any, override
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.data_entry_flow import AbortFlow
 from homeassistant.helpers import config_entry_oauth2_flow, selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -65,8 +66,59 @@ class NioConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, domain=D
 
     async def async_step_user(self, user_input=None):
         """Choose an independent Direct or Companion connection."""
-        return self.async_show_menu(
-            step_id="user", menu_options=["direct", "companion"]
+        options = ["direct", "companion"]
+        if self._existing_vehicles():
+            options.append("change_connection")
+        return self.async_show_menu(step_id="user", menu_options=options)
+
+    def _existing_vehicles(self):
+        """Only existing vehicle entries can be a connection-switch target."""
+        return [
+            entry
+            for entry in self.hass.config_entries.async_entries(DOMAIN)
+            if entry.source != config_entries.SOURCE_IGNORE and entry.data.get(CONF_VIN)
+        ]
+
+    async def async_step_change_connection(self, user_input=None):
+        """Open native reconfiguration even when HA hides the disabled-entry menu."""
+        vehicles = self._existing_vehicles()
+        if not vehicles:
+            return self.async_abort(reason="no_existing_vehicle")
+        errors = {}
+        if user_input is not None:
+            selected = next(
+                (
+                    entry
+                    for entry in vehicles
+                    if entry.entry_id == user_input.get("existing_entry_id")
+                ),
+                None,
+            )
+            if selected is None:
+                errors["base"] = "existing_vehicle_missing"
+            else:
+                # The user explicitly selected a source change for this entry.
+                # Native reconfigure helpers keep its identity/options/history.
+                self.context.update(
+                    source=config_entries.SOURCE_RECONFIGURE,
+                    entry_id=selected.entry_id,
+                )
+                return await self.async_step_reconfigure()
+        return self.async_show_form(
+            step_id="change_connection",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("existing_entry_id"): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                {"value": entry.entry_id, "label": entry.title}
+                                for entry in vehicles
+                            ]
+                        )
+                    ),
+                }
+            ),
+            errors=errors,
         )
 
     async def async_step_direct(self, user_input=None):
@@ -134,11 +186,17 @@ class NioConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, domain=D
         )
 
     def _existing_entry(self):
+        entry = None
         if self.source == config_entries.SOURCE_RECONFIGURE:
-            return self._get_reconfigure_entry()
-        if self.source == config_entries.SOURCE_REAUTH:
-            return self._get_reauth_entry()
-        return None
+            entry = self._get_reconfigure_entry()
+        elif self.source == config_entries.SOURCE_REAUTH:
+            entry = self._get_reauth_entry()
+        if entry is None:
+            return None
+        registered = self.hass.config_entries.async_get_entry(entry.entry_id)
+        if registered is None or registered.domain != DOMAIN:
+            raise AbortFlow("existing_vehicle_missing")
+        return registered
 
     async def _companion_candidate(self, user_input):
         """Never collect NIO credentials or accept a short-lived proof bearer."""
@@ -205,9 +263,16 @@ class NioConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, domain=D
         if user_input is not None:
             try:
                 candidate = await self._companion_candidate(self._companion_input)
+                entry = self._existing_entry()
+                if candidate.snapshot.vin != normalize_vin(entry.data[CONF_VIN]) or (
+                    entry.data.get(CONF_COMPANION_VEHICLE_KEY) is not None
+                    and entry.data[CONF_COMPANION_VEHICLE_KEY]
+                    != candidate.snapshot.vehicle_key
+                ):
+                    raise CompanionFetchError("identity_mismatch")
                 await async_switch_source(
                     self.hass,
-                    self._existing_entry(),
+                    entry,
                     {
                         CONF_CONNECTION_METHOD: CONNECTION_COMPANION,
                         CONF_COMPANION_CREDENTIAL: self._companion_input[

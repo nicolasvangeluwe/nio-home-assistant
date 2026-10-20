@@ -3,16 +3,27 @@
     "step": {
       "user": {
         "title": "Vehicle connection",
-        "menu_options": {"direct": "Direct NIO", "companion": "Companion account"}
+        "menu_options": {
+          "direct": "Direct NIO",
+          "companion": "Companion account",
+          "change_connection": "Change connection for an existing vehicle"
+        }
       },
       "reconfigure": {
         "title": "Vehicle connection",
-        "menu_options": {"direct": "Direct NIO / change application credentials", "companion": "Companion account"}
+        "menu_options": {
+          "direct": "Direct NIO / change application credentials",
+          "companion": "Companion account"
+        }
       },
       "companion": {
         "title": "Connect Companion",
         "description": "Create a persistent Home Assistant link on your [Companion connections page]({connections_url}), then paste its HA credential here. The same car must have recent state of charge, range and odometer data. This source currently supplies core vehicle data only; additional Direct NIO sensors will be unavailable.",
-        "data": {"vehicle_name": "Vehicle name", "vin": "VIN", "companion_credential": "Persistent Home Assistant credential"}
+        "data": {
+          "vehicle_name": "Vehicle name",
+          "vin": "VIN",
+          "companion_credential": "Persistent Home Assistant credential"
+        }
       },
       "confirm_source": {
         "title": "Switch this vehicle to Companion?",
@@ -25,13 +36,22 @@
           "vehicle_name": "Vehicle name",
           "vin": "VIN"
         }
+      },
+      "change_connection": {
+        "title": "Choose your existing vehicle",
+        "description": "Change this vehicle's data source while preserving its entities, settings and history. A paused vehicle stays paused until the validated replacement source is ready.",
+        "data": {
+          "existing_entry_id": "Vehicle"
+        }
       }
     },
     "abort": {
       "already_configured": "This vehicle is already configured.",
       "source_unload_failed": "The current connection could not stop. No source change was saved.",
       "source_switch_failed": "The new connection could not load. The previous configuration was restored.",
-      "source_rollback_failed": "The switch failed and the previous configuration was restored, but could not load. Check the integration and reconnect if needed."
+      "source_rollback_failed": "The switch failed and the previous configuration was restored, but could not load. Check the integration and reconnect if needed.",
+      "no_existing_vehicle": "No existing NIO vehicle is available to reconfigure.",
+      "existing_vehicle_missing": "This vehicle no longer exists or belongs to another integration. No connection was changed."
     },
     "error": {
       "invalid_vin": "Enter a valid 17-character VIN.",
@@ -45,7 +65,8 @@
       "insufficient_coverage": "Companion needs recent, verified state of charge, range and odometer data before this switch.",
       "source_unload_failed": "The existing connection could not stop. Try again later.",
       "source_switch_failed": "The switch failed. The previous configuration was restored.",
-      "source_rollback_failed": "The previous configuration was restored but could not load. Check the integration before retrying."
+      "source_rollback_failed": "The previous configuration was restored but could not load. Check the integration before retrying.",
+      "existing_vehicle_missing": "This vehicle no longer exists. Select an existing vehicle."
     }
   },
   "issues": {
@@ -93,13 +114,27 @@
   },
   "entity": {
     "sensor": {
-      "battery_state_of_charge": {"name": "Battery state of charge"},
-      "remaining_range": {"name": "Remaining range"},
-      "charging_state": {"name": "Charging state"},
-      "charging_target": {"name": "Charging target"},
-      "maximum_soc": {"name": "Maximum state of charge"},
-      "high_voltage_battery_current": {"name": "High-voltage battery current"},
-      "data_timestamp": {"name": "Data timestamp"}
+      "battery_state_of_charge": {
+        "name": "Battery state of charge"
+      },
+      "remaining_range": {
+        "name": "Remaining range"
+      },
+      "charging_state": {
+        "name": "Charging state"
+      },
+      "charging_target": {
+        "name": "Charging target"
+      },
+      "maximum_soc": {
+        "name": "Maximum state of charge"
+      },
+      "high_voltage_battery_current": {
+        "name": "High-voltage battery current"
+      },
+      "data_timestamp": {
+        "name": "Data timestamp"
+      }
     }
   }
 }

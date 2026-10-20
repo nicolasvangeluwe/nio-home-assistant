@@ -5,7 +5,9 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntryDisabler, ConfigEntryState
+from homeassistant.data_entry_flow import AbortFlow, FlowResultType
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import UpdateFailed
@@ -300,6 +302,154 @@ async def test_switch_preflight_rejects_proof_credential_before_mutation(hass):
     switch.assert_not_called()
 
 
+@pytest.mark.parametrize("finish", [False, True])
+async def test_native_add_flow_targets_existing_paused_car_without_creating_entry(
+    hass, finish
+):
+    car = MockConfigEntry(
+        domain=DOMAIN,
+        title="My existing car",
+        unique_id=VIN,
+        data={"vin": VIN, "token": {"access_token": "direct-fixture"}},
+        disabled_by=ConfigEntryDisabler.USER,
+    )
+    car.add_to_hass(hass)
+    before = dict(car.data)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    assert "change_connection" in result["menu_options"]
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "change_connection"}
+    )
+    assert result["step_id"] == "change_connection"
+    selector_config = (
+        result["data_schema"].schema[next(iter(result["data_schema"].schema))].config
+    )
+    assert selector_config["options"] == [
+        {"value": car.entry_id, "label": "My existing car"}
+    ]
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"existing_entry_id": car.entry_id}
+    )
+    assert result["step_id"] == "reconfigure"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "companion"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "companion"
+    assert {key.schema for key in result["data_schema"].schema} == {
+        CONF_COMPANION_CREDENTIAL
+    }
+    assert len(hass.config_entries.async_entries(DOMAIN)) == 1
+    assert car.data == before
+    assert car.disabled_by is ConfigEntryDisabler.USER
+    if not finish:
+        await hass.config_entries.flow.async_abort(result["flow_id"])
+        assert car.data == before
+        assert car.disabled_by is ConfigEntryDisabler.USER
+        return
+
+    async def switch_source(hass_arg, selected, changes):
+        assert selected is car and hass_arg is hass
+        assert selected.disabled_by is ConfigEntryDisabler.USER
+        hass.config_entries.async_update_entry(car, data={**car.data, **changes})
+
+    with (
+        patch.object(
+            NioConfigFlow,
+            "_companion_candidate",
+            new_callable=AsyncMock,
+            return_value=SimpleNamespace(snapshot=snapshot()),
+        ),
+        patch(
+            "custom_components.nio_telematics.config_flow.async_switch_source",
+            new_callable=AsyncMock,
+            side_effect=switch_source,
+        ) as switch,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_COMPANION_CREDENTIAL: TOKEN}
+        )
+        assert result["step_id"] == "confirm_source"
+        assert car.data == before
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "reconfigure_successful"
+        switch.assert_awaited_once()
+    assert hass.config_entries.async_get_entry(car.entry_id) is car
+    assert len(hass.config_entries.async_entries(DOMAIN)) == 1
+    assert car.unique_id == VIN
+    assert car.data[CONF_CONNECTION_METHOD] == "companion"
+    assert car.data["token"] == before["token"]
+
+
+async def test_existing_vehicle_choice_rejects_wrong_or_removed_entry(hass):
+    car = entry()
+    car.add_to_hass(hass)
+    handler = NioConfigFlow()
+    handler.hass = hass
+    handler.context = {"source": config_entries.SOURCE_USER}
+    result = await handler.async_step_change_connection(
+        {"existing_entry_id": "unrelated"}
+    )
+    assert result["errors"] == {"base": "existing_vehicle_missing"}
+    assert handler.context["source"] == config_entries.SOURCE_USER
+
+
+async def test_selected_entry_is_resolved_again_and_removed_target_aborts(hass):
+    car = entry()
+    car.add_to_hass(hass)
+    handler = NioConfigFlow()
+    handler.hass = hass
+    handler.context = {
+        "source": config_entries.SOURCE_RECONFIGURE,
+        "entry_id": car.entry_id,
+    }
+    with (
+        patch.object(handler, "_get_reconfigure_entry", return_value=car),
+        patch.object(hass.config_entries, "async_get_entry", return_value=None),
+        patch(
+            "custom_components.nio_telematics.config_flow.CompanionVehicleClient"
+        ) as client,
+    ):
+        with pytest.raises(AbortFlow, match="existing_vehicle_missing"):
+            await handler._companion_candidate({CONF_COMPANION_CREDENTIAL: TOKEN})
+        client.assert_not_called()
+
+
+async def test_commit_rechecks_current_vehicle_identity_after_network_preflight(hass):
+    car = entry()
+    car.add_to_hass(hass)
+    handler = NioConfigFlow()
+    handler.hass = hass
+    handler.context = {
+        "source": config_entries.SOURCE_RECONFIGURE,
+        "entry_id": car.entry_id,
+    }
+    handler._companion_input = {CONF_COMPANION_CREDENTIAL: TOKEN}
+
+    async def candidate(_):
+        hass.config_entries.async_update_entry(car, data={**car.data, "vin": "B" * 17})
+        return SimpleNamespace(snapshot=snapshot())
+
+    with (
+        patch.object(
+            handler,
+            "_companion_candidate",
+            new_callable=AsyncMock,
+            side_effect=candidate,
+        ),
+        patch(
+            "custom_components.nio_telematics.config_flow.async_switch_source",
+            new_callable=AsyncMock,
+        ) as switch,
+    ):
+        result = await handler.async_step_confirm_source({})
+        assert result["errors"]["base"] == "identity_mismatch"
+        switch.assert_not_awaited()
+
+
 @pytest.mark.parametrize("fail", [True, False])
 async def test_paused_entry_starts_only_companion_and_rolls_back_to_paused(fail):
     original = {"vin": VIN, "token": {"access_token": "direct-fixture"}}
@@ -355,6 +505,7 @@ async def test_confirm_rechecks_coverage_before_switch_and_preserves_entry(hass)
     handler.context = {"source": "reconfigure"}
     handler._companion_input = {CONF_COMPANION_CREDENTIAL: TOKEN}
     car = entry()
+    car.add_to_hass(hass)
     candidate = SimpleNamespace(snapshot=snapshot())
     with (
         patch.object(handler, "_get_reconfigure_entry", return_value=car),

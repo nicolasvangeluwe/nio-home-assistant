@@ -20,6 +20,12 @@ and 20 October proof history; their preparation-only status is superseded here.
   backend vehicle key are checked; preflight requires valid SoC, verified range
   and odometer source samples no older than 15 minutes, checked locally as well
   as by backend quality. Confirmation repeats the preflight before stopping Direct.
+  For a paused car, use Add service → Change connection for an existing vehicle
+  → select its existing title → Companion. HA's disabled-entry menu hides
+  Reconfigure; this native route requires no Direct enable, raw API request,
+  duplicated vehicle or new VIN input. It transitions the same flow to native
+  reconfigure context, re-resolves the registered target and rechecks identity
+  at commit. Cancellation before confirmation changes no source or enable state.
 - The source change uses HA's unload/update/setup APIs, retaining the same entry,
   unique/device/entity IDs, options and archive. Failed setup restores original
   entry data and attempts to reload it. Failure of that recovery is explicit;
