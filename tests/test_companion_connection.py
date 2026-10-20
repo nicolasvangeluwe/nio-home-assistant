@@ -277,7 +277,7 @@ async def test_confirm_rechecks_coverage_before_switch_and_preserves_entry(hass)
 async def test_restart_uses_same_consumer_and_pins_vehicle_key(hass):
     car = entry()
     client = SimpleNamespace(async_fetch=AsyncMock(return_value=snapshot()))
-    before = deepcopy(car.data)
+    before = deepcopy(dict(car.data))
     first = CompanionDataUpdateCoordinator(hass, car, client)
     second = CompanionDataUpdateCoordinator(hass, car, client)
     assert (await first._async_update_data()).soc_status.soc == 48.5
