@@ -654,7 +654,11 @@ async def test_ledger_snapshot_resolves_configured_timezone(hass, freezer, insta
     await hass.config.async_set_time_zone("Europe/Brussels")
     freezer.move_to(instant)
     coordinator = CarLedgerCoordinator(
-        hass, SimpleNamespace(entry_id="timezone-ledger", data={})
+        hass,
+        SimpleNamespace(
+            entry_id="timezone-ledger",
+            data={"capacity_kwh": 90, "full_range_km": 557},
+        ),
     )
     coordinator.ledger = Ledger(coordinator.settings)
     # Exercise the actual websocket-facing adapter, not just the pure ledger.
