@@ -195,6 +195,15 @@ async def test_switch_preflight_accepts_only_verified_full_coverage():
     assert candidate.snapshot.usable_value("odometerKm") == 6428.0
 
 
+@pytest.mark.asyncio
+async def test_verified_odometer_alone_does_not_pass_existing_car_switch_gate():
+    payload = _snapshot()
+    payload["fields"]["odometerKm"] = _field(6428, "km", "vehicle_status")
+    client, _ = _client(payload=payload)
+    with pytest.raises(CompanionFetchError, match="insufficient_coverage"):
+        await async_validate_companion_candidate(client, expected_vin=VIN)
+
+
 @pytest.mark.parametrize(
     "origin",
     [

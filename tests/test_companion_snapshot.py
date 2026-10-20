@@ -128,6 +128,15 @@ def test_verified_distance_fields_are_usable_only_with_matching_provenance() -> 
     )
 
 
+def test_verified_odometer_does_not_imply_verified_range() -> None:
+    payload = _snapshot()
+    payload["fields"]["odometerKm"] = _field(6428, "km", "vehicle_status")
+    snapshot = parse_companion_snapshot(payload)
+    assert snapshot.usable_value("odometerKm") == 6428.0
+    assert snapshot.usable_value("rangeKm") is None
+    assert snapshot.fields["rangeKm"].reason == "unit_unverified"
+
+
 def test_stale_or_future_verified_distance_is_withheld_without_erasing_evidence() -> (
     None
 ):
