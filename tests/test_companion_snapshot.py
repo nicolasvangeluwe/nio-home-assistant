@@ -93,7 +93,8 @@ def test_zero_soc_is_valid_only_from_energy_endpoint() -> None:
     payload["fields"]["socPercent"]["value"] = 0
     assert parse_companion_snapshot(payload).usable_value("socPercent") == 0.0
     payload["fields"]["socPercent"]["sourceEndpoint"] = "vehicle_status"
-    assert parse_companion_snapshot(payload).usable_value("socPercent") is None
+    with pytest.raises(CompanionContractError):
+        parse_companion_snapshot(payload)
 
 
 def test_stale_and_future_values_do_not_become_current() -> None:

@@ -38,7 +38,7 @@ _VEHICLE_STATES = frozenset(
 _FIELDS: dict[
     str, tuple[str | None, frozenset[str], tuple[int, int] | frozenset[str]]
 ] = {
-    "socPercent": ("%", frozenset({"soc_status", "vehicle_status"}), (0, 100)),
+    "socPercent": ("%", frozenset({"soc_status"}), (0, 100)),
     "targetSocPercent": ("%", frozenset({"soc_status"}), (0, 100)),
     "maximumSocPercent": ("%", frozenset({"soc_status"}), (80, 100)),
     "batteryCurrentA": ("A", frozenset({"soc_status"}), (-200, 200)),
@@ -106,10 +106,8 @@ class CompanionSnapshot:
     fields: dict[str, CompanionField]
 
     def usable_value(self, key: str) -> float | str | None:
-        """Withhold unverified or stale data, including dynamics SoC placeholder."""
+        """Withhold unverified or stale data; no source is made fresh by parsing."""
         field = self.fields[key]
-        if key == "socPercent" and field.source_endpoint != "soc_status":
-            return None
         return field.value if field.usable else None
 
 
