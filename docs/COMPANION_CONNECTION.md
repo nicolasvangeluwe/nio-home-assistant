@@ -25,20 +25,35 @@ and 20 October proof history; their preparation-only status is superseded here.
   entry data and attempts to reload it. Failure of that recovery is explicit;
   upstream grant invalidation cannot be repaired by restoring saved entry data.
 - The nine-field contract populates existing core entities. Other Direct sensors
-  remain registered but unavailable. Field clocks stay separate from HA poll time;
-  locally stale or unverified fields are unavailable rather than restored from Direct.
+  remain registered but unavailable. Backend-present physically valid stale SoC,
+  range and odometer remain visible with `source_quality=stale`, `fresh=false`,
+  `data_retained=true` and unchanged source clocks, including after restart.
+  Missing, conflicting, unverified and future-clock fields are withheld; no Direct
+  restored value is borrowed. Stale charging, vehicle-state and current fields
+  remain unavailable. API availability describes a readable cache, not field freshness.
 - A source `503 source_reauthorization_required` or disconnected source creates
   an HA Repair linking to `/connections`, retains the HA credential and retries.
   Recovery clears the Repair automatically. Only consumer rejection `401` starts
   HA credential reauthentication. Temporary failures keep normal retry behavior.
 - Optional ledger source/generation changes begin a new persisted energy baseline;
   no difference is calculated against the prior source, and archives are preserved.
+  Both native sources must have `fresh` other than false as well as pass the
+  existing 900-second source-age gate; retained stale values cannot create samples,
+  source baselines, trips, consumption or charging evidence.
 - Diagnostics redact the HA credential and backend vehicle key. Never copy an
   upstream NIO token or owner login session into this setup.
 
 Release and live cutover still require backend readiness, persistent issuance,
 real range-unit coverage, owner review and attended coordination. No release,
 tag, HA install/reload/restart or live source switch accompanies this code change.
+
+Targeted live consumer review on 21 October: native SoC is used by
+`emhass_ev_completion`, `emhass_ev_session`, `evcc_solar_charging_guard` and
+`emhass_update_mobility_ledger`. Existing household macros intentionally allow
+24-hour source age and require post-connection source samples for active solar
+forecast/completion context; completion additionally needs fresh physical charger
+evidence. Keeping the original source timestamp preserves those existing policies.
+No household automation, macro or charging-policy change accompanies this adapter.
 
 ## Product boundary
 

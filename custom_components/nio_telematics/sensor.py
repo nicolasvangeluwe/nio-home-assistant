@@ -32,7 +32,7 @@ from homeassistant.helpers.recorder import DATA_INSTANCE
 from sqlalchemy.exc import SQLAlchemyError
 
 from .availability import availability_attributes, overall_availability
-from .companion_coordinator import SENSOR_FIELDS
+from .companion_coordinator import RETAINED_CORE_FIELDS, SENSOR_FIELDS
 from .coordinator import NioDataUpdateCoordinator
 from .entity import NioEntity
 from .models import NioSocStatus, NioVehicleData
@@ -682,10 +682,14 @@ class NioSensorEntity(NioEntity):
             return True
         if key == "data_timestamp":
             return data.soc_status.event_time is not None
-        field_key = "charging_state" if key == "charging_state" else SENSOR_FIELDS.get(key)
+        field_key = (
+            "charging_state" if key == "charging_state" else SENSOR_FIELDS.get(key)
+        )
         return bool(
-            field_key and data.field_metadata
-            and data.field_metadata.get(field_key, {}).get("quality") == "valid"
+            field_key
+            and data.field_metadata
+            and data.field_metadata.get(field_key, {}).get("quality")
+            in ({"valid", "stale"} if field_key in RETAINED_CORE_FIELDS else {"valid"})
         )
 
     @property
@@ -698,6 +702,14 @@ class NioSensorEntity(NioEntity):
         attributes["telemetry_source"] = self.coordinator.data.connection_method
         if self.coordinator.data.connection_method == "companion":
             attributes["source_generation"] = self.coordinator.data.source_generation
+            field_key = (
+                "charging_state"
+                if self.entity_description.key == "charging_state"
+                else SENSOR_FIELDS.get(self.entity_description.key)
+            )
+            metadata = (self.coordinator.data.field_metadata or {}).get(field_key, {})
+            attributes["source_quality"] = metadata.get("quality", "unavailable")
+            attributes["fresh"] = metadata.get("quality") == "valid"
         if endpoint := self.entity_description.source_endpoint:
             attributes = {
                 **attributes,
@@ -724,10 +736,13 @@ class NioOdometerSensor(NioSensorEntity, RestoreSensor):
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
+        if self.coordinator.data.connection_method == "companion":
+            return  # The authorized backend cache owns retention for this source.
         last_state = await self.async_get_last_state()
-        if last_state is not None and (
-            value := _odometer_number(last_state.state)
-        ) is not None:
+        if (
+            last_state is not None
+            and (value := _odometer_number(last_state.state)) is not None
+        ):
             self._restored_odometer = value
             self._restored_sample_time = (
                 last_state.attributes.get("source_sample")
@@ -759,6 +774,8 @@ class NioOdometerSensor(NioSensorEntity, RestoreSensor):
     @property
     def native_value(self) -> float | None:
         current = _odometer_number(super().native_value)
+        if self.coordinator.data.connection_method == "companion":
+            return current
         return current if current is not None else self._restored_odometer
 
     @property
@@ -797,6 +814,8 @@ class NioSocSensor(NioSensorEntity, RestoreSensor):
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
+        if self.coordinator.data.connection_method == "companion":
+            return
         if (last_state := await self.async_get_last_state()) is not None:
             restored = _restorable_soc(last_state)
             if restored is not None:
@@ -805,6 +824,8 @@ class NioSocSensor(NioSensorEntity, RestoreSensor):
     @property
     def native_value(self) -> float | None:
         value = self.coordinator.data.soc_status.soc
+        if self.coordinator.data.connection_method == "companion":
+            return value
         if _soc_number(value) is not None:
             return value
         return self._restored_soc
@@ -838,6 +859,8 @@ class NioRangeSensor(NioSensorEntity, RestoreSensor):
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
+        if self.coordinator.data.connection_method == "companion":
+            return
         last_data = await self.async_get_last_sensor_data()
         if last_data is not None:
             value = _range_number(last_data.native_value)
@@ -875,6 +898,8 @@ class NioRangeSensor(NioSensorEntity, RestoreSensor):
     @property
     def native_value(self) -> float | None:
         value = self.coordinator.data.soc_status.remaining_range
+        if self.coordinator.data.connection_method == "companion":
+            return value
         if value is not None and math.isfinite(value) and value >= 0:
             return value
         return self._restored_range

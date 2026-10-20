@@ -174,6 +174,61 @@ async def test_companion_diagnostics_redact_credentials_and_vehicle_identity(has
     assert "a" * 64 not in str(diagnostics)
 
 
+@pytest.mark.parametrize("soc_value", [48.5, 0])
+def test_overnight_stale_core_survives_restart_with_original_clocks(freezer, soc_value):
+    payload = _snapshot()
+    payload["snapshotAt"] = "2026-10-21T06:00:00.000Z"
+    payload["fields"]["rangeKm"] = _field(269, "km", "soc_status")
+    payload["fields"]["odometerKm"] = _field(6428, "km", "vehicle_status")
+    payload["fields"]["socPercent"]["value"] = soc_value
+    for field in payload["fields"].values():
+        field["quality"] = "stale"
+    freezer.move_to(payload["snapshotAt"])
+    parsed = parse_companion_snapshot(payload)
+    first = snapshot_to_vehicle(parsed)
+    restarted = snapshot_to_vehicle(parsed)
+    assert first.soc_status.soc == restarted.soc_status.soc == soc_value
+    assert first.soc_last_valid_at == restarted.soc_last_valid_at
+    assert first.soc_last_valid_at < first.fetched_at
+    coordinator = MagicMock(
+        config_entry=entry(), last_update_success=True, data=restarted
+    )
+    descriptions = {s.key: s for s in SENSORS}
+    soc = NioSocSensor(coordinator, descriptions["battery_state_of_charge"])
+    assert soc.available
+    assert soc.extra_state_attributes["source_quality"] == "stale"
+    assert soc.extra_state_attributes["data_retained"] is True
+    assert soc.extra_state_attributes["fresh"] is False
+    odo = NioOdometerSensor(coordinator, descriptions["odometer"])
+    assert odo.available and odo.native_value == 6428
+    assert odo.extra_state_attributes["fresh"] is False
+    assert not NioSensor(coordinator, descriptions["vehicle_state"]).available
+    assert not NioSensor(coordinator, descriptions["charging_state"]).available
+
+
+@pytest.mark.parametrize(
+    "reason",
+    ["not_reported", "unit_unverified", "conflicting_same_time", "future_clock"],
+)
+def test_bad_core_never_revives_direct_restore(reason):
+    payload = _snapshot()
+    raw = payload["fields"]["socPercent"]
+    raw["value"] = None
+    raw["quality"] = "future_clock" if reason == "future_clock" else "unavailable"
+    raw["reason"] = None if reason == "future_clock" else reason
+    if reason in {"not_reported", "conflicting_same_time"}:
+        raw.update(sourceTimestamp=None, receivedAt=None, sourceEndpoint=None)
+    if reason == "future_clock":
+        raw["sourceTimestamp"] = "2026-10-21T19:00:00.000Z"
+    data = snapshot_to_vehicle(parse_companion_snapshot(payload))
+    coordinator = MagicMock(config_entry=entry(), last_update_success=True, data=data)
+    description = next(s for s in SENSORS if s.key == "battery_state_of_charge")
+    sensor = NioSocSensor(coordinator, description)
+    sensor._restored_soc = 99
+    assert sensor.native_value is None
+    assert not sensor.available
+
+
 @pytest.mark.parametrize("fail", [False, True])
 async def test_source_transaction_preserves_entry_and_restores_failed_setup(fail):
     car = SimpleNamespace(
@@ -388,7 +443,10 @@ async def test_flow_and_setup_survive_shared_owner_admission(
         await car.runtime_data.async_shutdown()
 
 
-async def test_ledger_switch_creates_one_baseline_and_preserves_archive(hass, freezer):
+@pytest.mark.parametrize("fresh", [True, False])
+async def test_ledger_switch_creates_one_baseline_and_preserves_archive(
+    hass, freezer, fresh
+):
     from custom_components.nio_telematics.car_dashboard.coordinator import (
         CarLedgerCoordinator,
     )
@@ -422,6 +480,7 @@ async def test_ledger_switch_creates_one_baseline_and_preserves_archive(hass, fr
             "last_valid_sample": "2026-10-20T18:59:00Z",
             "telemetry_source": "companion",
             "source_generation": 2,
+            "fresh": fresh,
         },
     )
     hass.states.async_set(
@@ -429,9 +488,21 @@ async def test_ledger_switch_creates_one_baseline_and_preserves_archive(hass, fr
         "6428",
         {
             "source_sample": "2026-10-20T18:59:05Z",
+            "fresh": fresh,
         },
     )
+    original_samples = deepcopy(coordinator.ledger.data["samples"])
+    original_last = deepcopy(coordinator.ledger.data["last"])
     await coordinator.sample()
+    if not fresh:
+        # A backend-stale reading inside the legacy 900s age window still
+        # cannot establish a baseline or add history/energy evidence.
+        assert "telemetry_source" not in coordinator.ledger.data
+        assert coordinator.ledger.data["samples"] == original_samples
+        assert coordinator.ledger.data["last"] == original_last
+        assert not coordinator.ledger.data.get("native_soc_reports")
+        assert coordinator.ledger.data["charges"] == archived
+        return
     assert coordinator.ledger.data["telemetry_source"] == "companion:2"
     assert coordinator.ledger.data["parked_losses"] == []
     assert coordinator.ledger.data["charges"] == archived

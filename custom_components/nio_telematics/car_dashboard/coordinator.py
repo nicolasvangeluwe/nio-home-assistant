@@ -117,6 +117,8 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
                     and soc_value is not None
                     and 0 <= soc_value <= 100
                     and number(odo.state) is not None
+                    and soc.attributes.get("fresh", True) is not False
+                    and odo.attributes.get("fresh", True) is not False
                     and soc_t is not None
                     and odo_t is not None
                     and -30 <= now - odo_t <= 900

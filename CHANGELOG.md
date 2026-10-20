@@ -10,8 +10,11 @@ Use this before releases and when opening PRs.
   device, sensor IDs or archive; preflight core telemetry and restore the previous
   configuration when loading the replacement source fails. Upstream NIO
   reauthorization raises a linked Repair while retaining the HA credential;
-  consumer revocation alone starts HA reauthentication. Withhold stale,
-  unverified and unsupported fields, preserve field clocks and redact credentials.
+  consumer revocation alone starts HA reauthentication. Retain backend-present
+  stale SoC/range/odometer with original clocks and explicit freshness metadata;
+  withhold unverified, missing and unsupported fields and stale dynamic status.
+  Never revive Direct data in Companion or admit stale samples into the ledger.
+  Preserve field clocks and redact credentials.
   Source/generation changes establish a new optional-ledger energy baseline.
   This feature is source-only pending backend readiness and an attended rollout.
 - Align native SoC with odometer source timestamps instead of pairing a newer

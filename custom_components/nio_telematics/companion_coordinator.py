@@ -36,14 +36,33 @@ SENSOR_FIELDS = {
     "high_voltage_battery_current": "batteryCurrentA",
     "vehicle_state": "vehicleState",
 }
+RETAINED_CORE_FIELDS = frozenset({"socPercent", "rangeKm", "odometerKm"})
 
 
 def snapshot_to_vehicle(snapshot, previous=None) -> NioVehicleData:
     """Normalize verified physical units and preserve every source clock."""
     now = datetime.now(UTC)
+
+    def quality(key, field):
+        if field_is_current(field, now):
+            return "valid"
+        if (
+            key in RETAINED_CORE_FIELDS
+            and field.quality == "stale"
+            and field.value is not None
+            and field.source_timestamp is not None
+            and field.received_at is not None
+            and field.source_timestamp <= now
+            and field.source_timestamp
+            <= field.received_at
+            <= now + timedelta(seconds=30)
+        ):
+            return "stale"
+        return "unavailable"
+
     metadata = {
         key: {
-            "quality": field.quality if field_is_current(field, now) else "unavailable",
+            "quality": quality(key, field),
             "source_timestamp": field.source_timestamp,
             "received_at": field.received_at,
             "source_endpoint": field.source_endpoint,
@@ -53,7 +72,7 @@ def snapshot_to_vehicle(snapshot, previous=None) -> NioVehicleData:
 
     def value(key):
         field = snapshot.fields[key]
-        return field.value if metadata[key]["quality"] == "valid" else None
+        return field.value if metadata[key]["quality"] in {"valid", "stale"} else None
 
     def stamp(key):
         return snapshot.fields[key].source_timestamp
@@ -75,7 +94,7 @@ def snapshot_to_vehicle(snapshot, previous=None) -> NioVehicleData:
     endpoints = {
         endpoint: "success"
         if any(
-            metadata[key]["quality"] == "valid"
+            metadata[key]["quality"] in {"valid", "stale"}
             for key, f in snapshot.fields.items()
             if f.source_endpoint == endpoint
         )
@@ -102,7 +121,8 @@ def snapshot_to_vehicle(snapshot, previous=None) -> NioVehicleData:
                 "_odometer_sample_timestamp": stamp("odometerKm").timestamp()
                 if stamp("odometerKm")
                 else None,
-                "_odometer_retained": same(
+                "_odometer_retained": metadata["odometerKm"]["quality"] == "stale"
+                or same(
                     "odometerKm",
                     previous.field_metadata["odometerKm"]["source_timestamp"]
                     if previous and previous.field_metadata
@@ -112,11 +132,11 @@ def snapshot_to_vehicle(snapshot, previous=None) -> NioVehicleData:
         },
         endpoint_status=endpoints,
         soc_last_valid_at=stamp("socPercent"),
-        soc_retained=same(
-            "socPercent", previous.soc_last_valid_at if previous else None
-        ),
+        soc_retained=metadata["socPercent"]["quality"] == "stale"
+        or same("socPercent", previous.soc_last_valid_at if previous else None),
         remaining_range_last_valid_at=stamp("rangeKm"),
-        remaining_range_retained=same(
+        remaining_range_retained=metadata["rangeKm"]["quality"] == "stale"
+        or same(
             "rangeKm", previous.remaining_range_last_valid_at if previous else None
         ),
         connection_method=CONNECTION_COMPANION,
