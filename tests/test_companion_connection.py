@@ -10,8 +10,9 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
-from test_companion_transport import NOW, VIN, _field, _snapshot
+from test_companion_transport import NOW, VIN, _field, _Response, _Session, _snapshot
 
+from custom_components.nio_telematics import async_setup_entry
 from custom_components.nio_telematics.companion_coordinator import (
     CompanionDataUpdateCoordinator,
     snapshot_to_vehicle,
@@ -285,6 +286,106 @@ async def test_restart_uses_same_consumer_and_pins_vehicle_key(hass):
     assert car.data == before
     for call in client.async_fetch.await_args_list:
         assert call.kwargs == {"expected_vin": VIN, "expected_vehicle_key": "a" * 64}
+
+
+async def test_failed_candidate_cleanup_still_restores_saved_configuration():
+    original = {"vin": VIN, "token": {"access_token": "fixture"}}
+    car = SimpleNamespace(
+        entry_id="car",
+        data=deepcopy(original),
+        state=ConfigEntryState.LOADED,
+    )
+    manager = SimpleNamespace(
+        async_unload=AsyncMock(side_effect=[True, RuntimeError("private failure")]),
+        async_setup=AsyncMock(return_value=False),
+    )
+    manager.async_update_entry = lambda target, *, data: setattr(target, "data", data)
+    fake_hass = SimpleNamespace(data={}, config_entries=manager)
+    with pytest.raises(SourceSwitchError, match="source_rollback_failed"):
+        await async_switch_source(fake_hass, car, {CONF_CONNECTION_METHOD: "companion"})
+    assert car.data == original
+    assert manager.async_setup.await_count == 1
+
+
+async def test_flow_and_setup_survive_shared_owner_admission(
+    hass,
+):
+    payload = _snapshot()
+    payload["fields"]["rangeKm"] = _field(269, "km", "soc_status")
+    payload["fields"]["odometerKm"] = _field(6428, "km", "vehicle_status")
+
+    class AdmissionSession(_Session):
+        ready = True
+
+        def get(self, url, **kwargs):
+            if self.ready:
+                self.response = _Response(200, payload)
+                self.ready = False
+            else:
+                self.response = _Response(429, {"error": "rate_limited"})
+                self.response.headers["Retry-After"] = "1"
+            return super().get(url, **kwargs)
+
+    session = AdmissionSession(200, payload)
+    car = entry()
+    car.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        car,
+        data={
+            "vin": VIN,
+            "token": {"access_token": "direct-fixture"},
+        },
+    )
+    car._async_set_state(hass, ConfigEntryState.LOADED, None)
+    handler = NioConfigFlow()
+    handler.hass = hass
+    handler.context = {"source": "reconfigure"}
+
+    async def unload(_):
+        car._async_set_state(hass, ConfigEntryState.NOT_LOADED, None)
+        return True
+
+    async def setup(_):
+        car._async_set_state(hass, ConfigEntryState.SETUP_IN_PROGRESS, None)
+        assert await async_setup_entry(hass, car)
+        car._async_set_state(hass, ConfigEntryState.LOADED, None)
+        return True
+
+    with (
+        patch.object(handler, "_get_reconfigure_entry", return_value=car),
+        patch(
+            "custom_components.nio_telematics.config_flow.async_get_clientsession",
+            return_value=session,
+        ),
+        patch(
+            "custom_components.nio_telematics.async_get_clientsession",
+            return_value=session,
+        ),
+        patch(
+            "custom_components.nio_telematics._async_dashboard_options_updated",
+            new_callable=AsyncMock,
+        ),
+        patch.object(
+            hass.config_entries, "async_forward_entry_setups", new_callable=AsyncMock
+        ),
+        patch.object(hass.config_entries, "async_unload", side_effect=unload),
+        patch.object(hass.config_entries, "async_setup", side_effect=setup),
+        patch(
+            "custom_components.nio_telematics.companion_transport.asyncio.sleep",
+            new_callable=AsyncMock,
+        ) as sleep,
+    ):
+        sleep.side_effect = lambda _: setattr(session, "ready", True)
+        confirm = await handler.async_step_companion({CONF_COMPANION_CREDENTIAL: TOKEN})
+        assert confirm["step_id"] == "confirm_source"
+        result = await handler.async_step_confirm_source({})
+        assert result["reason"] == "reconfigure_successful"
+        assert car.runtime_data.data.soc_status.soc == 48.5
+        assert car.data["token"]["access_token"] == "direct-fixture"
+        assert sleep.await_count == 2
+        assert all(call.args == (1,) for call in sleep.await_args_list)
+        assert len(session.calls) == 5  # Three cache reads, two bounded 429 retries.
+        await car.runtime_data.async_shutdown()
 
 
 async def test_ledger_switch_creates_one_baseline_and_preserves_archive(hass, freezer):

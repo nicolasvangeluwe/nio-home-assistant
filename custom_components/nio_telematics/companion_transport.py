@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import math
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -44,8 +46,9 @@ def field_is_current(field, now: datetime) -> bool:
 class CompanionFetchError(Exception):
     """A safe, non-payload error category for the future HA coordinator."""
 
-    def __init__(self, kind: str) -> None:
+    def __init__(self, kind: str, *, retry_after: float | None = None) -> None:
         self.kind = kind
+        self.retry_after = retry_after
         super().__init__(kind)
 
 
@@ -83,6 +86,21 @@ class CompanionVehicleClient:
     async def async_fetch(
         self, *, expected_vin: str, expected_vehicle_key: str | None = None
     ) -> CompanionSnapshot:
+        """Allow one bounded retry for the owner's shared cache-read admission."""
+        for attempt in range(2):
+            try:
+                return await self._async_fetch_once(
+                    expected_vin=expected_vin, expected_vehicle_key=expected_vehicle_key
+                )
+            except CompanionFetchError as err:
+                if attempt or err.retry_after is None or err.retry_after > 5:
+                    raise
+                await asyncio.sleep(err.retry_after)
+        raise AssertionError("Unreachable")
+
+    async def _async_fetch_once(
+        self, *, expected_vin: str, expected_vehicle_key: str | None = None
+    ) -> CompanionSnapshot:
         """Fetch and validate without logging response data or credentials."""
         expected_vin = normalize_vin(expected_vin)
         try:
@@ -96,7 +114,15 @@ class CompanionVehicleClient:
                 timeout=ClientTimeout(total=10),
             ) as response:
                 status = response.status
-                body = await response.content.read(_MAX_BODY + 1)
+                retry_after = response.headers.get("Retry-After", "1")
+                body = bytearray()
+                while len(body) <= _MAX_BODY:
+                    chunk = await response.content.read(
+                        min(8192, _MAX_BODY + 1 - len(body))
+                    )
+                    if not chunk:
+                        break
+                    body.extend(chunk)
         except (ClientError, TimeoutError):
             raise CompanionFetchError("retry_later") from None
         if len(body) > _MAX_BODY:
@@ -111,7 +137,14 @@ class CompanionVehicleClient:
             except CompanionContractError:
                 kind = "retry_later" if 500 <= status <= 599 else "invalid_response"
                 raise CompanionFetchError(kind) from None
-            raise CompanionFetchError(kind)
+            delay = None
+            if status == 429 and kind == "retry_later":
+                try:
+                    seconds = float(retry_after)
+                except (TypeError, ValueError):
+                    seconds = 1
+                delay = max(1, min(seconds, 3600)) if math.isfinite(seconds) else 1
+            raise CompanionFetchError(kind, retry_after=delay)
         try:
             snapshot = parse_companion_snapshot(payload)
         except CompanionContractError:

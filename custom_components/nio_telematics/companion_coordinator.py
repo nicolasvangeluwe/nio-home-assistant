@@ -149,6 +149,7 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
                 expected_vin=self._vin, expected_vehicle_key=self._vehicle_key
             )
         except CompanionFetchError as err:
+            self.update_interval = timedelta(seconds=max(30, err.retry_after or 30))
             if err.kind == "consumer_reauthentication_required":
                 ir.async_delete_issue(self.hass, DOMAIN, self._issue_id)
                 raise ConfigEntryAuthFailed("Companion HA access was revoked") from None
@@ -167,4 +168,5 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
                 )
             raise UpdateFailed(f"Companion: {err.kind}") from None
         ir.async_delete_issue(self.hass, DOMAIN, self._issue_id)
+        self.update_interval = timedelta(seconds=30)
         return snapshot_to_vehicle(snapshot, self.data)

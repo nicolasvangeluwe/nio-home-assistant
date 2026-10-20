@@ -33,8 +33,17 @@ async def async_switch_source(hass, entry, data) -> None:
         except Exception:
             # Failed setup can have registered a retry or loaded platforms.
             # Unload before restoring so no retry can run the rejected source.
-            await hass.config_entries.async_unload(entry.entry_id)
+            try:
+                unloaded = await hass.config_entries.async_unload(entry.entry_id)
+            except Exception:
+                unloaded = False
             hass.config_entries.async_update_entry(entry, data=original)
-            if not await hass.config_entries.async_setup(entry.entry_id):
+            if not unloaded:
+                raise SourceSwitchError("source_rollback_failed") from None
+            try:
+                restored = await hass.config_entries.async_setup(entry.entry_id)
+            except Exception:
+                restored = False
+            if not restored or entry.state is not ConfigEntryState.LOADED:
                 raise SourceSwitchError("source_rollback_failed") from None
             raise SourceSwitchError("source_switch_failed") from None

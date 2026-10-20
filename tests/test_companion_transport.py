@@ -1,6 +1,7 @@
 """The optional Companion transport is isolated from live NIO setup."""
 
 import json
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -19,6 +20,11 @@ NOW = "2026-10-20T19:00:00.000Z"
 @pytest.fixture(autouse=True)
 def freeze_contract_clock(freezer):
     freezer.move_to(NOW)
+    with patch(
+        "custom_components.nio_telematics.companion_transport.asyncio.sleep",
+        new_callable=AsyncMock,
+    ):
+        yield
 
 
 def _field(value, unit, endpoint, *, reason=None, quality="valid"):
@@ -77,19 +83,24 @@ def _snapshot():
 class _Content:
     def __init__(self, body):
         self.body = body
+        self.offset = 0
 
     async def read(self, maximum):
-        return self.body[:maximum]
+        chunk = self.body[self.offset : self.offset + maximum]
+        self.offset += len(chunk)
+        return chunk
 
 
 class _Response:
     def __init__(self, status, payload):
         self.status = status
+        self.headers = {}
         self.content = _Content(
             payload if isinstance(payload, bytes) else json.dumps(payload).encode()
         )
 
     async def __aenter__(self):
+        self.content.offset = 0
         return self
 
     async def __aexit__(self, *_):
@@ -270,3 +281,44 @@ async def test_rejects_oversized_or_non_json_response():
         client, _ = _client(payload=payload)
         with pytest.raises(CompanionFetchError, match="invalid_response"):
             await client.async_fetch(expected_vin=VIN)
+
+
+@pytest.mark.asyncio
+async def test_response_can_arrive_in_multiple_small_network_chunks():
+    class Chunked(_Content):
+        async def read(self, maximum):
+            return await super().read(min(maximum, 13))
+
+    client, session = _client()
+    session.response.content = Chunked(json.dumps(_snapshot()).encode())
+    parsed = await client.async_fetch(expected_vin=VIN)
+    assert parsed.usable_value("socPercent") == 48.5
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("retry_after,expected", [(None, 1), ("1", 1), ("2", 2)])
+async def test_owner_admission_retries_one_cache_get(retry_after, expected):
+    client, session = _client(429, {"error": "rate_limited"})
+    denied = session.response
+    if retry_after:
+        denied.headers["Retry-After"] = retry_after
+    success = _Response(200, _snapshot())
+    with patch(
+        "custom_components.nio_telematics.companion_transport.asyncio.sleep",
+        new_callable=AsyncMock,
+    ) as sleep:
+        sleep.side_effect = lambda _: setattr(session, "response", success)
+        result = await client.async_fetch(expected_vin=VIN)
+    assert result.usable_value("socPercent") == 48.5
+    sleep.assert_awaited_once_with(expected)
+    assert len(session.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_long_retry_delay_is_propagated_without_early_request():
+    client, session = _client(429, {"error": "rate_limited"})
+    session.response.headers["Retry-After"] = "120"
+    with pytest.raises(CompanionFetchError) as caught:
+        await client.async_fetch(expected_vin=VIN)
+    assert caught.value.retry_after == 120
+    assert len(session.calls) == 1

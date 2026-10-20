@@ -12,6 +12,10 @@ and 20 October proof history; their preparation-only status is superseded here.
 
 - Cache-only `GET /ha/v1/vehicle` at the agreed private backend origin; no NIO
   polling or grant refresh from the Companion adapter. HA reads every 30 seconds.
+  Owner-wide admission can reject consecutive setup reads: a 429 permits one
+  bounded cache retry after `Retry-After` (default 1 second, inline maximum 5).
+  Longer hints defer regular polling; authentication and source-reauth errors
+  are not immediately retried. Response streaming remains limited to 64 KiB.
 - New setup and existing-entry Reconfigure offer connection selection. VIN and
   backend vehicle key are checked; preflight requires valid SoC, verified range
   and odometer source samples no older than 15 minutes, checked locally as well
