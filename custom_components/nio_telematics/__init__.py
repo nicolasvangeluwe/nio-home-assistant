@@ -9,12 +9,20 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import config_entry_oauth2_flow
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import NioApiClient
 from .car_dashboard import async_setup_dashboard
+from .companion_coordinator import CompanionDataUpdateCoordinator
+from .companion_transport import CompanionVehicleClient, is_persistent_credential
 from .const import (
     API_BASE_URL,
+    COMPANION_API_ORIGIN,
+    CONF_COMPANION_CREDENTIAL,
+    CONF_CONNECTION_METHOD,
     CONF_SCOPE_REVISION,
+    CONNECTION_COMPANION,
     DOMAIN,
     OAUTH_SCOPE_REVISION,
     PLATFORMS,
@@ -23,7 +31,9 @@ from .coordinator import NioDataUpdateCoordinator
 from .pacing import NioRequestPacer
 from .vehicle_dashboard import async_reconcile_ledger, async_setup_vehicle_dashboard
 
-type NioConfigEntry = ConfigEntry[NioDataUpdateCoordinator]
+type NioConfigEntry = ConfigEntry[
+    NioDataUpdateCoordinator | CompanionDataUpdateCoordinator
+]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,6 +67,32 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: NioConfigEntry) -> bool:
     """Set up NIO Open Telematics from a config entry."""
+    if entry.data.get(CONF_CONNECTION_METHOD) == CONNECTION_COMPANION:
+        credential = entry.data.get(CONF_COMPANION_CREDENTIAL, "")
+        if not is_persistent_credential(credential):
+            raise ConfigEntryAuthFailed(
+                "A persistent Companion HA credential is required"
+            )
+        client = CompanionVehicleClient(
+            async_get_clientsession(hass),
+            api_origin=COMPANION_API_ORIGIN,
+            credential=credential,
+        )
+        coordinator = CompanionDataUpdateCoordinator(hass, entry, client)
+    else:
+        coordinator = await _async_direct_coordinator(hass, entry)
+    await coordinator.async_config_entry_first_refresh()
+    if entry.data.get(CONF_CONNECTION_METHOD) != CONNECTION_COMPANION:
+        ir.async_delete_issue(hass, DOMAIN, f"companion_source_{entry.entry_id}")
+    entry.runtime_data = coordinator
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(_async_dashboard_options_updated))
+    await _async_dashboard_options_updated(hass, entry)
+    return True
+
+
+async def _async_direct_coordinator(hass, entry):
+    """Legacy entries default to Direct, with the same shared NIO request budget."""
     if entry.data.get(CONF_SCOPE_REVISION) != OAUTH_SCOPE_REVISION:
         raise ConfigEntryAuthFailed(
             "NIO telemetry permissions have changed; reauthentication is required"
@@ -76,13 +112,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: NioConfigEntry) -> bool:
         API_BASE_URL,
         pacer=pacer,
     )
-    coordinator = NioDataUpdateCoordinator(hass, entry, client)
-    await coordinator.async_config_entry_first_refresh()
-    entry.runtime_data = coordinator
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    entry.async_on_unload(entry.add_update_listener(_async_dashboard_options_updated))
-    await _async_dashboard_options_updated(hass, entry)
-    return True
+    return NioDataUpdateCoordinator(hass, entry, client)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: NioConfigEntry) -> bool:

@@ -127,3 +127,6 @@ class NioVehicleData:
     soc_retained: bool = False
     remaining_range_last_valid_at: datetime | None = None
     remaining_range_retained: bool = False
+    connection_method: str = "direct"
+    field_metadata: dict[str, dict[str, Any]] | None = None
+    source_generation: int | None = None

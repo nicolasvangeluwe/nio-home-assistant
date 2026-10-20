@@ -1,6 +1,23 @@
 {
   "config": {
     "step": {
+      "user": {
+        "title": "Vehicle connection",
+        "menu_options": {"direct": "Direct NIO", "companion": "Companion account"}
+      },
+      "reconfigure": {
+        "title": "Vehicle connection",
+        "menu_options": {"direct": "Direct NIO / change application credentials", "companion": "Companion account"}
+      },
+      "companion": {
+        "title": "Connect Companion",
+        "description": "Create a persistent Home Assistant link on your [Companion connections page]({connections_url}), then paste its HA credential here. The same car must have recent state of charge, range and odometer data. This source currently supplies core vehicle data only; additional Direct NIO sensors will be unavailable.",
+        "data": {"vehicle_name": "Vehicle name", "vin": "VIN", "companion_credential": "Persistent Home Assistant credential"}
+      },
+      "confirm_source": {
+        "title": "Switch this vehicle to Companion?",
+        "description": "Keep this vehicle's entities, dashboard settings and history, and read its core telemetry from Companion. Direct-only sensors will become unavailable. The previous configuration is restored if the new source cannot load. A return to Direct NIO may require NIO authorization again."
+      },
       "vehicle": {
         "title": "Add your NIO vehicle",
         "description": "Enter the vehicle identity after authorizing Home Assistant with NIO.",
@@ -10,8 +27,32 @@
         }
       }
     },
-    "abort": {"already_configured": "This vehicle is already configured."},
-    "error": {"invalid_vin": "Enter a valid 17-character VIN."}
+    "abort": {
+      "already_configured": "This vehicle is already configured.",
+      "source_unload_failed": "The current connection could not stop. No source change was saved.",
+      "source_switch_failed": "The new connection could not load. The previous configuration was restored.",
+      "source_rollback_failed": "The switch failed and the previous configuration was restored, but could not load. Check the integration and reconnect if needed."
+    },
+    "error": {
+      "invalid_vin": "Enter a valid 17-character VIN.",
+      "persistent_credential_required": "Use a persistent Companion HA credential, not a temporary proof token.",
+      "consumer_reauthentication_required": "This HA credential was rejected. Create a new HA link on the Companion connections page.",
+      "upstream_reauthorization_required": "Reconnect NIO on the Companion connections page; keep your existing HA credential.",
+      "source_disconnected": "Reconnect your NIO source on the Companion connections page.",
+      "retry_later": "Companion is temporarily unavailable. Try again later.",
+      "invalid_response": "Companion returned an invalid response.",
+      "identity_mismatch": "This Companion link belongs to a different vehicle.",
+      "insufficient_coverage": "Companion needs recent, verified state of charge, range and odometer data before this switch.",
+      "source_unload_failed": "The existing connection could not stop. Try again later.",
+      "source_switch_failed": "The switch failed. The previous configuration was restored.",
+      "source_rollback_failed": "The previous configuration was restored but could not load. Check the integration before retrying."
+    }
+  },
+  "issues": {
+    "companion_source_reconnect": {
+      "title": "Reconnect NIO in Companion",
+      "description": "Your upstream NIO connection needs attention. Open the [Companion connections page]({connections_url}) and reconnect NIO. Keep the existing Home Assistant link: its credential remains valid. Home Assistant will resume cached reads automatically when the source recovers."
+    }
   },
   "application_credentials": {
     "description": "Create or open your Personal Application in the [NIO Open Telematics developer console]({console_url}), set its OAuth redirect URI exactly to [{redirect_url}]({redirect_url}), then enter its Client ID and Client Secret."

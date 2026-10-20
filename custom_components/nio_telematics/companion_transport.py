@@ -1,14 +1,11 @@
-"""Inactive HTTP transport for the private Companion HA-consumer contract.
-
-Nothing in the live config flow or coordinator imports this module. In
-particular, it does not obtain or refresh a NIO grant, or poll NIO itself.
-"""
+"""Cache-only Companion transport; never obtains a grant or polls NIO."""
 
 from __future__ import annotations
 
 import json
 import re
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit
 
 from aiohttp import ClientError, ClientSession, ClientTimeout
@@ -23,7 +20,25 @@ from .models import normalize_vin
 
 _PATH = "/ha/v1/vehicle"
 _MAX_BODY = 65536
-_CREDENTIAL = re.compile(r"^ha1_[A-Za-z0-9_-]{43}$")
+_CREDENTIAL = re.compile(r"^(?:ha1|hap1)_[A-Za-z0-9_-]{43}$")
+_PERSISTENT_CREDENTIAL = re.compile(r"^hap1_[A-Za-z0-9_-]{43}$")
+MAX_SOURCE_AGE = timedelta(minutes=15)
+
+
+def is_persistent_credential(value: str) -> bool:
+    """Daily HA setup must not silently accept a 24-hour proof credential."""
+    return isinstance(value, str) and bool(_PERSISTENT_CREDENTIAL.fullmatch(value))
+
+
+def field_is_current(field, now: datetime) -> bool:
+    """Check original clocks locally, even when a server labels an old field valid."""
+    return (
+        field.usable
+        and field.source_timestamp is not None
+        and field.received_at is not None
+        and timedelta(0) <= now - field.source_timestamp <= MAX_SOURCE_AGE
+        and field.source_timestamp <= field.received_at <= now + timedelta(seconds=30)
+    )
 
 
 class CompanionFetchError(Exception):
@@ -114,6 +129,7 @@ async def async_validate_companion_candidate(
     *,
     expected_vin: str,
     required_fields: tuple[str, ...] = ("socPercent", "rangeKm", "odometerKm"),
+    expected_vehicle_key: str | None = None,
 ) -> CompanionCandidate:
     """Preflight a source switch; never commit or unload a config entry.
 
@@ -121,7 +137,14 @@ async def async_validate_companion_candidate(
     coverage. The proof contract intentionally cannot pass this gate while
     range and odometer units remain unverified.
     """
-    snapshot = await client.async_fetch(expected_vin=expected_vin)
-    if any(snapshot.usable_value(name) is None for name in required_fields):
+    snapshot = await client.async_fetch(
+        expected_vin=expected_vin, expected_vehicle_key=expected_vehicle_key
+    )
+    now = datetime.now(UTC)
+    if not timedelta(
+        seconds=-30
+    ) <= now - snapshot.snapshot_at <= MAX_SOURCE_AGE or any(
+        not field_is_current(snapshot.fields[name], now) for name in required_fields
+    ):
         raise CompanionFetchError("insufficient_coverage")
     return CompanionCandidate(snapshot, required_fields)

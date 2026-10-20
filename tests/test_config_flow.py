@@ -22,6 +22,10 @@ async def test_missing_application_credentials(hass: HomeAssistant) -> None:
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
+    assert result["type"] is FlowResultType.MENU
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "direct"}
+    )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "missing_credentials"
 
@@ -77,8 +81,8 @@ async def test_reauth_offers_replacement_oauth_implementation(
     assert result == expected_result
 
 
-async def test_reconfigure_offers_oauth_implementation(hass: HomeAssistant) -> None:
-    """The user can switch application credentials without removing the car."""
+async def test_reconfigure_offers_connection_source(hass: HomeAssistant) -> None:
+    """Source selection does not mutate the entry or start a second collector."""
     handler = NioConfigFlow()
     handler.hass = hass
     expected_result = {"type": FlowResultType.FORM, "step_id": "pick_implementation"}
@@ -91,8 +95,9 @@ async def test_reconfigure_offers_oauth_implementation(hass: HomeAssistant) -> N
         ) as pick_implementation,
     ):
         result = await handler.async_step_reconfigure()
-    pick_implementation.assert_awaited_once_with()
-    assert result == expected_result
+    pick_implementation.assert_not_awaited()
+    assert result["type"] is FlowResultType.MENU
+    assert result["menu_options"] == ["direct", "companion"]
 
 
 async def test_reconfigure_success_preserves_vehicle_data(hass: HomeAssistant) -> None:

@@ -122,6 +122,14 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
                     and -30 <= now - odo_t <= 900
                     and -30 <= now - soc_t <= 900
                 ):
+                    provenance = soc.attributes.get("telemetry_source", "direct")
+                    if provenance == "companion":
+                        provenance += ":" + str(soc.attributes.get("source_generation"))
+                    if provenance != self.ledger.data.get("telemetry_source", "direct"):
+                        self.ledger.begin_new_epoch(self.settings)
+                    if self.ledger.data.get("telemetry_source") != provenance:
+                        self.ledger.data["telemetry_source"] = provenance
+                        self.ledger.changed()
                     if self.ledger.observe_native_sources(
                         odo_t,
                         odo.state,

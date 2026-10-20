@@ -1,6 +1,40 @@
 # Optional Companion connection — design handoff
 
-Status: isolated contract parser, HTTP client and source-switch preflight only, 20 October 2026. No Companion connection method is exposed in HA's config flow; account linking, transactional entry migration, ongoing consumer credential renewal, and HA deployment do not exist in this integration. Direct NIO OAuth remains the sole supported route. The preflight requires the existing car's SoC, range and odometer coverage. The parser can accept verified distance values under the existing version-1 shape, but the private proof has no live approved distance-unit policy yet. None of these staged modules are imported by live setup or polling.
+Status: 21 October source implementation under validation; not released or installed.
+Direct remains the live connection. The config flow now offers Direct or Companion
+and an explicit same-entry source switch. The backend's persistent `hap1_` HA
+credential has no local expiration and is separate from NIO and owner web login.
+The transport retains `ha1_` proof compatibility for isolated tests, but HA setup
+rejects that expiring proof credential. Earlier sections below retain the design
+and 20 October proof history; their preparation-only status is superseded here.
+
+## Implemented connection and rollout boundary — 21 October
+
+- Cache-only `GET /ha/v1/vehicle` at the agreed private backend origin; no NIO
+  polling or grant refresh from the Companion adapter. HA reads every 30 seconds.
+- New setup and existing-entry Reconfigure offer connection selection. VIN and
+  backend vehicle key are checked; preflight requires valid SoC, verified range
+  and odometer source samples no older than 15 minutes, checked locally as well
+  as by backend quality. Confirmation repeats the preflight before stopping Direct.
+- The source change uses HA's unload/update/setup APIs, retaining the same entry,
+  unique/device/entity IDs, options and archive. Failed setup restores original
+  entry data and attempts to reload it. Failure of that recovery is explicit;
+  upstream grant invalidation cannot be repaired by restoring saved entry data.
+- The nine-field contract populates existing core entities. Other Direct sensors
+  remain registered but unavailable. Field clocks stay separate from HA poll time;
+  locally stale or unverified fields are unavailable rather than restored from Direct.
+- A source `503 source_reauthorization_required` or disconnected source creates
+  an HA Repair linking to `/connections`, retains the HA credential and retries.
+  Recovery clears the Repair automatically. Only consumer rejection `401` starts
+  HA credential reauthentication. Temporary failures keep normal retry behavior.
+- Optional ledger source/generation changes begin a new persisted energy baseline;
+  no difference is calculated against the prior source, and archives are preserved.
+- Diagnostics redact the HA credential and backend vehicle key. Never copy an
+  upstream NIO token or owner login session into this setup.
+
+Release and live cutover still require backend readiness, persistent issuance,
+real range-unit coverage, owner review and attended coordination. No release,
+tag, HA install/reload/restart or live source switch accompanies this code change.
 
 ## Product boundary
 

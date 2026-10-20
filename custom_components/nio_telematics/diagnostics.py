@@ -15,6 +15,8 @@ TO_REDACT = {
     "client_id",
     "client_secret",
     "token",
+    "companion_credential",
+    "companion_vehicle_key",
 }
 
 
@@ -44,6 +46,8 @@ async def async_get_config_entry_diagnostics(
                     }.items()
                 },
                 "endpoint_status": coordinator.data.endpoint_status,
+                "connection_method": coordinator.data.connection_method,
+                "source_generation": coordinator.data.source_generation,
             },
             TO_REDACT,
         ),

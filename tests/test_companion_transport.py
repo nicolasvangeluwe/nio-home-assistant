@@ -16,6 +16,11 @@ STAMP = "2026-10-20T18:59:07.321Z"
 NOW = "2026-10-20T19:00:00.000Z"
 
 
+@pytest.fixture(autouse=True)
+def freeze_contract_clock(freezer):
+    freezer.move_to(NOW)
+
+
 def _field(value, unit, endpoint, *, reason=None, quality="valid"):
     return {
         "value": value,
@@ -202,6 +207,34 @@ async def test_verified_odometer_alone_does_not_pass_existing_car_switch_gate():
     client, _ = _client(payload=payload)
     with pytest.raises(CompanionFetchError, match="insufficient_coverage"):
         await async_validate_companion_candidate(client, expected_vin=VIN)
+
+
+@pytest.mark.asyncio
+async def test_switch_rejects_old_fields_even_when_server_calls_them_valid(freezer):
+    payload = _snapshot()
+    payload["fields"]["rangeKm"] = _field(269, "km", "soc_status")
+    payload["fields"]["odometerKm"] = _field(6428, "km", "vehicle_status")
+    freezer.move_to("2026-10-20T19:20:00Z")
+    client, _ = _client(payload=payload)
+    with pytest.raises(CompanionFetchError, match="insufficient_coverage"):
+        await async_validate_companion_candidate(client, expected_vin=VIN)
+
+
+@pytest.mark.asyncio
+async def test_persistent_credential_has_no_local_expiration():
+    from custom_components.nio_telematics.companion_transport import (
+        is_persistent_credential,
+    )
+
+    credential = "hap1_" + "x" * 43
+    assert is_persistent_credential(credential)
+    assert not is_persistent_credential(TOKEN)
+    session = _Session(200, _snapshot())
+    client = CompanionVehicleClient(
+        session, api_origin="https://companion.example", credential=credential
+    )
+    await client.async_fetch(expected_vin=VIN)
+    assert session.calls[0][1]["headers"]["Authorization"] == f"Bearer {credential}"
 
 
 @pytest.mark.parametrize(

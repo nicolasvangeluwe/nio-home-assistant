@@ -32,6 +32,7 @@ from homeassistant.helpers.recorder import DATA_INSTANCE
 from sqlalchemy.exc import SQLAlchemyError
 
 from .availability import availability_attributes, overall_availability
+from .companion_coordinator import SENSOR_FIELDS
 from .coordinator import NioDataUpdateCoordinator
 from .entity import NioEntity
 from .models import NioSocStatus, NioVehicleData
@@ -669,12 +670,34 @@ class NioSensorEntity(NioEntity):
         return self.entity_description.value_fn(self.coordinator.data)
 
     @property
+    def available(self) -> bool:
+        """A missing Companion capability must never revive a Direct reading."""
+        if not super().available:
+            return False
+        data = self.coordinator.data
+        if data.connection_method != "companion":
+            return True
+        key = self.entity_description.key
+        if key == "api_availability":
+            return True
+        if key == "data_timestamp":
+            return data.soc_status.event_time is not None
+        field_key = "charging_state" if key == "charging_state" else SENSOR_FIELDS.get(key)
+        return bool(
+            field_key and data.field_metadata
+            and data.field_metadata.get(field_key, {}).get("quality") == "valid"
+        )
+
+    @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         attributes = (
             self.entity_description.attributes_fn(self.coordinator.data)
             if self.entity_description.attributes_fn is not None
             else {}
         )
+        attributes["telemetry_source"] = self.coordinator.data.connection_method
+        if self.coordinator.data.connection_method == "companion":
+            attributes["source_generation"] = self.coordinator.data.source_generation
         if endpoint := self.entity_description.source_endpoint:
             attributes = {
                 **attributes,
@@ -791,6 +814,7 @@ class NioSocSensor(NioSensorEntity, RestoreSensor):
         sample = self.coordinator.data.soc_last_valid_at
         observed = self.coordinator.data.telemetry.get("soc_status", {})
         return {
+            **(super().extra_state_attributes or {}),
             "source_endpoint": "soc_status",
             "observed_fields": sorted(
                 key for key in observed if key not in {"_field_timestamps"}
@@ -859,6 +883,7 @@ class NioRangeSensor(NioSensorEntity, RestoreSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         sample: datetime | None = self.coordinator.data.remaining_range_last_valid_at
         return {
+            **(super().extra_state_attributes or {}),
             "last_valid_sample": sample.isoformat()
             if sample is not None
             else self._restored_sample_time,

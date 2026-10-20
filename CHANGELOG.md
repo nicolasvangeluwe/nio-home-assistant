@@ -5,6 +5,15 @@ Use this before releases and when opening PRs.
 
 ## Unreleased
 
+- Add an optional Companion cache connection using a persistent, separately
+  revocable HA credential. Reconfigure the same car without changing its entry,
+  device, sensor IDs or archive; preflight core telemetry and restore the previous
+  configuration when loading the replacement source fails. Upstream NIO
+  reauthorization raises a linked Repair while retaining the HA credential;
+  consumer revocation alone starts HA reauthentication. Withhold stale,
+  unverified and unsupported fields, preserve field clocks and redact credentials.
+  Source/generation changes establish a new optional-ledger energy baseline.
+  This feature is source-only pending backend readiness and an attended rollout.
 - Align native SoC with odometer source timestamps instead of pairing a newer
   percentage with an older distance report. Retain unchanged SoC reports,
   reconcile bounded late arrival readings, and keep later stationary losses
