@@ -36,7 +36,7 @@ _VEHICLE_STATES = frozenset(
 # (unit, allowed endpoints, numeric bounds or exact enum). Keep in step with
 # the backend's version-1 allowlist; adding fields requires a version review.
 _FIELDS: dict[
-    str, tuple[str | None, frozenset[str], tuple[int, int] | frozenset[str]]
+    str, tuple[str | None, frozenset[str], tuple[float, float] | frozenset[str]]
 ] = {
     "socPercent": ("%", frozenset({"soc_status"}), (0, 100)),
     "targetSocPercent": ("%", frozenset({"soc_status"}), (0, 100)),
@@ -49,7 +49,7 @@ _FIELDS: dict[
         frozenset({"vehicle_status"}),
         _DYNAMICS_STATES,
     ),
-    "rangeKm": ("km", frozenset({"soc_status"}), (0, 999999)),
+    "rangeKm": ("km", frozenset({"soc_status"}), (0, 999999.9)),
     "odometerKm": ("km", frozenset({"vehicle_status"}), (0, 9999999)),
 }
 _REASONS = frozenset({"not_reported", "unit_unverified", "conflicting_same_time"})
@@ -198,12 +198,6 @@ def parse_companion_snapshot(
                 raise _invalid()
         elif reason is None or (reason == "unit_unverified") != (
             source_time is not None
-        ):
-            raise _invalid()
-        if name in {"rangeKm", "odometerKm"} and (
-            value is not None
-            or reason
-            not in {"not_reported", "unit_unverified", "conflicting_same_time"}
         ):
             raise _invalid()
         fields[name] = CompanionField(

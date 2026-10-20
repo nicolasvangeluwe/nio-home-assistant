@@ -183,6 +183,18 @@ async def test_existing_direct_coverage_gate_rejects_proof_contract():
     assert candidate.snapshot.vin == VIN
 
 
+@pytest.mark.asyncio
+async def test_switch_preflight_accepts_only_verified_full_coverage():
+    payload = _snapshot()
+    payload["fields"]["rangeKm"] = _field(269, "km", "soc_status")
+    payload["fields"]["odometerKm"] = _field(6428, "km", "vehicle_status")
+    client, _ = _client(payload=payload)
+    candidate = await async_validate_companion_candidate(client, expected_vin=VIN)
+    assert candidate.snapshot.usable_value("socPercent") == 48.5
+    assert candidate.snapshot.usable_value("rangeKm") == 269.0
+    assert candidate.snapshot.usable_value("odometerKm") == 6428.0
+
+
 @pytest.mark.parametrize(
     "origin",
     [

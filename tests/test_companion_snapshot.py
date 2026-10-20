@@ -115,6 +115,48 @@ def test_conflicting_raw_range_remains_unavailable() -> None:
     assert parse_companion_snapshot(payload).usable_value("rangeKm") is None
 
 
+def test_verified_distance_fields_are_usable_only_with_matching_provenance() -> None:
+    payload = _snapshot()
+    payload["fields"]["rangeKm"] = _field(269, "km", "soc_status")
+    payload["fields"]["odometerKm"] = _field(6428, "km", "vehicle_status")
+    snapshot = parse_companion_snapshot(payload)
+    assert snapshot.usable_value("rangeKm") == 269.0
+    assert snapshot.usable_value("odometerKm") == 6428.0
+    assert (
+        snapshot.fields["rangeKm"].source_timestamp
+        == snapshot.fields["odometerKm"].source_timestamp
+    )
+
+
+def test_stale_or_future_verified_distance_is_withheld_without_erasing_evidence() -> (
+    None
+):
+    payload = _snapshot()
+    payload["fields"]["rangeKm"] = _field(269, "km", "soc_status", quality="stale")
+    payload["fields"]["odometerKm"] = _field(
+        None, "km", "vehicle_status", quality="future_clock"
+    )
+    snapshot = parse_companion_snapshot(payload)
+    assert snapshot.usable_value("rangeKm") is None
+    assert snapshot.fields["rangeKm"].value == 269.0
+    assert snapshot.usable_value("odometerKm") is None
+
+
+@pytest.mark.parametrize(
+    ("field", "unit", "endpoint"),
+    [
+        ("rangeKm", "mi", "soc_status"),
+        ("rangeKm", "km", "vehicle_status"),
+        ("odometerKm", "km", "soc_status"),
+    ],
+)
+def test_verified_distance_rejects_wrong_unit_or_endpoint(field, unit, endpoint):
+    payload = _snapshot()
+    payload["fields"][field] = _field(269, unit, endpoint)
+    with pytest.raises(CompanionContractError):
+        parse_companion_snapshot(payload)
+
+
 @pytest.mark.parametrize(
     ("path", "value"),
     [
