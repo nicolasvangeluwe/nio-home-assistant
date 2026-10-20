@@ -11,6 +11,7 @@ from custom_components.nio_telematics.companion_transport import (
 )
 
 VIN = "A" * 17
+TOKEN = "ha1_" + "x" * 43
 STAMP = "2026-10-20T18:59:07.321Z"
 NOW = "2026-10-20T19:00:00.000Z"
 
@@ -106,7 +107,7 @@ def _client(status=200, payload=None):
         CompanionVehicleClient(
             session,
             api_origin="https://companion.example",
-            credential="ha1_private-test-only",
+            credential=TOKEN,
         ),
         session,
     )
@@ -120,9 +121,7 @@ async def test_one_owner_bound_read_is_private_and_does_not_follow_redirects():
     assert snapshot.usable_value("rangeKm") is None
     assert session.calls[0][0] == "https://companion.example/ha/v1/vehicle"
     assert session.calls[0][1]["allow_redirects"] is False
-    assert session.calls[0][1]["headers"]["Authorization"] == (
-        "Bearer ha1_private-test-only"
-    )
+    assert session.calls[0][1]["headers"]["Authorization"] == f"Bearer {TOKEN}"
 
 
 @pytest.mark.asyncio
@@ -195,7 +194,19 @@ async def test_existing_direct_coverage_gate_rejects_proof_contract():
 def test_rejects_non_https_or_embedded_identity(origin):
     with pytest.raises(ValueError, match="Invalid Companion API origin"):
         CompanionVehicleClient(
-            _Session(200, _snapshot()), api_origin=origin, credential="ha1_valid"
+            _Session(200, _snapshot()), api_origin=origin, credential=TOKEN
+        )
+
+
+@pytest.mark.parametrize(
+    "credential", ["ha1_short", "ha1_" + "x" * 42 + "\n", "nio_token"]
+)
+def test_rejects_non_consumer_or_malformed_credential(credential):
+    with pytest.raises(ValueError, match="Invalid Companion consumer credential"):
+        CompanionVehicleClient(
+            _Session(200, _snapshot()),
+            api_origin="https://companion.example",
+            credential=credential,
         )
 
 

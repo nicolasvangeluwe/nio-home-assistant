@@ -7,6 +7,7 @@ particular, it does not obtain or refresh a NIO grant, or poll NIO itself.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
@@ -22,6 +23,7 @@ from .models import normalize_vin
 
 _PATH = "/ha/v1/vehicle"
 _MAX_BODY = 65536
+_CREDENTIAL = re.compile(r"^ha1_[A-Za-z0-9_-]{43}$")
 
 
 class CompanionFetchError(Exception):
@@ -57,9 +59,7 @@ class CompanionVehicleClient:
             or origin.fragment
         ):
             raise ValueError("Invalid Companion API origin")
-        if not credential.startswith("ha1_") or any(
-            char.isspace() or ord(char) < 33 or ord(char) > 126 for char in credential
-        ):
+        if not _CREDENTIAL.fullmatch(credential):
             raise ValueError("Invalid Companion consumer credential")
         self._session = session
         self._url = api_origin.rstrip("/") + _PATH
