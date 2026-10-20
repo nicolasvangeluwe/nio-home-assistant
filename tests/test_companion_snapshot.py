@@ -106,6 +106,14 @@ def test_stale_and_future_values_do_not_become_current() -> None:
     assert parse_companion_snapshot(payload).usable_value("socPercent") is None
 
 
+def test_conflicting_raw_range_remains_unavailable() -> None:
+    payload = _snapshot()
+    payload["fields"]["rangeKm"] = _field(
+        None, "km", None, quality="unavailable", reason="conflicting_same_time"
+    )
+    assert parse_companion_snapshot(payload).usable_value("rangeKm") is None
+
+
 @pytest.mark.parametrize(
     ("path", "value"),
     [

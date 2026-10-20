@@ -203,7 +203,9 @@ def parse_companion_snapshot(
         ):
             raise _invalid()
         if name in {"rangeKm", "odometerKm"} and (
-            value is not None or reason not in {"not_reported", "unit_unverified"}
+            value is not None
+            or reason
+            not in {"not_reported", "unit_unverified", "conflicting_same_time"}
         ):
             raise _invalid()
         fields[name] = CompanionField(
