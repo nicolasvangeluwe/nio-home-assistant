@@ -287,6 +287,7 @@ async def test_switch_preflight_rejects_proof_credential_before_mutation(hass):
     handler.hass = hass
     handler.context = {"source": "reconfigure"}
     car = entry()
+    car.add_to_hass(hass)
     with (
         patch.object(handler, "_get_reconfigure_entry", return_value=car),
         patch(
@@ -345,7 +346,7 @@ async def test_native_add_flow_targets_existing_paused_car_without_creating_entr
     assert car.data == before
     assert car.disabled_by is ConfigEntryDisabler.USER
     if not finish:
-        await hass.config_entries.flow.async_abort(result["flow_id"])
+        hass.config_entries.flow.async_abort(result["flow_id"])
         assert car.data == before
         assert car.disabled_by is ConfigEntryDisabler.USER
         return
