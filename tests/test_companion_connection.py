@@ -242,3 +242,99 @@ async def test_switch_preflight_rejects_proof_credential_before_mutation(hass):
         )
     assert result["errors"]["base"] == "persistent_credential_required"
     switch.assert_not_called()
+
+
+async def test_confirm_rechecks_coverage_before_switch_and_preserves_entry(hass):
+    handler = NioConfigFlow()
+    handler.hass = hass
+    handler.context = {"source": "reconfigure"}
+    handler._companion_input = {CONF_COMPANION_CREDENTIAL: TOKEN}
+    car = entry()
+    candidate = SimpleNamespace(snapshot=snapshot())
+    with (
+        patch.object(handler, "_get_reconfigure_entry", return_value=car),
+        patch.object(
+            handler,
+            "_companion_candidate",
+            AsyncMock(
+                side_effect=[CompanionFetchError("insufficient_coverage"), candidate]
+            ),
+        ),
+        patch(
+            "custom_components.nio_telematics.config_flow.async_switch_source",
+            new_callable=AsyncMock,
+        ) as switch,
+        patch.object(handler, "async_update_reload_and_abort") as finish,
+    ):
+        rejected = await handler.async_step_confirm_source({})
+        assert rejected["errors"]["base"] == "insufficient_coverage"
+        switch.assert_not_awaited()
+        await handler.async_step_confirm_source({})
+        assert switch.await_args.args[1] is car
+        finish.assert_called_once_with(car, reload_even_if_entry_is_unchanged=False)
+
+
+async def test_restart_uses_same_consumer_and_pins_vehicle_key(hass):
+    car = entry()
+    client = SimpleNamespace(async_fetch=AsyncMock(return_value=snapshot()))
+    before = deepcopy(car.data)
+    first = CompanionDataUpdateCoordinator(hass, car, client)
+    second = CompanionDataUpdateCoordinator(hass, car, client)
+    assert (await first._async_update_data()).soc_status.soc == 48.5
+    assert (await second._async_update_data()).soc_status.soc == 48.5
+    assert car.data == before
+    for call in client.async_fetch.await_args_list:
+        assert call.kwargs == {"expected_vin": VIN, "expected_vehicle_key": "a" * 64}
+
+
+async def test_ledger_switch_creates_one_baseline_and_preserves_archive(hass, freezer):
+    from custom_components.nio_telematics.car_dashboard.coordinator import (
+        CarLedgerCoordinator,
+    )
+    from custom_components.nio_telematics.car_dashboard.ledger import Ledger
+
+    now = snapshot().snapshot_at.timestamp()
+    settings = {
+        "capacity_kwh": 90,
+        "full_range_km": 557,
+        "odometer": "sensor.test_odo",
+        "soc": "sensor.test_soc",
+        "range": "sensor.test_range",
+        "home_history": "sensor.test_history",
+        "home_connected": "binary_sensor.test_connected",
+    }
+    coordinator = CarLedgerCoordinator(
+        hass, SimpleNamespace(entry_id="test-ledger", data=settings)
+    )
+    coordinator.ledger = Ledger(coordinator.settings)
+    coordinator.ledger.ingest(now - 300, 6427, None, soc_pct=60)
+    coordinator.ledger.add_charge(now - 1000, now - 900, 2, price=0.5)
+    archived = deepcopy(coordinator.ledger.data["charges"])
+    coordinator.store = SimpleNamespace(async_save=AsyncMock())
+    coordinator.cost_recorder = SimpleNamespace(refresh=AsyncMock())
+    # Source samples are aligned and the changed percentage is deliberately
+    # large: comparing sources would invent >10 kWh of parked/driving energy.
+    hass.states.async_set(
+        "sensor.test_soc",
+        "48.5",
+        {
+            "last_valid_sample": "2026-10-20T18:59:00Z",
+            "telemetry_source": "companion",
+            "source_generation": 2,
+        },
+    )
+    hass.states.async_set(
+        "sensor.test_odo",
+        "6428",
+        {
+            "source_sample": "2026-10-20T18:59:05Z",
+        },
+    )
+    await coordinator.sample()
+    assert coordinator.ledger.data["telemetry_source"] == "companion:2"
+    assert coordinator.ledger.data["parked_losses"] == []
+    assert coordinator.ledger.data["charges"] == archived
+    transitions = deepcopy(coordinator.ledger.data["source_transitions"])
+    await coordinator.sample()
+    assert coordinator.ledger.data["source_transitions"] == transitions
+    assert coordinator.ledger.data["charges"] == archived
