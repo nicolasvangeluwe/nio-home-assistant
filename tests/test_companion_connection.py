@@ -651,7 +651,7 @@ async def test_ledger_snapshot_resolves_configured_timezone(hass, freezer, insta
     )
     from custom_components.nio_telematics.car_dashboard.ledger import Ledger
 
-    hass.config.set_time_zone("Europe/Brussels")
+    await hass.config.async_set_time_zone("Europe/Brussels")
     freezer.move_to(instant)
     coordinator = CarLedgerCoordinator(
         hass, SimpleNamespace(entry_id="timezone-ledger", data={})
