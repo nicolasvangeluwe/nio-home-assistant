@@ -16,6 +16,8 @@ Use this before releases and when opening PRs.
   Never revive Direct data in Companion or admit stale samples into the ledger.
   Preserve field clocks and redact credentials.
   Source/generation changes establish a new optional-ledger energy baseline.
+  A handover-paused entry enables only its validated replacement source;
+  failed setup restores its paused state without briefly polling Direct NIO.
   This feature is source-only pending backend readiness and an attended rollout.
 - Align native SoC with odometer source timestamps instead of pairing a newer
   percentage with an older distance report. Retain unchanged SoC reports,

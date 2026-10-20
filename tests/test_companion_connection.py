@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from homeassistant.config_entries import ConfigEntryState
+from homeassistant.config_entries import ConfigEntryDisabler, ConfigEntryState
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import UpdateFailed
@@ -298,6 +298,55 @@ async def test_switch_preflight_rejects_proof_credential_before_mutation(hass):
         )
     assert result["errors"]["base"] == "persistent_credential_required"
     switch.assert_not_called()
+
+
+@pytest.mark.parametrize("fail", [True, False])
+async def test_paused_entry_starts_only_companion_and_rolls_back_to_paused(fail):
+    original = {"vin": VIN, "token": {"access_token": "direct-fixture"}}
+    car = SimpleNamespace(
+        entry_id="paused-car",
+        data=deepcopy(original),
+        state=ConfigEntryState.NOT_LOADED,
+        disabled_by=ConfigEntryDisabler.USER,
+    )
+    starts = []
+
+    async def unload(_):
+        car.state = ConfigEntryState.NOT_LOADED
+        return True
+
+    async def set_disabled(_, value):
+        car.disabled_by = value
+        if value is None:
+            starts.append(car.data[CONF_CONNECTION_METHOD])
+            car.state = (
+                ConfigEntryState.SETUP_RETRY if fail else ConfigEntryState.LOADED
+            )
+            return not fail
+        await unload(car.entry_id)
+        return True
+
+    manager = SimpleNamespace(
+        async_unload=unload,
+        async_set_disabled_by=set_disabled,
+        async_setup=AsyncMock(side_effect=AssertionError("Do not start Direct")),
+        async_update_entry=lambda target, *, data: setattr(target, "data", data),
+    )
+    fake_hass = SimpleNamespace(data={}, config_entries=manager)
+    change = {CONF_CONNECTION_METHOD: "companion", CONF_COMPANION_CREDENTIAL: TOKEN}
+    if fail:
+        with pytest.raises(SourceSwitchError, match="source_switch_failed"):
+            await async_switch_source(fake_hass, car, change)
+        assert car.data == original
+        assert car.disabled_by is ConfigEntryDisabler.USER
+        assert car.state is ConfigEntryState.NOT_LOADED
+    else:
+        await async_switch_source(fake_hass, car, change)
+        assert car.disabled_by is None
+        assert car.state is ConfigEntryState.LOADED
+        assert car.data["token"] == original["token"]
+    assert starts == ["companion"]
+    manager.async_setup.assert_not_awaited()
 
 
 async def test_confirm_rechecks_coverage_before_switch_and_preserves_entry(hass):

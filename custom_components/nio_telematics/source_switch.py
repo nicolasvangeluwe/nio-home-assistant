@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from copy import deepcopy
 
-from homeassistant.config_entries import ConfigEntryState
+from homeassistant.config_entries import ConfigEntryDisabler, ConfigEntryState
 
 
 class SourceSwitchError(Exception):
@@ -22,12 +22,22 @@ async def async_switch_source(hass, entry, data) -> None:
         entry.entry_id, asyncio.Lock()
     )
     async with lock:
+        original_disabled_by = getattr(entry, "disabled_by", None)
+        if original_disabled_by not in (None, ConfigEntryDisabler.USER):
+            raise SourceSwitchError("source_unload_failed")
         if not await hass.config_entries.async_unload(entry.entry_id):
             raise SourceSwitchError("source_unload_failed")
         original = deepcopy(dict(entry.data))
         try:
             hass.config_entries.async_update_entry(entry, data={**original, **data})
-            loaded = await hass.config_entries.async_setup(entry.entry_id)
+            if original_disabled_by is ConfigEntryDisabler.USER:
+                # Commit the validated source BEFORE enabling a handover-paused
+                # entry. Native enable reloads it; never briefly start Direct.
+                loaded = await hass.config_entries.async_set_disabled_by(
+                    entry.entry_id, None
+                )
+            else:
+                loaded = await hass.config_entries.async_setup(entry.entry_id)
             if not loaded or entry.state is not ConfigEntryState.LOADED:
                 raise SourceSwitchError("source_setup_failed")
         except Exception:
@@ -38,6 +48,19 @@ async def async_switch_source(hass, entry, data) -> None:
             except Exception:
                 unloaded = False
             hass.config_entries.async_update_entry(entry, data=original)
+            if original_disabled_by is ConfigEntryDisabler.USER:
+                try:
+                    await hass.config_entries.async_set_disabled_by(
+                        entry.entry_id, original_disabled_by
+                    )
+                except Exception:
+                    raise SourceSwitchError("source_rollback_failed") from None
+                if (
+                    entry.disabled_by is not original_disabled_by
+                    or entry.state is not ConfigEntryState.NOT_LOADED
+                ):
+                    raise SourceSwitchError("source_rollback_failed") from None
+                raise SourceSwitchError("source_switch_failed") from None
             if not unloaded:
                 raise SourceSwitchError("source_rollback_failed") from None
             try:

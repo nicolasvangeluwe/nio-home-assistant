@@ -16,7 +16,7 @@
       },
       "confirm_source": {
         "title": "Switch this vehicle to Companion?",
-        "description": "Keep this vehicle's entities, dashboard settings and history, and read its core telemetry from Companion. Direct-only sensors will become unavailable. The previous configuration is restored if the new source cannot load. A return to Direct NIO may require NIO authorization again."
+        "description": "Keep this vehicle's entities, dashboard settings and history, and read its core telemetry from Companion. Direct-only sensors will become unavailable. The previous configuration is restored if the new source cannot load. A paused entry will enable Companion only after validation. A return to Direct NIO may require NIO authorization again."
       },
       "vehicle": {
         "title": "Add your NIO vehicle",

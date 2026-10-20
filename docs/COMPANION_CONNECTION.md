@@ -24,6 +24,10 @@ and 20 October proof history; their preparation-only status is superseded here.
   unique/device/entity IDs, options and archive. Failed setup restores original
   entry data and attempts to reload it. Failure of that recovery is explicit;
   upstream grant invalidation cannot be repaired by restoring saved entry data.
+  If Direct was deliberately paused for provider handover, confirmation writes
+  the validated Companion source first, then enables it through HA's native API.
+  Failed setup restores the original disabled state without restarting Direct
+  against a backend that may now own the same provider client.
 - The nine-field contract populates existing core entities. Other Direct sensors
   remain registered but unavailable. Backend-present physically valid stale SoC,
   range and odometer remain visible with `source_quality=stale`, `fresh=false`,
