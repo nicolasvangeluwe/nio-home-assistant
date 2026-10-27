@@ -5,6 +5,19 @@ Use this before releases and when opening PRs.
 
 ## Unreleased
 
+- Restore the Companion connection path after the public v0.4.0-dev.4 HACS
+  install replaced an earlier private bridge-capable build. Companion setup and
+  reauthentication bypass Direct NIO OAuth scope-revision checks; existing Direct
+  entries retain their current behavior. A HACS update alone does not switch an
+  existing Direct entry or recover a missing Companion credential.
+
+- Keep the last validated Companion SoC, range and odometer available for up to
+  five minutes when a cache read fails temporarily. Mark them stale with their
+  original source timestamps; do not treat them as new driving/charging samples.
+  Authorization, disconnected-source, identity and expired-data failures still
+  fail closed. Log only safe transport reason, HTTP status, retry delay and
+  duration to distinguish transient failures without exposing vehicle data.
+
 - Fix Car history/forecast snapshots failing when Home Assistant supplies its
   configured timezone as a string; resolve it before local-date calculations.
 

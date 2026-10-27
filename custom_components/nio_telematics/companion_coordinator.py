@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
@@ -37,6 +38,8 @@ SENSOR_FIELDS = {
     "vehicle_state": "vehicleState",
 }
 RETAINED_CORE_FIELDS = frozenset({"socPercent", "rangeKm", "odometerKm"})
+TRANSIENT_RETENTION = timedelta(minutes=5)
+_LOGGER = logging.getLogger(__name__)
 
 
 def snapshot_to_vehicle(snapshot, previous=None) -> NioVehicleData:
@@ -145,6 +148,68 @@ def snapshot_to_vehicle(snapshot, previous=None) -> NioVehicleData:
     )
 
 
+def retain_transient_core(previous: NioVehicleData) -> NioVehicleData | None:
+    """Display validated core readings without creating a new source sample."""
+    metadata = previous.field_metadata or {}
+    values = {
+        "socPercent": previous.soc_status.soc,
+        "rangeKm": previous.soc_status.remaining_range,
+        "odometerKm": previous.telemetry.get("vehicle_status", {}).get("mileage"),
+    }
+    retained = {
+        key: values[key]
+        if metadata.get(key, {}).get("quality") == "valid"
+        and metadata[key].get("source_timestamp") is not None
+        and metadata[key].get("received_at") is not None
+        else None
+        for key in RETAINED_CORE_FIELDS
+    }
+    if all(value is None for value in retained.values()):
+        return None
+    stale_metadata = {
+        key: {
+            **field,
+            "quality": "stale"
+            if key in RETAINED_CORE_FIELDS and retained[key] is not None
+            else "unavailable",
+        }
+        for key, field in metadata.items()
+    }
+    odometer = metadata.get("odometerKm", {})
+    return replace(
+        previous,
+        soc_status=NioSocStatus(
+            retained["socPercent"],
+            retained["rangeKm"],
+            None,
+            None,
+            None,
+            None,
+            previous.soc_status.event_time,
+        ),
+        telemetry={
+            "soc_status": {},
+            "vehicle_status": {
+                "mileage": retained["odometerKm"],
+                "vehl_state": None,
+                "_odometer_sample_timestamp": odometer.get(
+                    "source_timestamp"
+                ).timestamp()
+                if retained["odometerKm"] is not None
+                else None,
+                "_odometer_retained": retained["odometerKm"] is not None,
+            },
+        },
+        endpoint_status={
+            "soc_status": "temporary_unavailable",
+            "vehicle_status": "temporary_unavailable",
+        },
+        field_metadata=stale_metadata,
+        soc_retained=retained["socPercent"] is not None,
+        remaining_range_retained=retained["rangeKm"] is not None,
+    )
+
+
 class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
     """A consumer credential survives upstream NIO reauthorization."""
 
@@ -153,7 +218,7 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
     ):
         super().__init__(
             hass,
-            logging.getLogger(__name__),
+            _LOGGER,
             name=DOMAIN,
             update_interval=timedelta(seconds=30),
             config_entry=entry,
@@ -162,6 +227,8 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
         self._vin = entry.data[CONF_VIN]
         self._vehicle_key = entry.data[CONF_COMPANION_VEHICLE_KEY]
         self._issue_id = f"companion_source_{entry.entry_id}"
+        self._last_good: NioVehicleData | None = None
+        self._last_vehicle_key: str | None = None
 
     async def _async_update_data(self) -> NioVehicleData:
         try:
@@ -170,6 +237,18 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
             )
         except CompanionFetchError as err:
             self.update_interval = timedelta(seconds=max(30, err.retry_after or 30))
+            _LOGGER.warning(
+                "Companion cache read failed: kind=%s reason=%s status=%s "
+                "retry_after=%s duration_ms=%s",
+                err.kind,
+                err.reason,
+                err.status,
+                err.retry_after,
+                err.duration_ms,
+            )
+            if err.kind != "retry_later":
+                self._last_good = None
+                self._last_vehicle_key = None
             if err.kind == "consumer_reauthentication_required":
                 ir.async_delete_issue(self.hass, DOMAIN, self._issue_id)
                 raise ConfigEntryAuthFailed("Companion HA access was revoked") from None
@@ -186,7 +265,27 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
                     },
                     learn_more_url=COMPANION_CONNECTIONS_URL,
                 )
+            if (
+                err.kind == "retry_later"
+                and self._last_good is not None
+                and self._last_vehicle_key
+                == self._vehicle_key
+                == self.config_entry.data.get(CONF_COMPANION_VEHICLE_KEY)
+                and self._last_good.vin == self._vin
+                and self._last_good.connection_method == CONNECTION_COMPANION
+                and self._last_good.source_generation is not None
+                and self.data is not None
+                and self.data.source_generation == self._last_good.source_generation
+                and timedelta(0)
+                <= datetime.now(UTC) - self._last_good.fetched_at
+                <= TRANSIENT_RETENTION
+                and (retained := retain_transient_core(self._last_good)) is not None
+            ):
+                return retained
             raise UpdateFailed(f"Companion: {err.kind}") from None
         ir.async_delete_issue(self.hass, DOMAIN, self._issue_id)
         self.update_interval = timedelta(seconds=30)
-        return snapshot_to_vehicle(snapshot, self.data)
+        vehicle = snapshot_to_vehicle(snapshot, self.data)
+        self._last_good = vehicle
+        self._last_vehicle_key = snapshot.vehicle_key
+        return vehicle

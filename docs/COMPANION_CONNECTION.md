@@ -1,5 +1,28 @@
 # Optional Companion connection — design handoff
 
+## 28 October recovery candidate after public dev.4
+
+Public `v0.4.0-dev.4` contains only the Direct NIO flow. Installing it through
+HACS replaced the earlier private Companion-capable files; the existing ET5
+Touring entry now reaches Direct scope-revision reauthentication instead of the
+Companion bridge. The maintained candidate is based on dev.4 and includes the
+Companion source, same-entry change flow, transport and ledger protections.
+Regression tests cover Companion setup and reauthentication with no Direct
+scope revision or OAuth application selection. No HA files, entry, credential,
+ledger or provider grant have been changed by preparing this candidate.
+
+A future HACS release must ship every Companion module and its flow, not just a
+local overlay; otherwise another HACS update will remove the bridge again. Before
+a live switch, verify whether the original entry still stores a persistent HA
+consumer credential and its source choice. If it does not, use the native
+`Add service > Change connection for an existing vehicle` path, validate the
+owner-bound vehicle against Companion, and confirm the switch on the same entry.
+Never reauthenticate through a Direct NIO application to repair this route, and
+never delete/recreate the car entry or its ledger. After installation, verify the
+entry is loaded, the core entities retain their IDs, source timestamps advance,
+and the Car ledger/history remains intact. An attended rollout and separately
+authorized HA restart remain pending.
+
 Status: 21 October source implementation under validation; not released or installed.
 Direct remains the live connection. The config flow now offers Direct or Companion
 and an explicit same-entry source switch. The backend's persistent `hap1_` HA

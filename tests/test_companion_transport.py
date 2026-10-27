@@ -4,6 +4,7 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from aiohttp import ClientConnectionError
 
 from custom_components.nio_telematics.companion_transport import (
     CompanionFetchError,
@@ -322,3 +323,44 @@ async def test_long_retry_delay_is_propagated_without_early_request():
         await client.async_fetch(expected_vin=VIN)
     assert caught.value.retry_after == 120
     assert len(session.calls) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error,reason",
+    [(TimeoutError(), "timeout"), (ClientConnectionError("private-host"), "network")],
+)
+async def test_network_diagnostics_are_safe_and_distinct(error, reason):
+    client, session = _client()
+    with patch.object(session, "get", side_effect=error):
+        with pytest.raises(CompanionFetchError) as caught:
+            await client.async_fetch(expected_vin=VIN)
+    assert caught.value.kind == "retry_later"
+    assert caught.value.reason == reason
+    assert caught.value.status is None
+    assert caught.value.duration_ms is not None
+    assert "private-host" not in str(caught.value)
+
+
+@pytest.mark.asyncio
+async def test_http_failure_diagnostics_and_admission_retry_boundary():
+    client, session = _client(503, {"error": "unavailable"})
+    session.response.headers["Retry-After"] = "2"
+    with pytest.raises(CompanionFetchError) as caught:
+        await client.async_fetch(expected_vin=VIN)
+    assert caught.value.kind == "retry_later"
+    assert caught.value.status == 503
+    assert caught.value.reason == "service_unavailable"
+    assert caught.value.retry_after == 2
+    assert len(session.calls) == 1  # Only 429 admission gets an immediate retry.
+    session.response.headers["Retry-After"] = "Tue, 20 Oct 2026 19:02:00 GMT"
+    with pytest.raises(CompanionFetchError) as caught:
+        await client.async_fetch(expected_vin=VIN)
+    assert caught.value.retry_after == 120
+    client, _ = _client(502, b"<private server error>")
+    with pytest.raises(CompanionFetchError) as caught:
+        await client.async_fetch(expected_vin=VIN)
+    assert caught.value.kind == "retry_later"
+    assert caught.value.reason == "invalid_http_body"
+    assert caught.value.status == 502
+    assert "private" not in str(caught.value)

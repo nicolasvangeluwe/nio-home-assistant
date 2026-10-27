@@ -1,6 +1,7 @@
 """Companion cache polling, identity-preserving migration and repair boundaries."""
 
 from copy import deepcopy
+from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -73,6 +74,56 @@ def entry():
     )
 
 
+async def test_companion_setup_bypasses_direct_scope_revision_reauth(hass):
+    """An upgraded Companion entry must not enter Direct OAuth reauthentication."""
+    car = entry()
+    assert "scope_revision" not in car.data
+    car.add_to_hass(hass)
+    coordinator = MagicMock()
+    coordinator.async_config_entry_first_refresh = AsyncMock()
+    with (
+        patch(
+            "custom_components.nio_telematics._async_direct_coordinator",
+            side_effect=AssertionError("Companion setup entered Direct OAuth"),
+        ),
+        patch(
+            "custom_components.nio_telematics.CompanionDataUpdateCoordinator",
+            return_value=coordinator,
+        ),
+        patch(
+            "custom_components.nio_telematics._async_dashboard_options_updated",
+            new_callable=AsyncMock,
+        ),
+        patch.object(
+            hass.config_entries, "async_forward_entry_setups", new_callable=AsyncMock
+        ),
+    ):
+        assert await async_setup_entry(hass, car)
+    coordinator.async_config_entry_first_refresh.assert_awaited_once()
+    assert car.runtime_data is coordinator
+    assert car.data[CONF_COMPANION_CREDENTIAL] == TOKEN
+
+
+async def test_companion_reauth_uses_bridge_credential_form(hass):
+    """Companion reauth never presents a Direct NIO OAuth application picker."""
+    car = entry()
+    car.add_to_hass(hass)
+    handler = NioConfigFlow()
+    handler.hass = hass
+    handler.context = {"source": config_entries.SOURCE_REAUTH}
+    with (
+        patch.object(handler, "_get_reauth_entry", return_value=car),
+        patch.object(
+            handler,
+            "async_step_pick_implementation",
+            side_effect=AssertionError("Companion reauth entered Direct OAuth"),
+        ),
+    ):
+        result = await handler.async_step_reauth(car.data)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "companion"
+
+
 async def test_upstream_reauth_keeps_ha_credential_and_recovers(hass):
     car = entry()
     car.add_to_hass(hass)
@@ -103,10 +154,14 @@ async def test_revoked_consumer_requires_ha_reauth(hass):
     car = entry()
     client = SimpleNamespace(
         async_fetch=AsyncMock(
-            side_effect=CompanionFetchError("consumer_reauthentication_required")
+            side_effect=[
+                snapshot(),
+                CompanionFetchError("consumer_reauthentication_required"),
+            ]
         )
     )
     coordinator = CompanionDataUpdateCoordinator(hass, car, client)
+    coordinator.data = await coordinator._async_update_data()
     with pytest.raises(ConfigEntryAuthFailed, match="HA access was revoked"):
         await coordinator._async_update_data()
     assert car.data[CONF_COMPANION_CREDENTIAL] == TOKEN
@@ -146,6 +201,135 @@ def test_adapter_preserves_clocks_native_units_zero_and_duplicate_retention():
     payload = _snapshot()
     payload["fields"]["socPercent"]["value"] = 0
     assert snapshot_to_vehicle(parse_companion_snapshot(payload)).soc_status.soc == 0
+
+
+@pytest.mark.parametrize("soc_value", [48.5, 0])
+async def test_temporary_cache_failure_retains_only_stale_core_then_recovers(
+    hass, freezer, soc_value
+):
+    payload = _snapshot()
+    payload["fields"]["socPercent"]["value"] = soc_value
+    payload["fields"]["rangeKm"] = _field(269, "km", "soc_status")
+    payload["fields"]["odometerKm"] = _field(6428, "km", "vehicle_status")
+    healthy = parse_companion_snapshot(payload)
+    client = SimpleNamespace(
+        async_fetch=AsyncMock(
+            side_effect=[
+                healthy,
+                CompanionFetchError("retry_later", reason="network"),
+                healthy,
+            ]
+        )
+    )
+    car = entry()
+    coordinator = CompanionDataUpdateCoordinator(hass, car, client)
+    first = await coordinator._async_update_data()
+    coordinator.data = first
+    freezer.move_to("2026-10-20T19:01:00Z")
+    retained = await coordinator._async_update_data()
+    assert retained.soc_status.soc == soc_value
+    assert retained.soc_status.remaining_range == 269
+    assert retained.telemetry["vehicle_status"]["mileage"] == 6428
+    assert retained.soc_status.charging_state is None
+    assert retained.soc_status.maximum_soc is None
+    assert retained.telemetry["vehicle_status"]["vehl_state"] is None
+    assert retained.fetched_at == first.fetched_at
+    assert retained.soc_last_valid_at == first.soc_last_valid_at
+    assert retained.source_generation == first.source_generation
+    assert retained.field_metadata["socPercent"]["quality"] == "stale"
+    assert (
+        retained.field_metadata["odometerKm"]["source_timestamp"]
+        == first.field_metadata["odometerKm"]["source_timestamp"]
+    )
+    assert retained.field_metadata["vehicleState"]["quality"] == "unavailable"
+    assert retained.telemetry["vehicle_status"]["_odometer_retained"]
+    assert set(retained.endpoint_status.values()) == {"temporary_unavailable"}
+    entity_coordinator = MagicMock(
+        config_entry=car, last_update_success=True, data=retained
+    )
+    descriptions = {s.key: s for s in SENSORS}
+    soc = NioSocSensor(entity_coordinator, descriptions["battery_state_of_charge"])
+    odo = NioOdometerSensor(entity_coordinator, descriptions["odometer"])
+    assert soc.available and soc.extra_state_attributes["fresh"] is False
+    assert soc.extra_state_attributes["data_retained"] is True
+    assert odo.available and odo.extra_state_attributes["fresh"] is False
+    assert not NioSensor(entity_coordinator, descriptions["charging_target"]).available
+    coordinator.data = retained
+    recovered = await coordinator._async_update_data()
+    assert recovered.soc_status.soc == soc_value
+    assert recovered.field_metadata["socPercent"]["quality"] == "valid"
+
+
+async def test_temporary_retention_expires_and_never_crosses_generation_or_identity(
+    hass, freezer
+):
+    car = entry()
+    client = SimpleNamespace(
+        async_fetch=AsyncMock(
+            side_effect=[snapshot()] + [CompanionFetchError("retry_later")] * 4
+        )
+    )
+    coordinator = CompanionDataUpdateCoordinator(hass, car, client)
+    first = await coordinator._async_update_data()
+    coordinator.data = first
+    freezer.move_to("2026-10-20T19:04:59Z")
+    retained = await coordinator._async_update_data()
+    coordinator.data = retained
+    freezer.move_to("2026-10-20T19:05:01Z")
+    with pytest.raises(UpdateFailed, match="retry_later"):
+        await coordinator._async_update_data()
+    freezer.move_to(NOW)
+    coordinator.data = replace(first, source_generation=2)
+    with pytest.raises(UpdateFailed, match="retry_later"):
+        await coordinator._async_update_data()
+    coordinator.data = first
+    car.data[CONF_COMPANION_VEHICLE_KEY] = "b" * 64
+    with pytest.raises(UpdateFailed, match="retry_later"):
+        await coordinator._async_update_data()
+
+
+async def test_disconnected_or_reauthorization_source_never_uses_retention(hass):
+    car = entry()
+    client = SimpleNamespace(
+        async_fetch=AsyncMock(
+            side_effect=[
+                snapshot(),
+                CompanionFetchError("source_disconnected"),
+                CompanionFetchError("upstream_reauthorization_required"),
+                CompanionFetchError("retry_later"),
+                snapshot(),
+            ]
+        )
+    )
+    coordinator = CompanionDataUpdateCoordinator(hass, car, client)
+    coordinator.data = await coordinator._async_update_data()
+    for failure in ("source_disconnected", "upstream_reauthorization_required"):
+        with pytest.raises(UpdateFailed, match=failure):
+            await coordinator._async_update_data()
+    with pytest.raises(UpdateFailed, match="retry_later"):
+        await coordinator._async_update_data()
+    recovered = await coordinator._async_update_data()
+    assert recovered.soc_status.soc == 48.5
+
+
+async def test_backend_stale_values_are_not_new_outage_baseline(hass):
+    payload = _snapshot()
+    payload["fields"]["rangeKm"] = _field(269, "km", "soc_status")
+    payload["fields"]["odometerKm"] = _field(6428, "km", "vehicle_status")
+    for field in payload["fields"].values():
+        field["quality"] = "stale"
+    client = SimpleNamespace(
+        async_fetch=AsyncMock(
+            side_effect=[
+                parse_companion_snapshot(payload),
+                CompanionFetchError("retry_later"),
+            ]
+        )
+    )
+    coordinator = CompanionDataUpdateCoordinator(hass, entry(), client)
+    coordinator.data = await coordinator._async_update_data()
+    with pytest.raises(UpdateFailed, match="retry_later"):
+        await coordinator._async_update_data()
 
 
 def test_stale_values_and_direct_only_sensors_do_not_reappear_from_restore(freezer):

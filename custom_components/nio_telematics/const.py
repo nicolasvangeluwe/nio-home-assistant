@@ -20,7 +20,9 @@ CONNECTION_DIRECT: Final = "direct"
 CONNECTION_COMPANION: Final = "companion"
 CONF_COMPANION_CREDENTIAL: Final = "companion_credential"
 CONF_COMPANION_VEHICLE_KEY: Final = "companion_vehicle_key"
-COMPANION_API_ORIGIN: Final = "https://nio-companion-proof.nio-companion-backend.workers.dev"
+COMPANION_API_ORIGIN: Final = (
+    "https://nio-companion-proof.nio-companion-backend.workers.dev"
+)
 COMPANION_CONNECTIONS_URL: Final = f"{COMPANION_API_ORIGIN}/connections"
 
 # NIO's Personal Application console lists these read-only vehicle scopes.
