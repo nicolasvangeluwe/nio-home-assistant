@@ -5,6 +5,8 @@ Use this before releases and when opening PRs.
 
 ## Unreleased
 
+## 0.5.0-dev.1
+
 - Restore the Companion connection path after the public v0.4.0-dev.4 HACS
   install replaced an earlier private bridge-capable build. Companion setup and
   reauthentication bypass Direct NIO OAuth scope-revision checks; existing Direct
@@ -37,7 +39,8 @@ Use this before releases and when opening PRs.
   Add service can change an existing vehicle's connection through a title-only
   selector, including when HA hides Reconfigure for a disabled entry. Cancellation
   leaves the entry unchanged; identity is resolved again before validation/commit.
-  This feature is source-only pending backend readiness and an attended rollout.
+  Companion remains early access and needs a working Companion account and an
+  attended connection setup.
 - Align native SoC with odometer source timestamps instead of pairing a newer
   percentage with an older distance report. Retain unchanged SoC reports,
   reconcile bounded late arrival readings, and keep later stationary losses
@@ -46,9 +49,8 @@ Use this before releases and when opening PRs.
 - Preserve charging/source boundaries, stored trip IDs and raw evidence during
   audited native-trip repair. Restore the optional dashboard's grouped-trip,
   battery-history and driving-segment snapshot fields.
-- Keep the already-resolved timezone and rolling 100 km calculations from
-  v0.4.0-dev.4. These changes are source-only until a future release and HA
-  installation are separately verified.
+- Preserve the already-resolved timezone and rolling 100 km calculations from
+  v0.4.0-dev.4 alongside the new Companion connection.
 - Bound display-only short-trip grouping to the configured trip idle period
   and keep legs separate across recorded parked loss. This prevents separate
   same-day drives from appearing as one trip; archived trips are unchanged.

@@ -1,6 +1,6 @@
 # Optional Companion connection — design handoff
 
-## 28 October recovery candidate after public dev.4
+## 28 October recovery candidate for v0.5.0-dev.1
 
 Public `v0.4.0-dev.4` contains only the Direct NIO flow. Installing it through
 HACS replaced the earlier private Companion-capable files; the existing ET5
@@ -23,8 +23,8 @@ entry is loaded, the core entities retain their IDs, source timestamps advance,
 and the Car ledger/history remains intact. An attended rollout and separately
 authorized HA restart remain pending.
 
-Status: 21 October source implementation under validation; not released or installed.
-Direct remains the live connection. The config flow now offers Direct or Companion
+Status: 28 October release candidate under validation; not released or installed.
+The original HA entry is in setup error. The config flow offers Direct or Companion
 and an explicit same-entry source switch. The backend's persistent `hap1_` HA
 credential has no local expiration and is separate from NIO and owner web login.
 The transport retains `ha1_` proof compatibility for isolated tests, but HA setup
