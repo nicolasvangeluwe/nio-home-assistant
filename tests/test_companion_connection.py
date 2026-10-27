@@ -283,7 +283,10 @@ async def test_temporary_retention_expires_and_never_crosses_generation_or_ident
     with pytest.raises(UpdateFailed, match="retry_later"):
         await coordinator._async_update_data()
     coordinator.data = first
-    car.data[CONF_COMPANION_VEHICLE_KEY] = "b" * 64
+    car.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        car, data={**car.data, CONF_COMPANION_VEHICLE_KEY: "b" * 64}
+    )
     with pytest.raises(UpdateFailed, match="retry_later"):
         await coordinator._async_update_data()
 
