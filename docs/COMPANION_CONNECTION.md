@@ -1,6 +1,12 @@
 # Optional Companion connection — design handoff
 
-## 28 October recovery candidate for v0.5.0-dev.1
+## 28 October recovery release v0.5.0-dev.1
+
+Released and installed through HACS on 28 October after four CI jobs passed. HA
+restarted and the original ET5 Touring entry resumed Companion generation 2
+without credential re-entry or source switch. The live UI showed valid/fresh SoC
+71.5%, range 397 km, odometer 6,510 km, and retained Car history. This live
+result supersedes the preparation-only status in the following paragraph.
 
 Public `v0.4.0-dev.4` contains only the Direct NIO flow. Installing it through
 HACS replaced the earlier private Companion-capable files; the existing ET5
@@ -23,8 +29,8 @@ entry is loaded, the core entities retain their IDs, source timestamps advance,
 and the Car ledger/history remains intact. An attended rollout and separately
 authorized HA restart remain pending.
 
-Status: 28 October release candidate under validation; not released or installed.
-The original HA entry is in setup error. The config flow offers Direct or Companion
+Historical candidate status before the release: the original HA entry was in setup
+error. The config flow offers Direct or Companion
 and an explicit same-entry source switch. The backend's persistent `hap1_` HA
 credential has no local expiration and is separate from NIO and owner web login.
 The transport retains `ha1_` proof compatibility for isolated tests, but HA setup
