@@ -1,0 +1,166 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Raccordement véhicule",
+        "description": "Pour une utilisation normale de Home Assistant, choisissez Direct NIO. Companion est expérimental et destiné aux testeurs disposant d'un compte Companion existant, d'une voiture connectée et d'un lien Home Assistant séparé.",
+        "menu_options": {
+          "direct": "NIO direct (recommandé)",
+          "companion": "Compte compagnon (test)",
+          "change_connection": "Changer de connexion pour un véhicule existant"
+        }
+      },
+      "reconfigure": {
+        "title": "Connexion véhicule",
+        "description": "Pour une utilisation normale de Home Assistant, choisissez Direct NIO. Companion reste disponible pour les testeurs disposant d'un compte Companion existant, d'une voiture connectée et d'un lien Home Assistant séparé. Votre connexion actuelle reste en place jusqu'à ce que vous confirmiez un changement.",
+        "menu_options": {
+          "direct": "Direct NIO / modification des informations d'identification de l'application",
+          "companion": "Compte compagnon (test)"
+        }
+      },
+      "companion": {
+        "title": "Connecter le compagnon",
+        "description": "Companion est expérimental et destiné aux testeurs ; pour une utilisation normale de Home Assistant, choisissez Direct NIO. Si vous testez Companion, créez un lien Home Assistant persistant sur votre [page de connexions Companion] ({connections_url}), puis collez ses informations d'identification HA ici. La voiture liée doit disposer de données récentes sur son état de charge, son autonomie et son compteur kilométrique. Companion fournit actuellement uniquement les données de base du véhicule ; les capteurs Direct NIO supplémentaires ne seront pas disponibles.",
+        "data": {
+          "vehicle_name": "Nom du véhicule",
+          "vin": "NIV",
+          "companion_credential": "Titre d'assistant à domicile persistant"
+        }
+      },
+      "confirm_source": {
+        "title": "Passer de ce véhicule à Companion ?",
+        "description": "Conservez les entités, les paramètres du tableau de bord et l'historique de ce véhicule, et lisez sa télémétrie de base depuis Companion. Les capteurs directs uniquement ne seront plus disponibles. La configuration précédente est restaurée si la nouvelle source ne peut pas se charger. Une entrée en pause activera Companion seulement après validation. Un retour à Direct NIO peut nécessiter à nouveau l’autorisation de NIO."
+      },
+      "vehicle": {
+        "title": "Ajoutez votre véhicule NIO",
+        "description": "Saisissez l'identité du véhicule après avoir autorisé Home Assistant avec NIO.",
+        "data": {
+          "vehicle_name": "Nom du véhicule",
+          "vin": "NIV"
+        }
+      },
+      "change_connection": {
+        "title": "Choisissez votre véhicule existant",
+        "description": "Modifiez la source de données de ce véhicule tout en préservant ses entités, ses paramètres et son historique. Un véhicule en pause reste en pause jusqu'à ce que la source de remplacement validée soit prête.",
+        "data": {
+          "existing_entry_id": "Véhicule"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Ce véhicule est déjà configuré.",
+      "source_unload_failed": "La connexion actuelle n'a pas pu s'arrêter. Aucun changement de source n'a été enregistré.",
+      "source_switch_failed": "La nouvelle connexion n'a pas pu se charger. La configuration précédente a été restaurée.",
+      "source_rollback_failed": "Le commutateur est tombé en panne et la configuration précédente a été restaurée, mais n'a pas pu être chargée. Vérifiez l'intégration et reconnectez-vous si nécessaire.",
+      "no_existing_vehicle": "Aucun véhicule NIO existant n'est disponible pour être reconfiguré.",
+      "existing_vehicle_missing": "Ce véhicule n'existe plus ou appartient à une autre intégration. Aucune connexion n'a été modifiée."
+    },
+    "error": {
+      "invalid_vin": "Entrez un NIV valide de 17 caractères.",
+      "persistent_credential_required": "Utilisez un identifiant Companion HA persistant, et non un jeton de preuve temporaire.",
+      "consumer_reauthentication_required": "Cet identifiant HA a été rejeté. Créez un nouveau lien HA sur la page Connexions compagnon.",
+      "upstream_reauthorization_required": "Reconnectez NIO sur la page Connexions compagnon ; conservez votre identifiant HA existant.",
+      "source_disconnected": "Reconnectez votre source NIO sur la page Connexions compagnon.",
+      "retry_later": "Companion est temporairement indisponible. Réessayez plus tard.",
+      "invalid_response": "Companion a renvoyé une réponse non valide.",
+      "identity_mismatch": "Ce lien compagnon appartient à un autre véhicule.",
+      "insufficient_coverage": "Companion a besoin de données récentes et vérifiées sur l'état de charge, l'autonomie et le compteur kilométrique avant ce changement.",
+      "source_unload_failed": "La connexion existante n'a pas pu s'arrêter. Réessayez plus tard.",
+      "source_switch_failed": "Le commutateur est tombé en panne. La configuration précédente a été restaurée.",
+      "source_rollback_failed": "La configuration précédente a été restaurée mais n'a pas pu être chargée. Vérifiez l'intégration avant de réessayer.",
+      "existing_vehicle_missing": "Ce véhicule n'existe plus. Sélectionnez un véhicule existant."
+    }
+  },
+  "issues": {
+    "companion_source_reconnect": {
+      "title": "Reconnectez NIO dans le compagnon",
+      "description": "Votre connexion NIO en amont a besoin d'attention. Ouvrez la [Page Connexions compagnon]({connections_url}) et reconnectez NIO. Conservez le lien Home Assistant existant : son identifiant reste valide. Home Assistant reprendra automatiquement les lectures mises en cache lorsque la source sera récupérée."
+    }
+  },
+  "application_credentials": {
+    "description": "Créez ou ouvrez votre application personnelle dans la [console de développement NIO Open Telematics] ({console_url}), définissez son URI de redirection OAuth exactement sur [{redirect_url}] ({redirect_url}), puis entrez son ID client et son secret client."
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Tableau de bord du véhicule",
+        "description": "Sources facultatives pour les véhicules et les ménages. Laissez une source de véhicule vide pour utiliser automatiquement son entité NIO ; la connexion et l’alimentation peuvent provenir de n’importe quel chargeur HA, et EVCC n’est pas requis. L’importation de session d’historique nécessite le format compatible EVCC.",
+        "data": {
+          "model": "Modèle de voiture pour œuvres d'art locales",
+          "paint": "Couleur de la voiture (automatique conserve l'image ET5 Touring existante)",
+          "language": "Langue du tableau de bord (suit automatiquement la langue de Home Assistant de chaque spectateur)",
+          "soc_entity": "État de l'entité de charge (remplacement NIO facultatif)",
+          "range_entity": "Entité de plage restante (remplacement NIO en option)",
+          "odometer_entity": "Entité d'odomètre (remplacement NIO en option)",
+          "charging_state_entity": "Entité d'état de facturation (remplacement NIO en option)",
+          "charge_limit_entity": "Entité de limite de charge (remplacement NIO en option)",
+          "cost_energy": "Entité énergétique de recharge enregistrée (kWh cumulés)",
+          "cost_solar": "Entité énergétique de recharge solaire enregistrée (kWh cumulés)",
+          "cost_total_cost": "Entité des coûts de facturation enregistrés (devise cumulée)",
+          "cost_grid_price": "Entité de prix d'importation du réseau (devise/kWh)",
+          "cost_export_price": "Entité de prix à l'exportation solaire (devise/kWh)",
+          "evcc_connected": "Entité connectée au chargeur (EVCC ou autre source HA)",
+          "evcc_power": "Entité d'alimentation de charge (EVCC ou autre source HA)",
+          "evcc_history": "Entité de sessions de recharge compatible EVCC",
+          "electricity_price": "Entité de tarification de l'électricité",
+          "reimbursement_rate": "Entité de taux de remboursement",
+          "battery_capacity_kwh": "Capacité utile de la batterie (kWh)",
+          "full_range_km": "Autonomie à pleine charge (km ; repli du grand livre)",
+          "ledger_enabled": "Activer l'historique des déplacements et des charges"
+        }
+      }
+    },
+    "error": {
+      "ledger_calibration_required": "Définissez la capacité utilisable de la batterie et la plage de charge complète avant d'activer l'historique.",
+      "incomplete_cost_sources": "Définissez les cinq sources de coûts enregistrés ou laissez-les vides.",
+      "invalid_paint_for_model": "Choisissez une couleur disponible pour ce modèle de voiture."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_state_of_charge": {
+        "name": "État de charge de la batterie"
+      },
+      "remaining_range": {
+        "name": "Portée restante"
+      },
+      "charging_state": {
+        "name": "État de charge"
+      },
+      "charging_target": {
+        "name": "Cible de charge"
+      },
+      "maximum_soc": {
+        "name": "État de charge maximum"
+      },
+      "high_voltage_battery_current": {
+        "name": "Courant de batterie haute tension"
+      },
+      "data_timestamp": {
+        "name": "Horodatage des données"
+      }
+    }
+  },
+  "selector": {
+    "paint": {
+      "options": {
+        "auto": "Automatique",
+        "cloud-white": "Cloud White",
+        "deep-black": "Deep Black",
+        "star-gray": "Star Gray",
+        "stratosphere-blue": "Stratosphere Blue",
+        "airspace-blue": "Airspace Blue",
+        "arctic-green": "Arctic Green",
+        "first-light-kiss": "First Light Kiss",
+        "sunbath-yellow": "Sunbath / Sunbathe Yellow",
+        "luminous-orange": "Luminous Orange",
+        "sunlight-gold": "Sunlight Gold",
+        "galaxy-shadow": "Galaxy Shadow",
+        "southern-star": "Southern Star",
+        "sunrise-beige": "Sunrise Beige",
+        "new-moon-silver": "New Moon Silver",
+        "nebula-green": "Nebula Green"
+      }
+    }
+  }
+}

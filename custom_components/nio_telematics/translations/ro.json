@@ -1,0 +1,166 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Conexiune vehicul",
+        "description": "Pentru utilizarea normală a Home Assistant, alegeți Direct NIO. Companion este experimental și este destinat testerilor cu un cont Companion existent, o mașină conectată și un link separat pentru Home Assistant.",
+        "menu_options": {
+          "direct": "Direct NIO (recomandat)",
+          "companion": "Cont însoțitor (testare)",
+          "change_connection": "Schimbați conexiunea pentru un vehicul existent"
+        }
+      },
+      "reconfigure": {
+        "title": "Conexiune vehicul",
+        "description": "Pentru utilizarea normală a Home Assistant, alegeți Direct NIO. Companion rămâne disponibil pentru testerii cu un cont Companion existent, o mașină conectată și un link separat pentru Home Assistant. Conexiunea dvs. actuală rămâne în vigoare până când confirmați o modificare.",
+        "menu_options": {
+          "direct": "Direct NIO / schimbarea acreditărilor aplicației",
+          "companion": "Cont însoțitor (testare)"
+        }
+      },
+      "companion": {
+        "title": "Connect Companion",
+        "description": "Companion este experimental și destinat testerilor; pentru utilizarea normală a Home Assistant, alegeți Direct NIO. Dacă testați Companion, creați un link persistent Home Assistant pe [pagina de conexiuni Companion]({connections_url}), apoi inserați acreditările sale HA aici. Mașina conectată trebuie să aibă date recente privind starea de încărcare, autonomia și contorul de parcurs. Companion furnizează în prezent numai datele de bază ale vehiculului; senzori suplimentari Direct NIO nu vor fi disponibili.",
+        "data": {
+          "vehicle_name": "Numele vehiculului",
+          "vin": "VIN",
+          "companion_credential": "Acreditare persistentă pentru Asistent acasă"
+        }
+      },
+      "confirm_source": {
+        "title": "Comutați acest vehicul la Companion?",
+        "description": "Păstrați entitățile acestui vehicul, setările tabloului de bord și istoricul și citiți telemetria de bază din Companion. Senzorii numai direct vor deveni indisponibili. Configurația anterioară este restabilită dacă noua sursă nu se poate încărca. O intrare întreruptă va activa Companion numai după validare. Revenirea la Direct NIO poate necesita din nou autorizarea NIO."
+      },
+      "vehicle": {
+        "title": "Adăugați vehiculul dvs. NIO",
+        "description": "Introduceți identitatea vehiculului după autorizarea Home Assistant cu NIO.",
+        "data": {
+          "vehicle_name": "Numele vehiculului",
+          "vin": "VIN"
+        }
+      },
+      "change_connection": {
+        "title": "Alegeți vehiculul existent",
+        "description": "Schimbați sursa de date a acestui vehicul, păstrând în același timp entitățile, setările și istoricul acestuia. Un vehicul întrerupt rămâne în pauză până când sursa de înlocuire validată este gata.",
+        "data": {
+          "existing_entry_id": "Vehicul"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Acest vehicul este deja configurat.",
+      "source_unload_failed": "Conexiunea curentă nu s-a putut opri. Nicio modificare a sursei nu a fost salvată.",
+      "source_switch_failed": "Noua conexiune nu s-a putut încărca. Configurația anterioară a fost restaurată.",
+      "source_rollback_failed": "Comutatorul a eșuat și configurația anterioară a fost restaurată, dar nu s-a putut încărca. Verificați integrarea și reconectați dacă este necesar.",
+      "no_existing_vehicle": "Niciun vehicul NIO existent nu este disponibil pentru reconfigurare.",
+      "existing_vehicle_missing": "Acest vehicul nu mai există sau aparține unei alte integrări. Nicio conexiune nu a fost schimbată."
+    },
+    "error": {
+      "invalid_vin": "Introduceți un VIN valid de 17 caractere.",
+      "persistent_credential_required": "Folosiți o acreditare Companion HA persistentă, nu un token de dovadă temporar.",
+      "consumer_reauthentication_required": "Această autentificare HA a fost respinsă. Creați un nou link HA pe pagina de conexiuni Companion.",
+      "upstream_reauthorization_required": "Reconectați NIO pe pagina de conexiuni Companion; păstrați-vă acreditările HA existente.",
+      "source_disconnected": "Reconectați sursa NIO pe pagina de conexiuni Companion.",
+      "retry_later": "Companion este temporar indisponibil. Încercați din nou mai târziu.",
+      "invalid_response": "Companion a returnat un răspuns nevalid.",
+      "identity_mismatch": "Acest link însoțitor aparține unui alt vehicul.",
+      "insufficient_coverage": "Companion are nevoie de date recente, verificate privind starea de încărcare, intervalul și contorul de parcurs înainte de această comutare.",
+      "source_unload_failed": "Conexiunea existentă nu s-a putut opri. Încercați din nou mai târziu.",
+      "source_switch_failed": "Comutatorul a eșuat. Configurația anterioară a fost restaurată.",
+      "source_rollback_failed": "Configurația anterioară a fost restaurată, dar nu s-a putut încărca. Verificați integrarea înainte de a încerca din nou.",
+      "existing_vehicle_missing": "Acest vehicul nu mai există. Selectați un vehicul existent."
+    }
+  },
+  "issues": {
+    "companion_source_reconnect": {
+      "title": "Reconectați NIO în Companion",
+      "description": "Conexiunea dvs. NIO în amonte necesită atenție. Deschideți [Pagina de conexiuni însoțitoare]({connections_url}) și reconectați NIO. Păstrați linkul existent pentru Home Assistant: acreditările sale rămân valabile. Home Assistant va relua automat citirile memorate în cache când sursa se recuperează."
+    }
+  },
+  "application_credentials": {
+    "description": "Creați sau deschideți aplicația dvs. personală în [Consola pentru dezvoltatori NIO Open Telematics]({console_url}), setați URI-ul de redirecționare OAuth exact la [{redirect_url}]({redirect_url}), apoi introduceți ID-ul clientului și Secretul clientului."
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Tabloul de bord al vehiculului",
+        "description": "Opțional pentru vehicule și surse casnice. Lăsați o sursă de vehicul goală pentru a-și utiliza automat entitatea NIO; conexiunea și alimentarea pot proveni de la orice încărcător HA, iar EVCC nu este necesar. Importul sesiunii de istoric necesită formatul compatibil EVCC.",
+        "data": {
+          "model": "Model de mașină pentru lucrări de artă locale",
+          "paint": "Culoare mașină (automat păstrează imaginea ET5 Touring existentă)",
+          "language": "Limba tabloului de bord (urmărește automat limba Asistentului de acasă a fiecărui spectator)",
+          "soc_entity": "Entitatea de stare de taxare (opțional NIO override)",
+          "range_entity": "Entitate de interval rămasă (override NIO opțională)",
+          "odometer_entity": "Entitate kilometraj (opțional NIO override)",
+          "charging_state_entity": "Entitate de stare de încărcare (override NIO opțională)",
+          "charge_limit_entity": "Entitate limită de taxare (opțional NIO override)",
+          "cost_energy": "Entitate de energie de încărcare înregistrată (kWh cumulat)",
+          "cost_solar": "Entitate de energie solară de încărcare înregistrată (kWh cumulat)",
+          "cost_total_cost": "Entitatea de cost de taxare înregistrată (valută cumulată)",
+          "cost_grid_price": "Entitate preț import import rețea (valută/kWh)",
+          "cost_export_price": "Entitate preț de export solar (valută/kWh)",
+          "evcc_connected": "Entitate conectată la încărcător (EVCC sau altă sursă HA)",
+          "evcc_power": "Entitate de alimentare de încărcare (EVCC sau altă sursă HA)",
+          "evcc_history": "Entitate sesiuni de încărcare compatibile cu EVCC",
+          "electricity_price": "Entitatea prețul energiei electrice",
+          "reimbursement_rate": "Entitatea rata de rambursare",
+          "battery_capacity_kwh": "Capacitatea utilizabilă a bateriei (kWh)",
+          "full_range_km": "Autonomie la încărcare completă (km; registru de rezervă)",
+          "ledger_enabled": "Activați istoricul călătoriilor și al încărcării"
+        }
+      }
+    },
+    "error": {
+      "ledger_calibration_required": "Setați capacitatea utilizabilă a bateriei și intervalul de încărcare completă înainte de a activa istoricul.",
+      "incomplete_cost_sources": "Setați toate cele cinci surse de cost înregistrat sau lăsați-le goale.",
+      "invalid_paint_for_model": "Alegeți o culoare disponibilă pentru acest model de mașină."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_state_of_charge": {
+        "name": "Starea de încărcare a bateriei"
+      },
+      "remaining_range": {
+        "name": "Interval rămas"
+      },
+      "charging_state": {
+        "name": "Stare de încărcare"
+      },
+      "charging_target": {
+        "name": "Țintă de încărcare"
+      },
+      "maximum_soc": {
+        "name": "Starea maximă de încărcare"
+      },
+      "high_voltage_battery_current": {
+        "name": "Curent de înaltă tensiune a bateriei"
+      },
+      "data_timestamp": {
+        "name": "Marcaj temporal al datelor"
+      }
+    }
+  },
+  "selector": {
+    "paint": {
+      "options": {
+        "auto": "Automat",
+        "cloud-white": "Cloud White",
+        "deep-black": "Deep Black",
+        "star-gray": "Star Gray",
+        "stratosphere-blue": "Stratosphere Blue",
+        "airspace-blue": "Airspace Blue",
+        "arctic-green": "Arctic Green",
+        "first-light-kiss": "First Light Kiss",
+        "sunbath-yellow": "Sunbath / Sunbathe Yellow",
+        "luminous-orange": "Luminous Orange",
+        "sunlight-gold": "Sunlight Gold",
+        "galaxy-shadow": "Galaxy Shadow",
+        "southern-star": "Southern Star",
+        "sunrise-beige": "Sunrise Beige",
+        "new-moon-silver": "New Moon Silver",
+        "nebula-green": "Nebula Green"
+      }
+    }
+  }
+}

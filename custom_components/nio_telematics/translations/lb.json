@@ -1,0 +1,166 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Gefier Verbindung",
+        "description": "Fir normal Home Assistant benotzen, wielt Direct NIO. Companion ass experimentell a geduecht fir Tester mat engem existente Companion Kont, engem verbonne Auto an engem separaten Home Assistant Link.",
+        "menu_options": {
+          "direct": "Direkt NIO (recommandéiert)",
+          "companion": "Begleeder Kont (Test)",
+          "change_connection": "Ännere Verbindung fir en existent Gefier"
+        }
+      },
+      "reconfigure": {
+        "title": "Gefier Verbindung",
+        "description": "Fir normal Home Assistant benotzen, wielt Direct NIO. Begleeder bleift verfügbar fir Tester mat engem existente Begleeder Kont, engem verbonne Auto an engem separaten Home Assistant Link. Är aktuell Verbindung bleift op der Plaz bis Dir eng Ännerung confirméiert.",
+        "menu_options": {
+          "direct": "Direkt NIO / Applikatioun Umeldungsinformatioun änneren",
+          "companion": "Begleeder Kont (Test)"
+        }
+      },
+      "companion": {
+        "title": "Connect Companion",
+        "description": "Begleeder ass experimentell a fir Tester geduecht; fir normal Home Assistant benotzen, wielt Direct NIO. Wann Dir Companion testt, erstellt e persistent Home Assistant Link op Ärer [Companion Connections Säit]({connections_url}), da paste seng HA Umeldungsinformatioun hei. De verlinkte Auto muss rezent Ladungszoustand, Gamme an Kilometerzähler Daten hunn. Begleeder liwwert momentan Kär Gefier Daten nëmmen; zousätzlech Direct NIO Sensoren wäerten net verfügbar sinn.",
+        "data": {
+          "vehicle_name": "Gefier Numm",
+          "vin": "VIN",
+          "companion_credential": "Persistent Home Assistant Umeldungsinformatioun"
+        }
+      },
+      "confirm_source": {
+        "title": "Dëst Gefier op Begleeder wiesselen?",
+        "description": "Halt dëst Gefier Entitéiten, Dashboard Astellungen a Geschicht, a liest seng Kär Telemetrie vum Companion. Direkt-nëmmen Sensoren ginn net verfügbar. Déi viregt Konfiguratioun gëtt restauréiert wann déi nei Quell net luede kann. Eng pauséiert Entrée aktivéiert Begleeder nëmmen no der Validatioun. E Retour op Direct NIO kann nees NIO Autorisatioun verlaangen."
+      },
+      "vehicle": {
+        "title": "Fügt Ären NIO Gefier",
+        "description": "Gitt d'Gefieridentitéit un nodeems Dir den Home Assistant mam NIO autoriséiert huet.",
+        "data": {
+          "vehicle_name": "Gefier Numm",
+          "vin": "VIN"
+        }
+      },
+      "change_connection": {
+        "title": "Wielt Äert existent Gefier",
+        "description": "Ännert d'Datequell vun dësem Gefier wärend seng Entitéiten, Astellungen a Geschicht erhale bleiwen. E Pauséiert Gefier bleift gestoppt bis déi validéiert Ersatzquell fäerdeg ass.",
+        "data": {
+          "existing_entry_id": "Gefier"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Dëst Gefier ass scho konfiguréiert.",
+      "source_unload_failed": "Déi aktuell Verbindung konnt net ophalen. Keng Quell änneren gouf gespäichert.",
+      "source_switch_failed": "Déi nei Verbindung konnt net lued. Déi viregt Konfiguratioun gouf restauréiert.",
+      "source_rollback_failed": "De Schalter huet gescheitert an déi vireg Konfiguratioun gouf restauréiert, awer konnt net lueden. Iwwerpréift d'Integratioun a verbënnt erëm wann néideg.",
+      "no_existing_vehicle": "Keen existent NIO Gefier ass disponibel fir nei ze konfiguréieren.",
+      "existing_vehicle_missing": "Dëst Gefier existéiert net méi oder gehéiert zu enger anerer Integratioun. Keng Verbindung gouf geännert."
+    },
+    "error": {
+      "invalid_vin": "Gitt eng valabel 17-Charakter VIN.",
+      "persistent_credential_required": "Benotzt eng persistent Begleeder HA Umeldungsinformatioun, net eng temporär Beweis Token.",
+      "consumer_reauthentication_required": "Dës HA Umeldungsinformatioun gouf refuséiert. Erstellt en neien HA Link op der Companion Connections Säit.",
+      "upstream_reauthorization_required": "Reconnect NIO op der Companion Verbindungen Säit; halen Är bestehend HA Umeldungsinformatioune.",
+      "source_disconnected": "Reconnect Är NIO Quell op der Companion Verbindungen Säit.",
+      "retry_later": "Begleeder ass temporär net verfügbar. Probéiert méi spéit nach eng Kéier.",
+      "invalid_response": "Begleeder huet eng ongëlteg Äntwert zréck.",
+      "identity_mismatch": "Dëse Begleeder Link gehéiert zu engem anere Gefier.",
+      "insufficient_coverage": "Begleeder brauch rezent, verifizéiert Staat vun charge, Beräich an Kilometerzähler Daten virun dësem Schalter.",
+      "source_unload_failed": "Déi bestehend Verbindung konnt net ophalen. Probéiert méi spéit nach eng Kéier.",
+      "source_switch_failed": "De Schalter huet gescheitert. Déi viregt Konfiguratioun gouf restauréiert.",
+      "source_rollback_failed": "Déi viregt Configuratioun gouf restauréiert, awer konnt net lueden. Kontrolléiert d'Integratioun ier Dir erëm probéiert.",
+      "existing_vehicle_missing": "Dëst Gefier existéiert net méi. Wielt e bestehend Gefier."
+    }
+  },
+  "issues": {
+    "companion_source_reconnect": {
+      "title": "Reconnect NIO in Companion",
+      "description": "Är Upstream NIO Verbindung brauch Opmierksamkeet. Öffnen d'Säit [Companion Connections]({connections_url}) a verbënnt den NIO erëm. Halt déi existent Home Assistant Link: seng Umeldungsinformatioun bleift valabel. Home Assistant wäert d'Cache-Liesen automatesch erëmfannen wann d'Quell sech erholl."
+    }
+  },
+  "application_credentials": {
+    "description": "Erstellt oder öffnet Är perséinlech Applikatioun an der [NIO Open Telematics Entwécklerkonsole]({console_url}), setzt seng OAuth Viruleedung URI genau op [{redirect_url}]({redirect_url}), gitt dann seng Client ID a Client Secret."
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Gefier Dashboard",
+        "description": "Fakultativ Gefier an Stot Quellen. Loosst e Gefierquell eidel fir seng NIO Entitéit automatesch ze benotzen; Verbindung a Kraaft kënnen aus all HA Ladegeräter kommen, an EVCC ass net erfuerderlech. Geschicht Sessioun Import erfuerdert den EVCC-kompatibele Format.",
+        "data": {
+          "model": "Automodell fir lokal Konschtwierker",
+          "paint": "Auto Faarf (automatesch hält déi bestehend ET5 Touring Bild)",
+          "language": "Dashboard Sprooch (auto follegt all Betrachter seng Home Assistant Sprooch)",
+          "soc_entity": "Staat vun Charge Entitéit (optional NIO iwwerdribblen)",
+          "range_entity": "Rescht Gamme Entitéit (optional NIO iwwerdribblen)",
+          "odometer_entity": "Kilometerzähler Entitéit (optional NIO iwwerdribblen)",
+          "charging_state_entity": "Opluedstatioun Entitéit (optional NIO iwwerdribblen)",
+          "charge_limit_entity": "Charge Limit Entity (optional NIO Iwwerschreiden)",
+          "cost_energy": "Opgeholl Ladeenergie Entitéit (kumulative kWh)",
+          "cost_solar": "Opgeholl Solar Laden Energie Entitéit (kumulative kWh)",
+          "cost_total_cost": "Opgeholl Charge kascht Entitéit (kumulativ Währung)",
+          "cost_grid_price": "Netimportpräis Entitéit (Währung/kWh)",
+          "cost_export_price": "Solar Exportpräis Entitéit (Währung/kWh)",
+          "evcc_connected": "Chargeur verbonne Entitéit (EVCC oder aner HA Quell)",
+          "evcc_power": "Ladekraaft Entitéit (EVCC oder aner HA Quell)",
+          "evcc_history": "EVCC-kompatibel Opluedsession Entitéit",
+          "electricity_price": "Stroumpräis Entitéit",
+          "reimbursement_rate": "Remboursement Taux Entitéit",
+          "battery_capacity_kwh": "Benotzbar Batteriekapazitéit (kWh)",
+          "full_range_km": "Range bei voller Ladung (km; Ledger Fallback)",
+          "ledger_enabled": "Rees- an Opluedgeschicht aktivéieren"
+        }
+      }
+    },
+    "error": {
+      "ledger_calibration_required": "Setzt benotzbar Batteriekapazitéit a Vollladungsbereich ier Dir d'Geschicht aktivéiert.",
+      "incomplete_cost_sources": "Set all fënnef opgeholl-Käschte Quellen oder verloossen se eidel.",
+      "invalid_paint_for_model": "Wielt eng Faarf verfügbar fir dësen Autosmodell."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_state_of_charge": {
+        "name": "Batterie Zoustand"
+      },
+      "remaining_range": {
+        "name": "Rescht Gamme"
+      },
+      "charging_state": {
+        "name": "Opluedstatioun"
+      },
+      "charging_target": {
+        "name": "Ladeziel"
+      },
+      "maximum_soc": {
+        "name": "Maximum Staat vun charge"
+      },
+      "high_voltage_battery_current": {
+        "name": "Héichspannung Batterie Stroum"
+      },
+      "data_timestamp": {
+        "name": "Daten Zäitstempel"
+      }
+    }
+  },
+  "selector": {
+    "paint": {
+      "options": {
+        "auto": "Automatesch",
+        "cloud-white": "Cloud White",
+        "deep-black": "Deep Black",
+        "star-gray": "Star Gray",
+        "stratosphere-blue": "Stratosphere Blue",
+        "airspace-blue": "Airspace Blue",
+        "arctic-green": "Arctic Green",
+        "first-light-kiss": "First Light Kiss",
+        "sunbath-yellow": "Sunbath / Sunbathe Yellow",
+        "luminous-orange": "Luminous Orange",
+        "sunlight-gold": "Sunlight Gold",
+        "galaxy-shadow": "Galaxy Shadow",
+        "southern-star": "Southern Star",
+        "sunrise-beige": "Sunrise Beige",
+        "new-moon-silver": "New Moon Silver",
+        "nebula-green": "Nebula Green"
+      }
+    }
+  }
+}

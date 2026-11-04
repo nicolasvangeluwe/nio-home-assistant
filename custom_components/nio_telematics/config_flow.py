@@ -33,6 +33,7 @@ from .const import (
     OAUTH_SCOPE_REVISION,
 )
 from .models import normalize_vin
+from .artwork import PAINTS_BY_MODEL, effective_model, pin_model_for_paint, valid_paint
 from .source_switch import SourceSwitchError, async_switch_source
 from .vehicle_dashboard import (
     COST_PREFERENCES,
@@ -337,8 +338,14 @@ class NioOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             current = preferences_for_entry(self.hass, self.config_entry)
-            preferences = PREFERENCES_SCHEMA({**current, **user_input})
-            if preferences["ledger_enabled"] and not all(
+            preferences = pin_model_for_paint(
+                PREFERENCES_SCHEMA({**current, **user_input}), self.config_entry.title
+            )
+            if not valid_paint(
+                preferences["model"], preferences["paint"], self.config_entry.title
+            ):
+                errors["base"] = "invalid_paint_for_model"
+            elif preferences["ledger_enabled"] and not all(
                 preferences[key] for key in ("battery_capacity_kwh", "full_range_km")
             ):
                 errors["base"] = "ledger_calibration_required"
@@ -352,10 +359,21 @@ class NioOptionsFlow(config_entries.OptionsFlow):
                     data={**self.config_entry.options, OPTIONS_KEY: preferences},
                 )
         current = preferences_for_entry(self.hass, self.config_entry)
+        shown_model = (user_input or {}).get("model", current["model"])
+        shown_paint = (user_input or {}).get("paint", current["paint"])
+        selected_family = effective_model(shown_model, self.config_entry.title)
+        if not valid_paint(shown_model, shown_paint, self.config_entry.title):
+            shown_paint = "auto"
         entity = selector.EntitySelector(selector.EntitySelectorConfig())
         fields: dict[Any, Any] = {
-            vol.Required("model", default=current["model"]): selector.SelectSelector(
+            vol.Required("model", default=shown_model): selector.SelectSelector(
                 selector.SelectSelectorConfig(options=list(MODELS))
+            ),
+            vol.Required("paint", default=shown_paint): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=["auto", *PAINTS_BY_MODEL.get(selected_family, ())],
+                    translation_key="paint",
+                )
             ),
             vol.Required(
                 "language", default=current["language"]

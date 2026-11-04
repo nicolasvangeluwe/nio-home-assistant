@@ -1,0 +1,166 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Járműcsatlakozás",
+        "description": "A Home Assistant normál használatához válassza a Közvetlen NIO lehetőséget. A Companion kísérleti jellegű, és meglévő Companion-fiókkal, csatlakoztatott autóval és külön Home Assistant hivatkozással rendelkező tesztelőknek készült.",
+        "menu_options": {
+          "direct": "Közvetlen NIO (ajánlott)",
+          "companion": "Kísérőfiók (tesztelés)",
+          "change_connection": "Csatlakozás módosítása meglévő járműhöz"
+        }
+      },
+      "reconfigure": {
+        "title": "Járműcsatlakozás",
+        "description": "A Home Assistant normál használatához válassza a Közvetlen NIO lehetőséget. A Companion továbbra is elérhető marad azon tesztelők számára, akik már rendelkeznek Companion-fiókkal, csatlakoztatott autóval és külön Home Assistant hivatkozással. A jelenlegi kapcsolat mindaddig érvényben marad, amíg meg nem erősíti a változtatást.",
+        "menu_options": {
+          "direct": "Közvetlen NIO / alkalmazás hitelesítő adatainak módosítása",
+          "companion": "Kísérőfiók (tesztelés)"
+        }
+      },
+      "companion": {
+        "title": "Connect Companion",
+        "description": "A Companion kísérleti jellegű, és tesztelőknek készült; a Home Assistant normál használatához válassza a Közvetlen NIO lehetőséget. Ha teszteli a Companiont, hozzon létre egy állandó Home Assistant hivatkozást a [Companion kapcsolatok oldalán] ({connections_url}), majd illessze be ide a HA hitelesítő adatait. A kapcsolt autónak rendelkeznie kell a legutóbbi töltöttségi állapottal, hatótávolsággal és kilométer-számláló adataival. A Companion jelenleg csak a jármű alapvető adatait szolgáltatja; további Direct NIO érzékelők nem lesznek elérhetők.",
+        "data": {
+          "vehicle_name": "Jármű neve",
+          "vin": "VIN",
+          "companion_credential": "Állandó Otthoni asszisztens hitelesítési adat"
+        }
+      },
+      "confirm_source": {
+        "title": "Lecseréli ezt a járművet Companionre?",
+        "description": "Őrizze meg a jármű entitásait, a műszerfal beállításait és előzményeit, és olvassa be a Companion alapvető telemetriáját. A csak közvetlen érzékelők elérhetetlenné válnak. A korábbi konfiguráció visszaáll, ha az új forrás nem tölthető be. A szüneteltetett bejegyzés csak az érvényesítés után engedélyezi a Companion alkalmazást. A Direct NIO-hoz való visszatéréshez ismét NIO-engedélyre lehet szükség."
+      },
+      "vehicle": {
+        "title": "Adja hozzá NIO járművét",
+        "description": "Írja be a jármű azonosítóját, miután engedélyezte a Home Assistant NIO-val.",
+        "data": {
+          "vehicle_name": "Jármű neve",
+          "vin": "VIN"
+        }
+      },
+      "change_connection": {
+        "title": "Válassza ki meglévő járművét",
+        "description": "A jármű adatforrásának módosítása az entitások, beállítások és előzmények megőrzése mellett. A szüneteltetett jármű mindaddig szüneteltetve marad, amíg az érvényesített csereforrás készen nem áll.",
+        "data": {
+          "existing_entry_id": "Jármű"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Ez a jármű már konfigurálva van.",
+      "source_unload_failed": "A jelenlegi kapcsolat nem tud leállni. Nem mentett forrásmódosítás.",
+      "source_switch_failed": "Az új kapcsolat nem tölthető be. A korábbi konfiguráció visszaállításra került.",
+      "source_rollback_failed": "A kapcsoló meghiúsult, és a korábbi konfiguráció visszaállt, de nem lehetett betölteni. Ellenőrizze az integrációt, és szükség esetén csatlakoztassa újra.",
+      "no_existing_vehicle": "Nem érhető el újrakonfigurálható meglévő NIO jármű.",
+      "existing_vehicle_missing": "Ez a jármű már nem létezik, vagy egy másik integrációhoz tartozik. A kapcsolat nem változott."
+    },
+    "error": {
+      "invalid_vin": "Adjon meg egy érvényes, 17 karakteres VIN-t.",
+      "persistent_credential_required": "Állandó Companion HA-hitelesítési adatokat használjon, ne ideiglenes proof tokent.",
+      "consumer_reauthentication_required": "Ezt a HA hitelesítő adatot elutasították. Hozzon létre egy új HA hivatkozást a Companion kapcsolatok oldalon.",
+      "upstream_reauthorization_required": "Csatlakoztassa újra a NIO-t a Companion connections oldalon; tartsa meg meglévő HA hitelesítő adatait.",
+      "source_disconnected": "Csatlakoztassa újra a NIO-forrást a Companion Connections oldalon.",
+      "retry_later": "A Companion átmenetileg nem érhető el. Próbálja újra később.",
+      "invalid_response": "A Companion érvénytelen választ adott vissza.",
+      "identity_mismatch": "Ez a kísérő hivatkozás egy másik járműhöz tartozik.",
+      "insufficient_coverage": "A váltás előtt a Companionnek friss, ellenőrzött töltöttségi állapotra, hatótávolságra és kilométer-számlálóra van szüksége.",
+      "source_unload_failed": "A meglévő kapcsolatot nem lehetett leállítani. Próbálja újra később.",
+      "source_switch_failed": "A váltás nem sikerült. A korábbi konfiguráció visszaállításra került.",
+      "source_rollback_failed": "Az előző konfigurációt visszaállították, de nem lehetett betölteni. Az újrapróbálkozás előtt ellenőrizze az integrációt.",
+      "existing_vehicle_missing": "Ez a jármű már nem létezik. Válasszon egy meglévő járművet."
+    }
+  },
+  "issues": {
+    "companion_source_reconnect": {
+      "title": "Csatlakoztassa újra a NIO-t a Companionben",
+      "description": "Az upstream NIO kapcsolata figyelmet igényel. Nyissa meg a [Kísérő kapcsolatok oldalt] ({connections_url}), és csatlakoztassa újra a NIO-t. Tartsa meg a meglévő Otthoni asszisztens hivatkozást: a hitelesítési adatai érvényben maradnak. A Home Assistant automatikusan folytatja a gyorsítótárazott olvasást, amikor a forrás helyreáll."
+    }
+  },
+  "application_credentials": {
+    "description": "Hozza létre vagy nyissa meg személyes alkalmazását a [NIO Open Telematics fejlesztői konzolban] ({console_url}), állítsa be az OAuth átirányítási URI-t pontosan a [{redirect_url}]({redirect_url}) értékre, majd adja meg az ügyfél-azonosítót és az ügyféltitkot."
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "A jármű műszerfala",
+        "description": "Opcionális jármű- és háztartási források. Hagyja üresen a járműforrást a NIO entitás automatikus használatához; A csatlakozás és a tápellátás bármely HA töltőről származhat, és nincs szükség EVCC-re. Az előzmények munkamenet-importálása EVCC-kompatibilis formátumot igényel.",
+        "data": {
+          "model": "Autómodell helyi műalkotásokhoz",
+          "paint": "Autószín (automatikus megtartja a meglévő ET5 Touring képet)",
+          "language": "Irányítópult nyelve (automatikusan követi az egyes nézők Otthoni asszisztens nyelvét)",
+          "soc_entity": "Töltési állapot entitás (opcionális NIO felülírás)",
+          "range_entity": "Fennmaradó tartomány entitás (opcionális NIO felülírás)",
+          "odometer_entity": "Kilométerszámláló entitás (opcionális NIO felülírás)",
+          "charging_state_entity": "Töltési állapot entitás (opcionális NIO felülírás)",
+          "charge_limit_entity": "Díjkorlát entitás (opcionális NIO felülírás)",
+          "cost_energy": "Rögzített töltési energia entitás (halmozott kWh)",
+          "cost_solar": "Feljegyzett szoláris töltési energia entitás (halmozott kWh)",
+          "cost_total_cost": "Rögzített terhelési költség entitás (halmozott pénznem)",
+          "cost_grid_price": "Hálózati importár entitás (valuta/kWh)",
+          "cost_export_price": "Napelem exportár entitás (valuta/kWh)",
+          "evcc_connected": "Töltőhöz csatlakoztatott entitás (EVCC vagy más HA forrás)",
+          "evcc_power": "Töltő tápegység (EVCC vagy más HA-forrás)",
+          "evcc_history": "EVCC-kompatibilis töltési munkamenetek entitás",
+          "electricity_price": "Villamosenergia-ár entitás",
+          "reimbursement_rate": "Visszatérítési ráta entitás",
+          "battery_capacity_kwh": "Használható akkumulátorkapacitás (kWh)",
+          "full_range_km": "Hatótáv teljes feltöltéssel (km; főkönyvi tartalék)",
+          "ledger_enabled": "Utazási és töltési előzmények engedélyezése"
+        }
+      }
+    },
+    "error": {
+      "ledger_calibration_required": "Az előzmények engedélyezése előtt állítsa be az akkumulátor használható kapacitását és a teljes töltési tartományt.",
+      "incomplete_cost_sources": "Állítsa be mind az öt rögzített költségforrást, vagy hagyja üresen.",
+      "invalid_paint_for_model": "Válasszon egy színt ehhez az autómodellhez."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_state_of_charge": {
+        "name": "Az akkumulátor töltöttségi állapota"
+      },
+      "remaining_range": {
+        "name": "Fennmaradó tartomány"
+      },
+      "charging_state": {
+        "name": "Töltési állapot"
+      },
+      "charging_target": {
+        "name": "Töltési cél"
+      },
+      "maximum_soc": {
+        "name": "Maximális töltöttségi állapot"
+      },
+      "high_voltage_battery_current": {
+        "name": "Nagyfeszültségű akkumulátoráram"
+      },
+      "data_timestamp": {
+        "name": "Adatidőbélyeg"
+      }
+    }
+  },
+  "selector": {
+    "paint": {
+      "options": {
+        "auto": "Automatikus",
+        "cloud-white": "Cloud White",
+        "deep-black": "Deep Black",
+        "star-gray": "Star Gray",
+        "stratosphere-blue": "Stratosphere Blue",
+        "airspace-blue": "Airspace Blue",
+        "arctic-green": "Arctic Green",
+        "first-light-kiss": "First Light Kiss",
+        "sunbath-yellow": "Sunbath / Sunbathe Yellow",
+        "luminous-orange": "Luminous Orange",
+        "sunlight-gold": "Sunlight Gold",
+        "galaxy-shadow": "Galaxy Shadow",
+        "southern-star": "Southern Star",
+        "sunrise-beige": "Sunrise Beige",
+        "new-moon-silver": "New Moon Silver",
+        "nebula-green": "Nebula Green"
+      }
+    }
+  }
+}

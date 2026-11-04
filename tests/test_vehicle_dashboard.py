@@ -1,7 +1,9 @@
 """Dashboard preferences remain optional, per car and free of secrets."""
 
 import asyncio
+import hashlib
 import inspect
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -17,8 +19,14 @@ from custom_components.nio_telematics.car_dashboard.coordinator import (
     _source_time,
 )
 from custom_components.nio_telematics.const import DOMAIN
+from custom_components.nio_telematics.artwork import (
+    PAINTS_BY_MODEL,
+    pin_model_for_paint,
+    valid_paint,
+)
 from custom_components.nio_telematics.vehicle_dashboard import (
     PREFERENCES_SCHEMA,
+    _check_import_preferences,
     _vehicle,
     async_reconcile_ledger,
     preferences_for_entry,
@@ -35,10 +43,60 @@ def test_dashboard_bundles_local_vehicle_artwork() -> None:
     assert "/nio_telematics/et5-touring-studio.png" in source
 
 
+def test_model_paint_catalogue_is_complete_and_local() -> None:
+    root = Path(__file__).resolve().parents[1] / "custom_components/nio_telematics/artwork"
+    catalogue = json.loads((root / "catalogue.json").read_text(encoding="utf-8"))
+    assert catalogue["schema_version"] == 1
+    assert len(catalogue["models"]) == 7
+    assert sum(len(model["paints"]) for model in catalogue["models"]) == 51
+    names = {"et5": "ET5", "et5-touring": "ET5 Touring", "el6": "EL6", "et7": "ET7", "el7": "EL7", "el8": "EL8", "es8": "ES8"}
+    for model in catalogue["models"]:
+        name = names[model["id"]]
+        assert model["default_paint"] in PAINTS_BY_MODEL[name]
+        for paint in model["paints"]:
+            assert paint["id"] in PAINTS_BY_MODEL[name]
+            assert paint["file"].startswith(f'{model["id"]}/')
+            path = root / paint["file"]
+            assert path.is_file()
+            assert hashlib.sha256(path.read_bytes()).hexdigest() == paint["sha256"]
+
+
+def test_paint_selection_stays_with_its_car_model(hass: HomeAssistant) -> None:
+    assert valid_paint("auto", "auto", "My ET5 Touring")
+    assert valid_paint("ET5 Touring", "auto", "Any car")
+    touring_paint = "sunlight-gold"
+    assert valid_paint("ET5 Touring", touring_paint, "Any car")
+    assert valid_paint("auto", touring_paint, "My ET5 Touring")
+    assert not valid_paint("ET7", touring_paint, "Any car")
+    entry = MockConfigEntry(domain=DOMAIN, title="My ET7", data={"vin": "test"})
+    entry.add_to_hass(hass)
+    try:
+        _check_import_preferences(hass, entry, {"model": "ET7", "paint": touring_paint})
+    except ValueError as error:
+        assert "paint" in str(error)
+    else:
+        raise AssertionError("Cross-model paint must be rejected during backup import")
+
+
+def test_explicit_paint_survives_entry_rename_and_backup(hass: HomeAssistant) -> None:
+    entry = MockConfigEntry(domain=DOMAIN, title="My ET5 Touring", data={"vin": "test"})
+    entry.add_to_hass(hass)
+    selected = pin_model_for_paint(
+        PREFERENCES_SCHEMA({"model": "auto", "paint": "sunlight-gold"}), entry.title
+    )
+    assert selected["model"] == "ET5 Touring"
+    hass.config_entries.async_update_entry(entry, title="My car")
+    assert valid_paint(selected["model"], selected["paint"], entry.title)
+    restored = _check_import_preferences(hass, entry, selected)
+    assert restored["model"] == "ET5 Touring"
+    assert restored["paint"] == "sunlight-gold"
+
+
 def test_dashboard_defaults_do_not_require_evcc() -> None:
     preferences = PREFERENCES_SCHEMA({})
     assert preferences["language"] == "auto"
     assert preferences["model"] == "auto"
+    assert preferences["paint"] == "auto"
     assert preferences["evcc_history"] == ""
     assert preferences["battery_capacity_kwh"] is None
     assert all(
@@ -110,6 +168,36 @@ async def test_options_flow_preserves_unrelated_options(hass: HomeAssistant) -> 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"]["unrelated"] == {"keep": True}
     assert result["data"]["vehicle_dashboard"]["model"] == "ET5 Touring"
+
+
+async def test_options_flow_rejects_colour_from_another_model(
+    hass: HomeAssistant,
+) -> None:
+    entry = MockConfigEntry(domain=DOMAIN, title="My ET5 Touring", data={"vin": "test"})
+    entry.add_to_hass(hass)
+    form = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        form["flow_id"], user_input={"model": "ET7", "paint": "sunlight-gold"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"]["base"] == "invalid_paint_for_model"
+    assert entry.options.get("vehicle_dashboard") is None
+
+
+async def test_options_flow_pins_auto_model_when_paint_is_chosen(
+    hass: HomeAssistant,
+) -> None:
+    entry = MockConfigEntry(domain=DOMAIN, title="My ET5 Touring", data={"vin": "test"})
+    entry.add_to_hass(hass)
+    form = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        form["flow_id"], user_input={"model": "auto", "paint": "sunlight-gold"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    saved = result["data"]["vehicle_dashboard"]
+    assert saved["model"] == "ET5 Touring"
+    hass.config_entries.async_update_entry(entry, title="My car")
+    assert _check_import_preferences(hass, entry, saved)["paint"] == "sunlight-gold"
 
 
 async def test_history_requires_calibration_in_options_flow(

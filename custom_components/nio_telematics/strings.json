@@ -3,22 +3,24 @@
     "step": {
       "user": {
         "title": "Vehicle connection",
+        "description": "For normal Home Assistant use, choose Direct NIO. Companion is experimental and intended for testers with an existing Companion account, a connected car and a separate Home Assistant link.",
         "menu_options": {
-          "direct": "Direct NIO",
-          "companion": "Companion account",
+          "direct": "Direct NIO (recommended)",
+          "companion": "Companion account (testing)",
           "change_connection": "Change connection for an existing vehicle"
         }
       },
       "reconfigure": {
         "title": "Vehicle connection",
+        "description": "For normal Home Assistant use, choose Direct NIO. Companion remains available for testers with an existing Companion account, a connected car and a separate Home Assistant link. Your current connection stays in place until you confirm a change.",
         "menu_options": {
           "direct": "Direct NIO / change application credentials",
-          "companion": "Companion account"
+          "companion": "Companion account (testing)"
         }
       },
       "companion": {
         "title": "Connect Companion",
-        "description": "Create a persistent Home Assistant link on your [Companion connections page]({connections_url}), then paste its HA credential here. The same car must have recent state of charge, range and odometer data. This source currently supplies core vehicle data only; additional Direct NIO sensors will be unavailable.",
+        "description": "Companion is experimental and intended for testers; for normal Home Assistant use, choose Direct NIO. If you are testing Companion, create a persistent Home Assistant link on your [Companion connections page]({connections_url}), then paste its HA credential here. The linked car must have recent state of charge, range and odometer data. Companion currently supplies core vehicle data only; additional Direct NIO sensors will be unavailable.",
         "data": {
           "vehicle_name": "Vehicle name",
           "vin": "VIN",
@@ -85,6 +87,7 @@
         "description": "Optional vehicle and household sources. Leave a vehicle source empty to use its NIO entity automatically; connection and power can come from any HA charger, and EVCC is not required. History session import requires the EVCC-compatible format.",
         "data": {
           "model": "Car model for local artwork",
+          "paint": "Car colour (automatic keeps the existing ET5 Touring image)",
           "language": "Dashboard language (auto follows each viewer's Home Assistant language)",
           "soc_entity": "State of charge entity (optional NIO override)",
           "range_entity": "Remaining range entity (optional NIO override)",
@@ -109,7 +112,8 @@
     },
     "error": {
       "ledger_calibration_required": "Set usable battery capacity and full-charge range before enabling history.",
-      "incomplete_cost_sources": "Set all five recorded-cost sources or leave them empty."
+      "incomplete_cost_sources": "Set all five recorded-cost sources or leave them empty.",
+      "invalid_paint_for_model": "Choose a colour available for this car model."
     }
   },
   "entity": {
@@ -134,6 +138,28 @@
       },
       "data_timestamp": {
         "name": "Data timestamp"
+      }
+    }
+  },
+  "selector": {
+    "paint": {
+      "options": {
+        "auto": "Automatic",
+        "cloud-white": "Cloud White",
+        "deep-black": "Deep Black",
+        "star-gray": "Star Gray",
+        "stratosphere-blue": "Stratosphere Blue",
+        "airspace-blue": "Airspace Blue",
+        "arctic-green": "Arctic Green",
+        "first-light-kiss": "First Light Kiss",
+        "sunbath-yellow": "Sunbath / Sunbathe Yellow",
+        "luminous-orange": "Luminous Orange",
+        "sunlight-gold": "Sunlight Gold",
+        "galaxy-shadow": "Galaxy Shadow",
+        "southern-star": "Southern Star",
+        "sunrise-beige": "Sunrise Beige",
+        "new-moon-silver": "New Moon Silver",
+        "nebula-green": "Nebula Green"
       }
     }
   }

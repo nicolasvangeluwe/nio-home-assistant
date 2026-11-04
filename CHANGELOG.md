@@ -3,7 +3,23 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
-## Unreleased
+## 0.6.0-dev.1
+
+- Add bundled, locally served artwork for ET5, ET5 Touring, ET7, EL6, EL7,
+  EL8 and legacy ES8, with 51 model/paint combinations. Each vehicle can save
+  a model and colour; the existing ET5 Touring image remains the automatic
+  default. Reject a colour from another model, including on backup restore.
+  Images require no Companion service or external image host.
+- Extend Home Assistant setup, options, entities, the vehicle dashboard and
+  optional trip/charging history to the 14 offered languages. Preserve
+  automatic Home Assistant language selection and the owner's saved language.
+  The new translations are machine drafts and welcome native-speaker corrections.
+- Make the setup choice explicit: Direct NIO is the normal Home Assistant
+  connection; Companion remains selectable for experimental testers.
+- Use only measured driving energy paired with its distance for consumption
+  and cost rates. Keep sparse or invalid intervals unknown, preserve archived
+  trip evidence and exclude range-derived recovery from the native 100 km
+  calculation.
 
 ## 0.5.0-dev.1
 

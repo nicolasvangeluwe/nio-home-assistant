@@ -1,0 +1,166 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Køretøjstilslutning",
+        "description": "Til normal brug af Home Assistant skal du vælge Direct NIO. Companion er eksperimentel og beregnet til testere med en eksisterende Companion-konto, en tilsluttet bil og et separat Home Assistant-link.",
+        "menu_options": {
+          "direct": "Direkte NIO (anbefales)",
+          "companion": "Ledsagende konto (test)",
+          "change_connection": "Skift forbindelse til et eksisterende køretøj"
+        }
+      },
+      "reconfigure": {
+        "title": "Køretøjstilslutning",
+        "description": "Til normal brug af Home Assistant skal du vælge Direct NIO. Companion forbliver tilgængelig for testere med en eksisterende Companion-konto, en tilsluttet bil og et separat Home Assistant-link. Din nuværende forbindelse forbliver på plads, indtil du bekræfter en ændring.",
+        "menu_options": {
+          "direct": "Direkte NIO / ændring af applikationslegitimationsoplysninger",
+          "companion": "Ledsagende konto (test)"
+        }
+      },
+      "companion": {
+        "title": "Connect Companion",
+        "description": "Companion er eksperimentel og beregnet til testere; til normal brug af Home Assistant skal du vælge Direct NIO. Hvis du tester Companion, skal du oprette et vedvarende Home Assistant-link på din [Companion-forbindelsesside]({connections_url}), og derefter indsætte dens HA-legitimationsoplysninger her. Den tilknyttede bil skal have seneste ladetilstand, rækkevidde og kilometertællerdata. Companion leverer i øjeblikket kun kernebildata; yderligere Direct NIO-sensorer vil ikke være tilgængelige.",
+        "data": {
+          "vehicle_name": "Køretøjsnavn",
+          "vin": "VIN",
+          "companion_credential": "Persistent Home Assistant legitimationsoplysninger"
+        }
+      },
+      "confirm_source": {
+        "title": "Skift dette køretøj til Companion?",
+        "description": "Behold dette køretøjs entiteter, instrumentbrætindstillinger og historie, og læs dets centrale telemetri fra Companion. Sensorer, der kun er direkte tilgængelige, bliver utilgængelige. Den tidligere konfiguration gendannes, hvis den nye kilde ikke kan indlæses. En indtastning på pause vil kun aktivere Companion efter validering. En tilbagevenden til Direct NIO kan kræve NIO-autorisation igen."
+      },
+      "vehicle": {
+        "title": "Tilføj dit NIO-køretøj",
+        "description": "Indtast køretøjets identitet efter at have godkendt Home Assistant med NIO.",
+        "data": {
+          "vehicle_name": "Køretøjsnavn",
+          "vin": "VIN"
+        }
+      },
+      "change_connection": {
+        "title": "Vælg dit eksisterende køretøj",
+        "description": "Skift dette køretøjs datakilde, mens dets entiteter, indstillinger og historie bevares. Et køretøj, der er sat på pause, forbliver på pause, indtil den validerede erstatningskilde er klar.",
+        "data": {
+          "existing_entry_id": "Køretøj"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Dette køretøj er allerede konfigureret.",
+      "source_unload_failed": "Den aktuelle forbindelse kunne ikke stoppe. Ingen kildeændring blev gemt.",
+      "source_switch_failed": "Den nye forbindelse kunne ikke indlæses. Den tidligere konfiguration blev gendannet.",
+      "source_rollback_failed": "Switchen mislykkedes, og den tidligere konfiguration blev gendannet, men kunne ikke indlæses. Tjek integrationen og tilslut igen, hvis det er nødvendigt.",
+      "no_existing_vehicle": "Intet eksisterende NIO-køretøj er tilgængeligt at omkonfigurere.",
+      "existing_vehicle_missing": "Dette køretøj eksisterer ikke længere eller tilhører en anden integration. Ingen forbindelse blev ændret."
+    },
+    "error": {
+      "invalid_vin": "Indtast et gyldigt VIN-nummer på 17 tegn.",
+      "persistent_credential_required": "Brug en vedvarende Companion HA-legitimationsoplysninger, ikke et midlertidigt bevistoken.",
+      "consumer_reauthentication_required": "Denne HA-legitimationsoplysninger blev afvist. Opret et nyt HA-link på siden med ledsagende forbindelser.",
+      "upstream_reauthorization_required": "Gentilslut NIO på siden Companion-forbindelser; behold dine eksisterende HA-legitimationsoplysninger.",
+      "source_disconnected": "Tilslut din NIO-kilde igen på siden Companion-forbindelser.",
+      "retry_later": "Companion er midlertidigt utilgængelig. Prøv igen senere.",
+      "invalid_response": "Companion returnerede et ugyldigt svar.",
+      "identity_mismatch": "Dette Companion-link tilhører et andet køretøj.",
+      "insufficient_coverage": "Companion har brug for seneste, verificerede ladetilstand, rækkevidde og kilometertællerdata før denne switch.",
+      "source_unload_failed": "Den eksisterende forbindelse kunne ikke stoppe. Prøv igen senere.",
+      "source_switch_failed": "Omskifteren mislykkedes. Den tidligere konfiguration blev gendannet.",
+      "source_rollback_failed": "Den tidligere konfiguration blev gendannet, men kunne ikke indlæses. Tjek integrationen, før du prøver igen.",
+      "existing_vehicle_missing": "Dette køretøj eksisterer ikke længere. Vælg et eksisterende køretøj."
+    }
+  },
+  "issues": {
+    "companion_source_reconnect": {
+      "title": "Gentilslut NIO i Companion",
+      "description": "Din upstream NIO-forbindelse har brug for opmærksomhed. Åbn siden [Companion connections]({connections_url}), og tilslut NIO igen. Behold det eksisterende Home Assistant-link: dets legitimationsoplysninger forbliver gyldige. Home Assistant genoptager automatisk cachelæsning, når kilden genoprettes."
+    }
+  },
+  "application_credentials": {
+    "description": "Opret eller åbn din personlige applikation i [NIO Open Telematics-udviklerkonsol]({console_url}), indstil dens OAuth-omdirigerings-URI nøjagtigt til [{redirect_url}]({redirect_url}), og indtast derefter dens klient-id og klienthemmelighed."
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Instrumentbræt til køretøjer",
+        "description": "Valgfri køretøjs- og husholdningskilder. Lad en køretøjskilde være tom for automatisk at bruge dens NIO-entitet; forbindelse og strøm kan komme fra enhver HA-oplader, og EVCC er ikke påkrævet. Import af historiksession kræver det EVCC-kompatible format.",
+        "data": {
+          "model": "Bilmodel til lokal kunst",
+          "paint": "Bilfarve (automatisk bevarer det eksisterende ET5 Touring-billede)",
+          "language": "Dashboard-sprog (autofølger hver seers Home Assistant-sprog)",
+          "soc_entity": "Ladetilstandsenhed (valgfri NIO-tilsidesættelse)",
+          "range_entity": "Resterende rækkevidde (valgfri NIO-tilsidesættelse)",
+          "odometer_entity": "Kilometertællerenhed (valgfri NIO-tilsidesættelse)",
+          "charging_state_entity": "Opladningstilstandsenhed (valgfri NIO-tilsidesættelse)",
+          "charge_limit_entity": "Opladningsgrænseenhed (valgfri NIO-tilsidesættelse)",
+          "cost_energy": "Registreret opladningsenergienhed (kumulativ kWh)",
+          "cost_solar": "Registreret solopladningsenergienhed (kumulativ kWh)",
+          "cost_total_cost": "Registreret debiteringsomkostningsenhed (kumulativ valuta)",
+          "cost_grid_price": "Netimportprisenhed (valuta/kWh)",
+          "cost_export_price": "Solcelleksportprisenhed (valuta/kWh)",
+          "evcc_connected": "Oplader tilsluttet enhed (EVCC eller anden HA-kilde)",
+          "evcc_power": "Opladningsenhed (EVCC eller anden HA-kilde)",
+          "evcc_history": "EVCC-kompatible opladningssessioner enhed",
+          "electricity_price": "Elprisenhed",
+          "reimbursement_rate": "Refusionssatsenhed",
+          "battery_capacity_kwh": "Brugbar batterikapacitet (kWh)",
+          "full_range_km": "Rækkevidde ved fuld opladning (km; hovedbog fallback)",
+          "ledger_enabled": "Aktiver tur- og opladningshistorik"
+        }
+      }
+    },
+    "error": {
+      "ledger_calibration_required": "Indstil brugbar batterikapacitet og fuld opladningsområde, før historik aktiveres.",
+      "incomplete_cost_sources": "Indstil alle fem registrerede omkostningskilder, eller lad dem være tomme.",
+      "invalid_paint_for_model": "Vælg en tilgængelig farve til denne bilmodel."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_state_of_charge": {
+        "name": "Batteriets ladetilstand"
+      },
+      "remaining_range": {
+        "name": "Resterende rækkevidde"
+      },
+      "charging_state": {
+        "name": "Opladningstilstand"
+      },
+      "charging_target": {
+        "name": "Opladningsmål"
+      },
+      "maximum_soc": {
+        "name": "Maksimal ladetilstand"
+      },
+      "high_voltage_battery_current": {
+        "name": "Højspændings batteristrøm"
+      },
+      "data_timestamp": {
+        "name": "Data tidsstempel"
+      }
+    }
+  },
+  "selector": {
+    "paint": {
+      "options": {
+        "auto": "Automatisk",
+        "cloud-white": "Cloud White",
+        "deep-black": "Deep Black",
+        "star-gray": "Star Gray",
+        "stratosphere-blue": "Stratosphere Blue",
+        "airspace-blue": "Airspace Blue",
+        "arctic-green": "Arctic Green",
+        "first-light-kiss": "First Light Kiss",
+        "sunbath-yellow": "Sunbath / Sunbathe Yellow",
+        "luminous-orange": "Luminous Orange",
+        "sunlight-gold": "Sunlight Gold",
+        "galaxy-shadow": "Galaxy Shadow",
+        "southern-star": "Southern Star",
+        "sunrise-beige": "Sunrise Beige",
+        "new-moon-silver": "New Moon Silver",
+        "nebula-green": "Nebula Green"
+      }
+    }
+  }
+}
