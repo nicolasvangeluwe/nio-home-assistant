@@ -3,22 +3,24 @@
     "step": {
       "user": {
         "title": "Vehicle connection",
+        "description": "For normal Home Assistant use, choose Direct NIO. Companion is experimental and intended for testers with an existing Companion account, a connected car and a separate Home Assistant link.",
         "menu_options": {
-          "direct": "Direct NIO",
-          "companion": "Companion account",
+          "direct": "Direct NIO (recommended)",
+          "companion": "Companion account (testing)",
           "change_connection": "Change connection for an existing vehicle"
         }
       },
       "reconfigure": {
         "title": "Vehicle connection",
+        "description": "For normal Home Assistant use, choose Direct NIO. Companion remains available for testers with an existing Companion account, a connected car and a separate Home Assistant link. Your current connection stays in place until you confirm a change.",
         "menu_options": {
           "direct": "Direct NIO / change application credentials",
-          "companion": "Companion account"
+          "companion": "Companion account (testing)"
         }
       },
       "companion": {
         "title": "Connect Companion",
-        "description": "Create a persistent Home Assistant link on your [Companion connections page]({connections_url}), then paste its HA credential here. The same car must have recent state of charge, range and odometer data. This source currently supplies core vehicle data only; additional Direct NIO sensors will be unavailable.",
+        "description": "Companion is experimental and intended for testers; for normal Home Assistant use, choose Direct NIO. If you are testing Companion, create a persistent Home Assistant link on your [Companion connections page]({connections_url}), then paste its HA credential here. The linked car must have recent state of charge, range and odometer data. Companion currently supplies core vehicle data only; additional Direct NIO sensors will be unavailable.",
         "data": {
           "vehicle_name": "Vehicle name",
           "vin": "VIN",

@@ -1,0 +1,128 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Verbinding met de auto",
+        "description": "Kies Direct NIO voor normaal gebruik in Home Assistant. Companion is experimenteel en bedoeld voor testers met een bestaand Companion-account, een gekoppelde auto en een aparte Home Assistant-koppeling.",
+        "menu_options": {
+          "direct": "Direct NIO (aanbevolen)",
+          "companion": "Companion-account (testen)",
+          "change_connection": "Verbinding van een bestaande auto wijzigen"
+        }
+      },
+      "reconfigure": {
+        "title": "Verbinding met de auto",
+        "description": "Kies Direct NIO voor normaal gebruik in Home Assistant. Companion blijft beschikbaar voor testers met een bestaand Companion-account, een gekoppelde auto en een aparte Home Assistant-koppeling. Je huidige verbinding blijft behouden tot je een wijziging bevestigt.",
+        "menu_options": {
+          "direct": "Direct NIO / applicatiegegevens wijzigen",
+          "companion": "Companion-account (testen)"
+        }
+      },
+      "companion": {
+        "title": "Companion verbinden",
+        "description": "Companion is experimenteel en bedoeld voor testers; kies Direct NIO voor normaal gebruik in Home Assistant. Als je Companion test, maak dan een permanente Home Assistant-koppeling op je [Companion-verbindingenpagina]({connections_url}) en vul hier de HA-sleutel van die koppeling in. De gekoppelde auto moet recente gegevens voor laadpercentage, bereik en kilometerstand hebben. Companion levert nu alleen de belangrijkste autogegevens; extra Direct NIO-sensoren zijn niet beschikbaar.",
+        "data": {
+          "vehicle_name": "Naam van de auto",
+          "vin": "VIN",
+          "companion_credential": "Permanente Home Assistant-sleutel"
+        }
+      },
+      "confirm_source": {
+        "title": "Deze auto omschakelen naar Companion?",
+        "description": "Behoud de entiteiten, dashboardinstellingen en geschiedenis van deze auto en lees de belangrijkste gegevens via Companion. Sensoren die alleen Direct NIO levert, worden niet beschikbaar. Als de nieuwe bron niet kan laden, wordt de vorige configuratie hersteld. Een gepauzeerde integratie wordt pas na validatie met Companion ingeschakeld. Terugkeren naar Direct NIO kan een nieuwe autorisatie bij NIO vereisen."
+      },
+      "vehicle": {
+        "title": "Voeg je NIO-auto toe",
+        "description": "Vul de gegevens van de auto in nadat je Home Assistant bij NIO hebt geautoriseerd.",
+        "data": {
+          "vehicle_name": "Naam van de auto",
+          "vin": "VIN"
+        }
+      },
+      "change_connection": {
+        "title": "Kies je bestaande auto",
+        "description": "Wijzig de gegevensbron van deze auto met behoud van entiteiten, instellingen en geschiedenis. Een gepauzeerde auto blijft gepauzeerd tot de vervangende bron is gevalideerd.",
+        "data": {
+          "existing_entry_id": "Auto"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Deze auto is al geconfigureerd.",
+      "source_unload_failed": "De huidige verbinding kon niet stoppen. Er is geen bron gewijzigd.",
+      "source_switch_failed": "De nieuwe verbinding kon niet laden. De vorige configuratie is hersteld.",
+      "source_rollback_failed": "De omschakeling is mislukt en de vorige configuratie is hersteld, maar kon niet laden. Controleer de integratie en verbind zo nodig opnieuw.",
+      "no_existing_vehicle": "Er is geen bestaande NIO-auto beschikbaar om opnieuw te configureren.",
+      "existing_vehicle_missing": "Deze auto bestaat niet meer of hoort bij een andere integratie. Er is geen verbinding gewijzigd."
+    },
+    "error": {
+      "invalid_vin": "Vul een geldig VIN van 17 tekens in.",
+      "persistent_credential_required": "Gebruik een permanente Companion-sleutel voor HA, geen tijdelijk testtoken.",
+      "consumer_reauthentication_required": "Deze HA-sleutel is geweigerd. Maak een nieuwe HA-koppeling op de Companion-verbindingenpagina.",
+      "upstream_reauthorization_required": "Verbind NIO opnieuw op de Companion-verbindingenpagina; behoud je bestaande HA-sleutel.",
+      "source_disconnected": "Verbind je NIO-bron opnieuw op de Companion-verbindingenpagina.",
+      "retry_later": "Companion is tijdelijk niet beschikbaar. Probeer het later opnieuw.",
+      "invalid_response": "Companion gaf een ongeldig antwoord.",
+      "identity_mismatch": "Deze Companion-koppeling hoort bij een andere auto.",
+      "insufficient_coverage": "Companion heeft recente, geverifieerde gegevens voor laadpercentage, bereik en kilometerstand nodig vóór deze omschakeling.",
+      "source_unload_failed": "De bestaande verbinding kon niet stoppen. Probeer het later opnieuw.",
+      "source_switch_failed": "De omschakeling is mislukt. De vorige configuratie is hersteld.",
+      "source_rollback_failed": "De vorige configuratie is hersteld maar kon niet laden. Controleer de integratie voordat je het opnieuw probeert.",
+      "existing_vehicle_missing": "Deze auto bestaat niet meer. Kies een bestaande auto."
+    }
+  },
+  "issues": {
+    "companion_source_reconnect": {
+      "title": "Verbind NIO opnieuw in Companion",
+      "description": "Je verbinding met NIO heeft aandacht nodig. Open de [Companion-verbindingenpagina]({connections_url}) en verbind NIO opnieuw. Behoud de bestaande Home Assistant-koppeling: de HA-sleutel blijft geldig. Home Assistant hervat het lezen van opgeslagen gegevens automatisch zodra de bron herstelt."
+    }
+  },
+  "application_credentials": {
+    "description": "Maak of open je persoonlijke applicatie in de [NIO Open Telematics-ontwikkelaarsconsole]({console_url}), stel de OAuth-omleidings-URI exact in op [{redirect_url}]({redirect_url}) en vul daarna de Client ID en Client Secret in."
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Autodashboard",
+        "description": "Optionele bronnen voor auto en huishouden. Laat een autobron leeg om automatisch de NIO-entiteit te gebruiken; verbinding en vermogen mogen van elke HA-lader komen, EVCC is niet verplicht. Geschiedenis importeren vereist een EVCC-compatibel formaat.",
+        "data": {
+          "model": "Automodel voor lokale afbeelding",
+          "language": "Dashboardtaal (automatisch volgt de Home Assistant-taal van elke kijker)",
+          "soc_entity": "Entiteit voor laadpercentage (optionele vervanging van NIO)",
+          "range_entity": "Entiteit voor resterend bereik (optionele vervanging van NIO)",
+          "odometer_entity": "Entiteit voor kilometerstand (optionele vervanging van NIO)",
+          "charging_state_entity": "Entiteit voor laadstatus (optionele vervanging van NIO)",
+          "charge_limit_entity": "Entiteit voor laadlimiet (optionele vervanging van NIO)",
+          "cost_energy": "Entiteit voor geregistreerde laadenergie (oplopende kWh)",
+          "cost_solar": "Entiteit voor geregistreerde zonnelaadenergie (oplopende kWh)",
+          "cost_total_cost": "Entiteit voor geregistreerde laadkosten (oplopende valuta)",
+          "cost_grid_price": "Entiteit voor netafnameprijs (valuta/kWh)",
+          "cost_export_price": "Entiteit voor terugleverprijs (valuta/kWh)",
+          "evcc_connected": "Entiteit voor aangesloten lader (EVCC of andere HA-bron)",
+          "evcc_power": "Entiteit voor laadvermogen (EVCC of andere HA-bron)",
+          "evcc_history": "Entiteit voor EVCC-compatibele laadsessies",
+          "electricity_price": "Entiteit voor elektriciteitsprijs",
+          "reimbursement_rate": "Entiteit voor vergoedingstarief",
+          "battery_capacity_kwh": "Bruikbare batterijcapaciteit (kWh)",
+          "full_range_km": "Bereik bij volle batterij (km; terugval voor rittenhistoriek)",
+          "ledger_enabled": "Ritten- en laadhistoriek inschakelen"
+        }
+      }
+    },
+    "error": {
+      "ledger_calibration_required": "Stel de bruikbare batterijcapaciteit en het bereik bij volle batterij in voordat je historiek inschakelt.",
+      "incomplete_cost_sources": "Stel alle vijf bronnen voor geregistreerde kosten in, of laat ze allemaal leeg."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_state_of_charge": {"name": "Laadpercentage batterij"},
+      "remaining_range": {"name": "Resterend bereik"},
+      "charging_state": {"name": "Laadstatus"},
+      "charging_target": {"name": "Laaddoel"},
+      "maximum_soc": {"name": "Maximaal laadpercentage"},
+      "high_voltage_battery_current": {"name": "Hoogspanningsbatterijstroom"},
+      "data_timestamp": {"name": "Tijdstip gegevens"}
+    }
+  }
+}
