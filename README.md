@@ -31,6 +31,8 @@ Settings now has short help beside optional inputs and a **Backup & restore** se
 
 ## Install
 
+**For normal Home Assistant use, choose Direct NIO.** Companion is a separate experimental testing route, not a requirement for using this integration. See the testing instructions below before selecting it.
+
 1. Open **HACS** and search for **Open Telematics for NIO (EU)**. Download the latest development release, then restart Home Assistant.
 2. For a **Direct NIO** connection, create a **Personal Application** in the [NIO developer console](https://open-eu.nio.com/console) with OAuth Authorization Code. Set its only redirect URI to `https://my.home-assistant.io/redirect/oauth`. Although NIO's guide describes comma-separated callbacks, its live authorization service currently rejects an individual callback from such a list; use a separate NIO application for another client.
 3. In **Settings → Devices & services**, add **Open Telematics for NIO (EU)** and choose **Direct NIO**. Enter the application's Client ID and Secret, authorize with NIO, then enter your car's name and VIN. The integration requests the read-only vehicle scopes automatically; you do not need to edit the authorization URL.
@@ -39,7 +41,15 @@ Settings now has short help beside optional inputs and a **Backup & restore** se
 
 [![Open this repository in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=nicolasvangeluwe&repository=nio-home-assistant&category=integration)
 
-**Companion bridge (early access):** If you already have a NIO Companion account with a connected car, create a separate Home Assistant credential on its [Connections page](https://nio-companion-proof.nio-companion-backend.workers.dev/connections), then choose **Companion** during integration setup and enter that credential. This route reads Companion's cached car data; it does not use your NIO developer application or OAuth callback in HA. Available readings depend on the Companion feed. Do not paste a NIO password, application secret or short-lived proof token into the bridge form.
+**Companion bridge (experimental — testing only):** This option remains available and selectable for development testing and future beta testers. It is not recommended for normal Home Assistant use at this stage. Unless you are participating in Companion testing, choose **Direct NIO** instead; you do not need a Companion account for this integration.
+
+If you are testing Companion and already have a connected car there:
+
+1. Open the [Companion Connections page](https://nio-companion-proof.nio-companion-backend.workers.dev/connections) and create a persistent **Home Assistant link** for that car.
+2. In the integration's connection chooser, select **Companion account** and enter the link's Home Assistant credential.
+3. Let the integration validate the car and its recent readings before confirming the connection.
+
+The bridge reads Companion's cached car data; NIO authorization is managed through Companion, not through a NIO developer application or OAuth callback in Home Assistant. It currently supplies core vehicle readings only; additional Direct NIO sensors may be unavailable. Never enter a NIO password, application secret or short-lived proof token in the bridge form.
 
 To move an **existing vehicle** to Companion, use **Add service → Change connection for an existing vehicle**, choose that vehicle, select Companion and confirm after its identity/data check. The existing entry, entity IDs, dashboard options and stored history are preserved. A HACS update does not switch sources automatically; if a prior private Companion build was replaced by a Direct-only release, install a Companion-capable release first and use this same-entry flow only if its saved source/credential did not survive. If Companion itself needs NIO authorization, reconnect on its Connections page; only a rejected Home Assistant bridge credential needs HA reauthentication.
 
