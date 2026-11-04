@@ -874,26 +874,55 @@ class Ledger:
                     value *= fraction
         return result
 
-    def statistics(self, start, end, window_km=None, trip=None):
+    def statistics(self, start, end, window_km=None, trip=None, native_only=False):
         selected = {(r["start"], r["end"]) for r in trip["segments"]} if trip else None
-        segments = [
-            r
-            for r in self.cost_segments()
-            if start <= r["end"] <= end
-            and (selected is None or (r["start"], r["end"]) in selected)
-        ]
+        native_segments = (
+            {
+                (r["start"], r["end"], r["km"])
+                for t in self.all_trips()
+                if t.get("native_alignment_version", 0) >= 1
+                or t.get("source") in ("native_source_replay", "native_soc")
+                for r in t["segments"]
+            }
+            if native_only
+            else None
+        )
+        seen = set()
+        segments = []
+        for row in self.cost_segments():
+            key = (row["start"], row["end"], row["km"])
+            if (
+                not start <= row["end"] <= end
+                or (selected is not None and key[:2] not in selected)
+                or (native_segments is not None and key not in native_segments)
+                or key in seen
+            ):
+                continue
+            seen.add(key)
+            segments.append(row)
+
+        def valid_energy(row):
+            km, kwh = number(row.get("km")), number(row.get("kwh"))
+            return (
+                row.get("complete", True)
+                and (not row.get("invalid_reason") or row.get("native_correction_resolved"))
+                and km is not None and km > 0
+                and kwh is not None and kwh >= 0
+            )
         if window_km is not None:
             result, remaining = [], window_km
             for row in reversed(segments):
                 if remaining <= 0:
                     break
+                if not valid_energy(row):
+                    continue
                 portion = min(remaining, row["km"])
                 scale = portion / row["km"]
                 result.append(
                     {
                         **row,
                         "km": portion,
-                        "kwh": row["kwh"] * scale if row["kwh"] is not None else None,
+                        "kwh": row["kwh"] * scale,
                         "cost_eur": row["cost_eur"] * scale
                         if row["cost_eur"] is not None
                         else None,
@@ -902,10 +931,14 @@ class Ledger:
                 remaining -= portion
             segments = list(reversed(result))
         distance = sum(r["km"] for r in segments)
-        energy_ok = bool(segments) and all(r["kwh"] is not None for r in segments)
-        cost_ok = bool(segments) and all(r["cost_eur"] is not None for r in segments)
-        energy = sum(r["kwh"] for r in segments) if energy_ok else None
-        cost = sum(r["cost_eur"] for r in segments) if cost_ok else None
+        known = [r for r in segments if valid_energy(r)]
+        known_distance = sum(r["km"] for r in known)
+        priced = [r for r in known if number(r.get("cost_eur")) is not None]
+        priced_distance = sum(r["km"] for r in priced)
+        energy_ok = bool(segments) and len(known) == len(segments)
+        cost_ok = bool(segments) and len(priced) == len(segments)
+        energy = sum(r["kwh"] for r in known) if known else None
+        cost = sum(r["cost_eur"] for r in priced) if priced else None
         charges = [
             c
             for c in self.data["charges"].values()
@@ -937,6 +970,8 @@ class Ledger:
                 }
         return {
             "distance_km": distance,
+            "consumption_distance_km": known_distance,
+            "cost_distance_km": priced_distance,
             "used_kwh": energy,
             "parked_loss_estimate_kwh": sum(
                 r["kwh"]
@@ -946,12 +981,12 @@ class Ledger:
             "soc_used_pct": energy / self.settings["capacity_kwh"] * 100
             if energy is not None
             else None,
-            "consumption_kwh_100km": energy / distance * 100
-            if energy is not None and distance
+            "consumption_kwh_100km": energy / known_distance * 100
+            if energy is not None and known_distance
             else None,
             "driving_cost_eur": cost,
-            "cost_eur_100km": cost / distance * 100
-            if cost is not None and distance
+            "cost_eur_100km": cost / priced_distance * 100
+            if cost is not None and priced_distance
             else None,
             "charged_kwh": charged,
             "known_spend_eur": known_spend,
@@ -1271,21 +1306,10 @@ class Ledger:
         statistics = {
             key: self.statistics(start, now) for key, start in periods.items()
         }
-        # A real rolling driving window spans charges, but never source epochs.
-        # Unknown energy within the latest distance remains unknown, not skipped.
-        native_rows = [
-            r for r in self.data["samples"] if r.get("energy_source") == "native_soc"
-        ]
-        native_start = max(
-            [r["t"] for r in self.data["source_transitions"]]
-            or [native_rows[0]["t"] if native_rows else now + 1]
-        )
+        # Pair the newest 100 km of known native energy and distance. Sparse
+        # gaps and charging/source boundaries do not consume the sample budget.
         last = self.data["last"] or {}
-        rolling = self.statistics(native_start, now, 100)
-        if rolling["segments"]:
-            rolling = self.statistics(
-                max(native_start, rolling["segments"][0]["start"]), now, 100
-            )
+        rolling = self.statistics(0, now, 100, native_only=True)
         if last.get("energy_source") != "native_soc":
             rolling = self.statistics(now + 1, now)
         rolling["basis"] = "native_soc_driving"
@@ -1327,6 +1351,7 @@ class Ledger:
                 value["petrol_comparison_eur"] - value["driving_cost_eur"]
                 if value["petrol_comparison_eur"] is not None
                 and value["driving_cost_eur"] is not None
+                and value["cost_complete"]
                 else None
             )
         counters = [

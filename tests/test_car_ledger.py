@@ -156,8 +156,55 @@ class CalculationTests(unittest.TestCase):
         self.ledger.add_charge(self.t + 3700, self.t + 3800, 10, price=0.5)
         self.ledger.ingest(self.t + 3900, 1025, 215)
         stats = self.ledger.statistics(self.t, self.t + 3900)
-        self.assertIsNone(stats["used_kwh"])
-        self.assertIsNone(stats["driving_cost_eur"])
+        self.assertEqual(stats["distance_km"], 25)
+        self.assertEqual(stats["consumption_distance_km"], 20)
+        self.assertEqual(stats["used_kwh"], 6)
+        self.assertEqual(stats["consumption_kwh_100km"], 30)
+        self.assertAlmostEqual(stats["driving_cost_eur"], 1.8)
+        self.assertFalse(stats["energy_complete"])
+
+    def test_partial_native_energy_uses_its_own_distance_and_keeps_zero(self):
+        self.ledger.ingest(self.t, 1000, None, soc_pct=90)
+        self.ledger.ingest(self.t + 600, 1010, None, soc_pct=88)
+        self.ledger.ingest(self.t + 1200, 1020, None, soc_pct=88)
+        trip = self.ledger.data["active"]
+        first = deepcopy(trip["segments"][0])
+        trip["segments"].append(first)  # Repeated source evidence is not a new drive.
+        trip["segments"].append(
+            {"start": self.t + 1200, "end": self.t + 1500, "km": 5,
+             "kwh": None, "complete": False, "invalid_reason": "charging",
+             "end_energy": trip["end_energy"]}
+        )
+        before = deepcopy(trip)
+        stats = self.ledger.statistics(self.t, self.t + 1500)
+        self.assertEqual(trip, before)
+        self.assertEqual(stats["distance_km"], 25)
+        self.assertEqual(stats["consumption_distance_km"], 20)
+        self.assertAlmostEqual(stats["used_kwh"], 1.8)
+        self.assertAlmostEqual(stats["consumption_kwh_100km"], 9)
+        self.assertFalse(stats["energy_complete"])
+        self.assertIsNone(stats["cost_eur_100km"])
+
+    def test_native_rolling_100km_skips_gap_and_crosses_source_boundary(self):
+        self.ledger.ingest(self.t, 1000, None, soc_pct=90)
+        for index in range(1, 13):
+            self.ledger.ingest(
+                self.t + index * 600, 1000 + index * 10,
+                None, soc_pct=90 - index * 3,
+            )
+        last_segment = self.ledger.data["active"]["segments"][-1]
+        last_segment.update(kwh=None, complete=False, invalid_reason="charging")
+        self.ledger.data["source_transitions"].append(
+            {"t": self.t + 5400, "energy": 63, "capacity_kwh": 90}
+        )
+        before = deepcopy(self.ledger.data)
+        rolling = self.ledger.snapshot(self.t + 7500)["statistics"]["last_100km"]
+        self.assertEqual(self.ledger.data, before)
+        self.assertEqual(rolling["distance_km"], 100)
+        self.assertEqual(rolling["consumption_distance_km"], 100)
+        self.assertAlmostEqual(rolling["used_kwh"], 27)
+        self.assertAlmostEqual(rolling["consumption_kwh_100km"], 27)
+        self.assertTrue(rolling["energy_complete"])
 
     def test_invalid_input_and_free_manual_charge(self):
         ident = self.ledger.add_charge(self.t, self.t + 100, 10, price=0)

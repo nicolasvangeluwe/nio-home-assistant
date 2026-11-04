@@ -118,6 +118,67 @@ test('ongoing charge is not presented as a completed session', () => {
   assert.doesNotMatch(finished, /Lopende sessie/);
 });
 
+test('history consumption pairs known energy with its distance and preserves raw gaps', () => {
+  const card = Object.create(Ledger.prototype);
+  card.snapshot = {settings: {capacity_kwh: 90}};
+  const rows = [
+    {start: 1, end: 2, km: 4, kwh: 0.9, complete: true, cost_eur: null},
+    {start: 2, end: 3, km: 1, kwh: null, complete: false, invalid_reason: 'charging'},
+    {start: 3, end: 4, km: 2, kwh: 0, complete: true, cost_eur: null},
+    {start: 1, end: 2, km: 4, kwh: 0.9, complete: true, cost_eur: null},
+  ];
+  const before = JSON.stringify(rows);
+  const stats = card.drivingStats(rows);
+  assert.equal(stats.used_kwh, 0.9);
+  assert.equal(stats.consumption_distance_km, 6);
+  assert.equal(stats.consumption_kwh_100km, 15);
+  assert.equal(stats.cost_eur_100km, null);
+  assert.equal(JSON.stringify(rows), before);
+  assert.equal(card.knownDriving(rows, 5).reduce((sum, row) => sum + row.km, 0), 5);
+});
+
+test('history card leaves missing energy unknown instead of deriving it from endpoints', () => {
+  const card = Object.create(Ledger.prototype);
+  const trip = {id: 'trip-1', start: 1, end: 3, start_energy: 50, end_energy: 48,
+    start_odo: 100, end_odo: 105, distance_km: 5, complete: false, segments: [
+      {start: 1, end: 2, km: 4, kwh: 0.9, complete: true, start_energy: 50, end_energy: 49.1},
+      {start: 2, end: 3, km: 1, kwh: null, complete: false, start_energy: 49.1, end_energy: 48},
+    ]};
+  const raw = {settings: {capacity_kwh: 90}, statistics: {last_trip: {segments: []}},
+    trips: [trip], charges: [], counters: [], preferences: {}, active_trip_id: null};
+  const before = JSON.stringify(raw);
+  const prepared = card.prepareSnapshot(raw);
+  assert.equal(prepared.trips[0].segments[1].kwh, null);
+  assert.equal(prepared.statistics.last_trip.distance_km, 5);
+  assert.equal(prepared.statistics.last_trip.consumption_distance_km, 4);
+  assert.equal(prepared.statistics.last_trip.consumption_kwh_100km, 22.5);
+  assert.equal(JSON.stringify(raw), before);
+});
+
+test('rolling native 100 km reaches past gaps but excludes range-derived trips', () => {
+  const card = Object.create(Ledger.prototype);
+  const trip = (id, start, km, kwh, source, native_alignment_version) => ({
+    id, start, end: start + 1, start_odo: start, end_odo: start + km,
+    start_energy: 60, end_energy: 60 - (kwh || 0), distance_km: km,
+    source, native_alignment_version, complete: kwh != null,
+    segments: [{start, end: start + 1, km, kwh, complete: kwh != null}],
+  });
+  const raw = {settings: {capacity_kwh: 90}, statistics: {
+    last_trip: {segments: []}, last_100km: {segments: [], remaining_kwh: 45},
+  }, trips: [
+    trip('native-old', 1, 80, 16, undefined, 2),
+    trip('range-recovery', 3, 100, 10, 'recorder_recovery', undefined),
+    trip('native-new', 5, 30, 6, undefined, 2),
+    trip('native-gap', 7, 5, null, undefined, 2),
+  ], charges: [], counters: [], preferences: {}, active_trip_id: null};
+  const prepared = card.prepareSnapshot(raw);
+  const rolling = prepared.statistics.last_100km;
+  assert.equal(rolling.distance_km, 100);
+  assert.equal(rolling.used_kwh, 20);
+  assert.equal(rolling.consumption_kwh_100km, 20);
+  assert.equal(rolling.projected_range_km, 225);
+});
+
 test('other NIO models use the approved NIO front icon, not a fabricated model image', () => {
   const html = Dashboard.prototype.carImage.call({esc: value => value}, 'EL6');
   assert.match(html, /class="car-placeholder"/);
