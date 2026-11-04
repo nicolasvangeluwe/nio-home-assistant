@@ -101,46 +101,55 @@ class CarLedgerCard extends HTMLElement {
   date(t,opts){return new Date(t*1000).toLocaleString(this.displayLocale,opts||{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
   value(label,v,unit='',d=1){return `<div class="metric"><span>${label}</span><strong>${this.n(v,d)}${unit?`<small>${unit}</small>`:''}</strong></div>`;}
   category(c){return {home:'Thuis',work:'Werk',supercharger:'Snellader',other:'Onderweg'}[c]||'Onderweg';}
-  tripEnergy(t){return t.segments.every(s=>s.kwh!=null)?t.segments.reduce((sum,s)=>sum+s.kwh,0):null;}
+  knownDriving(rows,limit=Infinity){
+    const seen=new Set(),result=[];let remaining=limit;
+    for(const row of [...(rows||[])].sort((a,b)=>b.end-a.end||b.start-a.start)){
+      if(row.complete===false||(row.invalid_reason&&!row.native_correction_resolved)||!Number.isFinite(row.km)||row.km<=0||!Number.isFinite(row.kwh)||row.kwh<0||!Number.isFinite(row.start)||!Number.isFinite(row.end)||row.end<row.start)continue;
+      const key=`${row.start}|${row.end}|${row.km}`;if(seen.has(key))continue;seen.add(key);
+      if(remaining<=0)break;const km=Math.min(row.km,remaining),scale=km/row.km;
+      result.push({...row,km,kwh:row.kwh*scale,cost_eur:Number.isFinite(row.cost_eur)?row.cost_eur*scale:null});remaining-=km;
+    }
+    return result.reverse();
+  }
+  drivingStats(rows,capacity=this.snapshot?.settings?.capacity_kwh){
+    const known=this.knownDriving(rows),km=known.reduce((sum,s)=>sum+s.km,0),energy=known.length?known.reduce((sum,s)=>sum+s.kwh,0):null;
+    const priced=known.filter(s=>Number.isFinite(s.cost_eur)),pricedKm=priced.reduce((sum,s)=>sum+s.km,0),cost=priced.length?priced.reduce((sum,s)=>sum+s.cost_eur,0):null;
+    return {used_kwh:energy,consumption_distance_km:km,consumption_kwh_100km:km>0?energy/km*100:null,driving_cost_eur:cost,cost_distance_km:pricedKm,cost_eur_100km:pricedKm>0?cost/pricedKm*100:null,soc_used_pct:energy!=null&&capacity>0?energy/capacity*100:null};
+  }
+  tripEnergy(t){return this.drivingStats(t.segments).used_kwh;}
+  tripAverage(t){return this.drivingStats(t.segments).consumption_kwh_100km;}
   prepareSnapshot(raw){
     const data=JSON.parse(JSON.stringify(raw)),cap=data.settings.capacity_kwh;
     const rangeStat=Object.values(raw.statistics).find(s=>s.projected_range_km!=null&&s.consumption_kwh_100km>0);
-    const remainingEnergy=rangeStat?rangeStat.projected_range_km*rangeStat.consumption_kwh_100km/100:null;
+    const remainingEnergy=Number.isFinite(raw.statistics.last_100km?.remaining_kwh)?raw.statistics.last_100km.remaining_kwh:rangeStat?rangeStat.projected_range_km*rangeStat.consumption_kwh_100km/100:null;
     const chargedBetween=(a,b)=>data.charges.some(c=>c.kind!=='dismissed'&&c.start<b&&c.end>a);
     const trips=data.trips.sort((a,b)=>a.start-b.start);
-    for(const trip of trips){
-      for(const segment of trip.segments){
-        const delta=segment.start_energy-segment.end_energy;
-        if(segment.kwh==null&&segment.km>0&&Number.isFinite(delta)&&delta>=0&&!chargedBetween(segment.start,segment.end)){
-          segment.kwh=delta;segment.estimated=true;
-        }
-      }
-      trip.estimated=trip.segments.some(s=>s.estimated);
-      trip.source_ids=[trip.id];
-    }
-    const estimates=new Map(trips.flatMap(t=>t.segments.map(s=>[`${s.start}/${s.end}`,s])));
-    const costs=new Map(Object.values(data.statistics).flatMap(s=>s.segments||[]).map(s=>[`${s.start}/${s.end}`,s]));
+    for(const trip of trips)trip.source_ids=[trip.id];
+    const costs=new Map((data.driving_segments||Object.values(data.statistics).flatMap(s=>s.segments||[])).map(s=>[`${s.start}/${s.end}`,s]));
     const recalculate=stat=>{
-      for(const s of stat.segments){const source=estimates.get(`${s.start}/${s.end}`);if(s.kwh==null&&source?.kwh!=null){s.kwh=source.kwh*(s.km/source.km);s.estimated=true;}}
-      const km=stat.segments.reduce((sum,s)=>sum+s.km,0),known=stat.segments.length&&stat.segments.every(s=>s.kwh!=null);
-      stat.distance_km=km;stat.used_kwh=known?stat.segments.reduce((sum,s)=>sum+s.kwh,0):null;
-      stat.soc_used_pct=stat.used_kwh==null?null:stat.used_kwh/cap*100;
-      stat.consumption_kwh_100km=stat.used_kwh!=null&&km?stat.used_kwh/km*100:null;
-      stat.estimated=stat.segments.some(s=>s.estimated);
+      stat.distance_km=stat.segments.reduce((sum,s)=>sum+s.km,0);
+      Object.assign(stat,this.drivingStats(stat.segments,cap));
+      stat.cost_complete=stat.segments.length>0&&stat.cost_distance_km===stat.distance_km;
       stat.projected_range_km=remainingEnergy!=null&&stat.consumption_kwh_100km>0?remainingEnergy/stat.consumption_kwh_100km*100:null;
       const petrol=data.preferences.petrol_l_100km,price=data.preferences.petrol_eur_l;
-      stat.petrol_comparison_eur=petrol!=null&&price!=null?km/100*petrol*price:null;
-      stat.petrol_saving_eur=stat.petrol_comparison_eur!=null&&stat.driving_cost_eur!=null?stat.petrol_comparison_eur-stat.driving_cost_eur:null;
+      stat.petrol_comparison_eur=petrol!=null&&price!=null?stat.distance_km/100*petrol*price:null;
+      stat.petrol_saving_eur=stat.cost_complete&&stat.petrol_comparison_eur!=null&&stat.driving_cost_eur!=null?stat.petrol_comparison_eur-stat.driving_cost_eur:null;
       return stat;
     };
     for(const stat of Object.values(data.statistics))recalculate(stat);
     for(const counter of data.counters)recalculate(counter.statistics);
+    if(data.statistics.last_100km){
+      const native=trips.filter(t=>t.native_alignment_version>=1||['native_source_replay','native_soc'].includes(t.source)).flatMap(t=>t.segments.map(s=>({...s,cost_eur:costs.get(`${s.start}/${s.end}`)?.cost_eur??null})));
+      const rolling=data.statistics.last_100km;
+      rolling.segments=this.knownDriving(native,100);
+      recalculate(rolling);
+    }
     const groups=[];let pending=null;
     for(const trip of trips){
       if(pending&&pending.distance_km<5&&!chargedBetween(pending.end,trip.start)&&pending.end_odo===trip.start_odo){
         pending.end=trip.end;pending.end_odo=trip.end_odo;pending.end_energy=trip.end_energy;
         pending.distance_km+=trip.distance_km;pending.segments.push(...trip.segments);
-        pending.source_ids.push(trip.id);pending.complete&&=trip.complete;pending.estimated||=trip.estimated;
+        pending.source_ids.push(trip.id);pending.complete&&=trip.complete;
       }else{pending=trip;groups.push(pending);}
     }
     const active=groups.find(t=>t.source_ids.includes(data.active_trip_id));
@@ -149,8 +158,6 @@ class CarLedgerCard extends HTMLElement {
     const tripStat=t=>{
       const stat=JSON.parse(JSON.stringify(raw.statistics.last_trip));
       stat.segments=t.segments.map(s=>({...s,cost_eur:costs.get(`${s.start}/${s.end}`)?.cost_eur??null}));
-      stat.driving_cost_eur=stat.segments.every(s=>s.cost_eur!=null)?stat.segments.reduce((sum,s)=>sum+s.cost_eur,0):null;
-      stat.cost_eur_100km=stat.driving_cost_eur==null?null:stat.driving_cost_eur/t.distance_km*100;
       return recalculate(stat);
     };
     if(last)data.statistics.last_trip=tripStat(last);
@@ -169,7 +176,7 @@ class CarLedgerCard extends HTMLElement {
   tripCard(t){
     const energy=this.tripEnergy(t);
     const cap=this.snapshot.settings.capacity_kwh;
-    return `<button class="session ${this.snapshot.active_trip_id===t.id?'active':''}" data-trip="${this.esc(t.id)}"><div class="row session-head"><span>${this.date(t.start)} → ${this.date(t.end,{hour:'2-digit',minute:'2-digit'})}</span>${this.snapshot.active_trip_id===t.id?'<span class="place">Rit bezig</span>':''}</div><div class="metrics three">${this.value('Afstand',t.distance_km,'km')}${this.value('Gem. verbruik',energy!=null&&t.distance_km?energy/t.distance_km*100:null,'kWh/100 km')}${this.value('Batterij gebruikt',energy!=null?energy/cap*100:null,'%')}</div><div class="muted">${this.n(t.start_energy/cap*100,0)}% → ${this.n(t.end_energy/cap*100,0)}%${energy==null?' · Meting ontbreekt':` · ${this.n(energy,2)} kWh`}</div></button>`;
+    return `<button class="session ${this.snapshot.active_trip_id===t.id?'active':''}" data-trip="${this.esc(t.id)}"><div class="row session-head"><span>${this.date(t.start)} → ${this.date(t.end,{hour:'2-digit',minute:'2-digit'})}</span>${this.snapshot.active_trip_id===t.id?'<span class="place">Rit bezig</span>':''}</div><div class="metrics three">${this.value('Afstand',t.distance_km,'km')}${this.value('Gem. verbruik',this.tripAverage(t),'kWh/100 km')}${this.value('Batterij gebruikt',energy!=null?energy/cap*100:null,'%')}</div><div class="muted">${this.n(t.start_energy/cap*100,0)}% → ${this.n(t.end_energy/cap*100,0)}%${energy==null?' · Meting ontbreekt':` · ${this.n(energy,2)} kWh`}</div></button>`;
   }
   history(){
     const charging=this.tab==='charging', all=charging?this.snapshot.charges:this.snapshot.trips;
@@ -184,7 +191,7 @@ class CarLedgerCard extends HTMLElement {
         let totals='';
         if(charging){const sum=k=>group.every(c=>c[k]!=null&&c.confirmed)?group.reduce((s,c)=>s+c[k],0):null;
           totals=`${this.n(group.filter(c=>c.confirmed).reduce((s,c)=>s+c.kwh,0),2)} kWh · ${this.n(sum('cost_eur'),2)} € laadkosten${group.some(c=>c.category==='home')?` · ${this.n(group.filter(c=>c.category==='home').every(c=>c.reimbursement_eur!=null)?group.filter(c=>c.category==='home').reduce((s,c)=>s+c.reimbursement_eur,0):null,2)} € vergoeding · ${this.n(group.filter(c=>c.category==='home').every(c=>c.benefit_eur!=null)?group.filter(c=>c.category==='home').reduce((s,c)=>s+c.benefit_eur,0):null,2)} € laadvoordeel`:''}`;
-        }else{const km=group.reduce((s,t)=>s+t.distance_km,0);const energy=group.every(t=>this.tripEnergy(t)!=null)?group.reduce((s,t)=>s+this.tripEnergy(t),0):null;totals=`${this.n(km)} km · ${this.n(energy!=null&&km?energy/km*100:null)} kWh/100 km · ${group.length} ritten`;}
+        }else{const km=group.reduce((s,t)=>s+t.distance_km,0),consumption=this.drivingStats(group.flatMap(t=>t.segments)).consumption_kwh_100km;totals=`${this.n(km)} km · ${this.n(consumption)} kWh/100 km · ${group.length} ritten`;}
         html+=`<div class="month"><h3>${label}</h3><p>${totals}</p></div>`;
       }
       html+=charging?this.chargeCard(item):this.tripCard(item);
@@ -195,10 +202,12 @@ class CarLedgerCard extends HTMLElement {
   }
   graph(segments,mean){
     if(!segments.length)return '';
-    const good=segments.filter(s=>s.kwh!=null&&s.km>0);if(!good.length)return '';
-    const max=Math.max(mean||0,...good.map(s=>s.kwh/s.km*100))*1.2;
-    const distance=segments.reduce((s,r)=>s+r.km,0);let x=0;
-    const bars=segments.map(r=>{const width=r.km/distance*300;const left=x;x+=width;if(r.kwh==null)return '';const value=r.kwh/r.km*100;return `<rect x="${left}" y="${100-value/max*85}" width="${Math.max(.5,width-1)}" height="${value/max*85}" rx="2"><title>${this.n(r.km)} km · ${this.n(value)} kWh/100 km</title></rect>`;}).join('');
+    const seen=new Set(),unique=segments.filter(r=>{const key=`${r.start}|${r.end}|${r.km}`;if(seen.has(key))return false;seen.add(key);return Number.isFinite(r.km)&&r.km>0;});
+    const good=this.knownDriving(unique);if(!good.length)return '';
+    const max=Math.max(1,mean||0,...good.map(s=>s.kwh/s.km*100))*1.2;
+    const distance=unique.reduce((s,r)=>s+r.km,0);let x=0;
+    const valid=new Set(good.map(r=>`${r.start}|${r.end}|${r.km}`));
+    const bars=unique.map(r=>{const width=r.km/distance*300;const left=x;x+=width;if(!valid.has(`${r.start}|${r.end}|${r.km}`))return '';const value=r.kwh/r.km*100;return `<rect x="${left}" y="${100-value/max*85}" width="${Math.max(.5,width-1)}" height="${value/max*85}" rx="2"><title>${this.n(r.km)} km · ${this.n(value)} kWh/100 km</title></rect>`;}).join('');
     return `<div class="chart"><svg viewBox="0 0 300 110" role="img" aria-label="Verbruik per gemeten rijsegment"><g fill="var(--car-accent)">${bars}</g>${mean!=null?`<path d="M0 ${100-mean/max*85} H300" class="mean"/>`:''}</svg><div class="row muted"><span>0 km</span><span>Gem. ${this.n(mean)} kWh/100 km</span><span>${this.n(distance,0)} km</span></div></div>`;
   }
   chargingGraph(){

@@ -5,6 +5,15 @@ Use this before releases and when opening PRs.
 
 ## Unreleased
 
+- Use measured driving energy and its matching distance for trip, period,
+  counter and chart consumption. Missing or invalid segments contribute neither
+  value; genuine zero readings count. Keep total travelled distance and archived
+  trip evidence unchanged. The newest 100 known native kilometres now reach
+  across sparse gaps, charges and compatible source changes while excluding
+  range-derived recovery. Remove frontend inference of missing energy from
+  battery endpoints. Driving cost rates use matching priced distance; unknown
+  battery-stock value is not invented.
+
 ## 0.5.0-dev.1
 
 - Restore the Companion connection path after the public v0.4.0-dev.4 HACS
