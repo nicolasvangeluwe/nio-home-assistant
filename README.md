@@ -14,16 +14,16 @@ NIO may deny individual telemetry feeds for some vehicles or accounts. The integ
 
 ## Optional car app
 
-The **NIO Vehicle Dashboard** is an opt-in, mobile-friendly car view with SoC, range, odometer, charge limit and four history tabs. It does not replace any existing dashboard or control the car. The first illustrated model is **ET5 Touring**; other models use a neutral NIO icon until their own artwork is added. Its AI-generated illustration is bundled locally, not fetched from NIO or another service. Light and dark themes are supported.
+The **NIO Vehicle Dashboard** is an opt-in, mobile-friendly car view with SoC, range, odometer, charge limit and four history tabs. It does not replace any existing dashboard or control the car. It includes locally bundled images for **ET5, ET5 Touring, ET7, EL6, EL7, EL8 and legacy ES8**, with 51 model/colour choices. The existing ET5 Touring image remains the automatic default for current users. Other models use a neutral range metric icon until their own is available. Images are served by Home Assistant, without an external image service. Light and dark themes are supported.
 
 After installing the integration:
 
 1. In **Settings → Dashboards → Resources**, add `/nio_telematics/nio-vehicle-card.js` as a **JavaScript module**, then reload Home Assistant in your browser.
 2. Edit a dashboard, choose **Add card → NIO Vehicle Dashboard**, and select your NIO. The simpler **NIO Vehicle** card remains available too.
-3. The overview works with NIO alone. In **Settings**, choose the model and language. SoC, range, odometer, charging state and charge limit use their NIO entities by default; you can select a different Home Assistant entity for any of them. EVCC users can choose a detected charger to fill connection and power in one step. Any HA charger can supply those two readings manually, and EVCC is not required.
+3. The overview works with NIO alone. In **Settings**, choose the model, colour and language. SoC, range, odometer, charging state and charge limit use their NIO entities by default; you can select a different Home Assistant entity for any of them. EVCC users can choose a detected charger to fill connection and power in one step. Any HA charger can supply those two readings manually, and EVCC is not required.
 4. To record trips and charging history, enable **Trip and charging history** and enter usable battery capacity and the range at 100% charge. Odometer and range sources must be available. History starts from actual recorded readings; it cannot reconstruct missing journeys. For home charging imports, the optional session entity must expose EVCC-compatible session data.
 
-The overview offers 14 European language choices. History is Dutch on a Dutch installation and uses English for other languages; further translations are in progress. The ET5 Touring image currently has one colour. Model-specific images and colours are planned, not silently simulated.
+Setup, options, the dashboard and history follow Home Assistant's language by default, with a choice of 14 languages in dashboard settings. The new translations are machine drafted; wording corrections are welcome. Model and colour can be changed later in the vehicle's integration options or dashboard settings. Artwork is illustrative; availability of a paint on a particular car or model year should be checked against the car itself.
 
 History is stored by Home Assistant outside HACS-managed integration files, so updates preserve it. Changing its energy inputs starts a new baseline without rewriting old trips. Five optional, advanced cost-source entities can split completed sessions when dated evidence is available. Missing history and the initial battery-stock price stay unknown, never €0 by assumption. Electricity-price and reimbursement entities are references, not a way to backprice old trips. Charging rules remain in Home Assistant.
 

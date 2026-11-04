@@ -17,21 +17,121 @@ const NIO_WORDS = {
 };
 const NIO_KEYS = ['soc','range','odometer','limit','charging','idle','sample','details','settings','save','cancel','model','language','connected','power','history','price','reimbursement','capacity','unavailable','noVehicle','selectVehicle','chargeHistory'];
 const NIO_EXTRA = {
-  en:['Full-charge range','Trip and charging history','Automatic'], nl:['Bereik bij volle accu','Rit- en laadgeschiedenis','Automatisch'],
-  de:['Reichweite bei voller Ladung','Fahrten- und Ladeverlauf','Automatisch'], fr:['Autonomie à pleine charge','Historique des trajets et charges','Automatique'],
-  nb:['Rekkevidde ved fullading','Tur- og ladehistorikk','Automatisk'], sv:['Räckvidd vid full laddning','Rese- och laddhistorik','Automatiskt'],
-  da:['Rækkevidde ved fuld opladning','Tur- og ladehistorik','Automatisk'], cs:['Dojezd při plném nabití','Historie jízd a nabíjení','Automaticky'],
-  el:['Αυτονομία πλήρους φόρτισης','Ιστορικό διαδρομών και φόρτισης','Αυτόματα'], hu:['Hatótáv teljes töltésnél','Utazási és töltési előzmények','Automatikus'],
-  lb:['Reechwäit bei voller Ladung','Faart- a Luedhistorique','Automatesch'], pl:['Zasięg przy pełnym ładowaniu','Historia przejazdów i ładowania','Automatycznie'],
-  pt:['Autonomia com carga completa','Histórico de viagens e carregamentos','Automático'], ro:['Autonomie la încărcare completă','Istoric deplasări și încărcări','Automat']
+  "en": [
+    "Full-charge range",
+    "Trip and charging history",
+    "Automatic",
+    "NIO default"
+  ],
+  "nl": [
+    "Bereik bij volle accu",
+    "Rit- en laadgeschiedenis",
+    "Automatisch",
+    "NIO-standaard"
+  ],
+  "de": [
+    "Reichweite bei voller Ladung",
+    "Fahrten- und Ladeverlauf",
+    "Automatisch",
+    "NIO-Standard"
+  ],
+  "fr": [
+    "Autonomie à pleine charge",
+    "Historique des trajets et charges",
+    "Automatique",
+    "NIO par défaut"
+  ],
+  "nb": [
+    "Rekkevidde ved fullading",
+    "Tur- og ladehistorikk",
+    "Automatisk",
+    "NIO-standard"
+  ],
+  "sv": [
+    "Räckvidd vid full laddning",
+    "Rese- och laddhistorik",
+    "Automatiskt",
+    "NIO-standard"
+  ],
+  "da": [
+    "Rækkevidde ved fuld opladning",
+    "Tur- og ladehistorik",
+    "Automatisk",
+    "NIO-standard"
+  ],
+  "cs": [
+    "Dojezd při plném nabití",
+    "Historie jízd a nabíjení",
+    "Automaticky",
+    "Výchozí NIO"
+  ],
+  "el": [
+    "Αυτονομία πλήρους φόρτισης",
+    "Ιστορικό διαδρομών και φόρτισης",
+    "Αυτόματα",
+    "Προεπιλογή NIO"
+  ],
+  "hu": [
+    "Hatótáv teljes töltésnél",
+    "Utazási és töltési előzmények",
+    "Automatikus",
+    "NIO alapértelmezett"
+  ],
+  "lb": [
+    "Reechwäit bei voller Ladung",
+    "Faart- a Luedhistorique",
+    "Automatesch",
+    "NIO-Standard"
+  ],
+  "pl": [
+    "Zasięg przy pełnym ładowaniu",
+    "Historia przejazdów i ładowania",
+    "Automatycznie",
+    "Domyślne NIO"
+  ],
+  "pt": [
+    "Autonomia com carga completa",
+    "Histórico de viagens e carregamentos",
+    "Automático",
+    "NIO predefinido"
+  ],
+  "ro": [
+    "Autonomie la încărcare completă",
+    "Istoric deplasări și încărcări",
+    "Automat",
+    "NIO implicit"
+  ]
 };
 const NIO_MODELS = ['auto','ET5','ET5 Touring','ET7','EL6','EL7','EL8','ES8','other'];
+const NIO_MODEL_IDS = {'ET5':'et5','ET5 Touring':'et5-touring','EL6':'el6','ET7':'et7','EL7':'el7','EL8':'el8','ES8':'es8'};
 const NIO_LANGUAGES = ['auto',...Object.keys(NIO_WORDS)];
+const NIO_PAINT_LABELS = {en:'Car colour',nl:'Autokleur',fr:'Couleur de la voiture',de:'Fahrzeugfarbe',nb:'Bilfarge',sv:'Bilfärg',da:'Bilfarve',cs:'Barva vozu',el:'Χρώμα αυτοκινήτου',hu:'Autó színe',lb:'Autosfaarf',pl:'Kolor auta',pt:'Cor do carro',ro:'Culoarea mașinii'};
+let nioArtworkCataloguePromise;
+let nioArtworkRetryAfter=0;
+async function nioLoadArtworkCatalogue(){
+  if(typeof fetch!=='function')return null;
+  if(Date.now()<nioArtworkRetryAfter)return null;
+  if(!nioArtworkCataloguePromise)nioArtworkCataloguePromise=fetch('/nio_telematics/artwork/catalogue.json',{credentials:'same-origin'})
+    .then(response=>{if(!response.ok)throw new Error('Local artwork unavailable');return response.json();})
+    .then(data=>{if(data?.schema_version!==1||data?.selection!=='model_and_paint'||!Array.isArray(data.models))throw new Error('Invalid local artwork catalogue');return data;})
+    .catch(()=>{nioArtworkCataloguePromise=null;nioArtworkRetryAfter=Date.now()+30000;return null;});
+  return nioArtworkCataloguePromise;
+}
 const NIO_SOURCE_HINT = {
-  en:'Leave a vehicle source empty to use its NIO entity. Connection and power may come from any charger; session history requires EVCC-compatible data.',
-  nl:'Laat een autobron leeg voor de NIO-entiteit. Verbinding en vermogen mogen van elke lader komen; sessiehistoriek vereist EVCC-compatibele gegevens.',
-  de:'Fahrzeugquelle leer lassen, um die NIO-Entität zu nutzen. Verbindung und Leistung können von jedem Ladegerät kommen; Sitzungsverlauf benötigt EVCC-kompatible Daten.',
-  fr:'Laissez une source véhicule vide pour utiliser NIO. Connexion et puissance peuvent venir de toute borne; l’historique des sessions exige des données compatibles EVCC.'
+  "en": "Leave a vehicle source empty to use its NIO entity. Connection and power may come from any charger; session history requires EVCC-compatible data.",
+  "nl": "Laat een autobron leeg voor de NIO-entiteit. Verbinding en vermogen mogen van elke lader komen; sessiehistoriek vereist EVCC-compatibele gegevens.",
+  "de": "Fahrzeugquelle leer lassen, um die NIO-Entität zu nutzen. Verbindung und Leistung können von jedem Ladegerät kommen; Sitzungsverlauf benötigt EVCC-kompatible Daten.",
+  "fr": "Laissez une source véhicule vide pour utiliser NIO. Connexion et puissance peuvent venir de toute borne; l’historique des sessions exige des données compatibles EVCC.",
+  "nb": "La en kjøretøykilde være tom for å bruke dens NIO-enhet. Tilkobling og strøm kan komme fra hvilken som helst lader; økthistorikk krever EVCC-kompatible data.",
+  "sv": "Lämna en fordonskälla tom för att använda dess NIO-enhet. Anslutning och ström kan komma från vilken laddare som helst; sessionshistorik kräver EVCC-kompatibel data.",
+  "da": "Lad en køretøjskilde være tom for at bruge dens NIO-entitet. Tilslutning og strøm kan komme fra enhver oplader; sessionshistorik kræver EVCC-kompatible data.",
+  "cs": "Chcete-li použít jeho entitu NIO, ponechte zdroj vozidla prázdný. Připojení a napájení mohou pocházet z jakékoli nabíječky; historie relace vyžaduje data kompatibilní s EVCC.",
+  "el": "Αφήστε μια πηγή οχήματος κενή για να χρησιμοποιήσετε την οντότητά του NIO. Η σύνδεση και η τροφοδοσία μπορεί να προέρχονται από οποιονδήποτε φορτιστή. Το ιστορικό περιόδου λειτουργίας απαιτεί δεδομένα συμβατά με EVCC.",
+  "hu": "Hagyja üresen a járműforrást a NIO-entitás használatához. A csatlakozás és a tápellátás bármely töltőről származhat; A munkamenet-előzmények EVCC-kompatibilis adatokat igényelnek.",
+  "lb": "Loosst e Gefierquell eidel fir seng NIO Entitéit ze benotzen. D'Verbindung an d'Kraaft kënne vun all Ladegeräter kommen; Sëtzung Geschicht verlaangt EVCC-kompatibel Donnéeën.",
+  "pl": "Pozostaw źródło pojazdu puste, aby użyć jego encji NIO. Połączenie i zasilanie może pochodzić z dowolnej ładowarki; historia sesji wymaga danych zgodnych z EVCC.",
+  "pt": "Deixe uma fonte de veículo vazia para usar sua entidade NIO. A conexão e a alimentação podem vir de qualquer carregador; o histórico da sessão requer dados compatíveis com EVCC.",
+  "ro": "Lăsați o sursă de vehicul goală pentru a-și folosi entitatea NIO. Conexiunea și puterea pot proveni de la orice încărcător; istoricul sesiunii necesită date compatibile cu EVCC."
 };
 const NIO_INPUT_LABELS = {
   en:['Charger connection','Charging power','EVCC-compatible sessions'],
@@ -49,68 +149,489 @@ const NIO_INPUT_LABELS = {
   pt:['Ligação ao carregador','Potência de carregamento','Sessões compatíveis com EVCC'],
   ro:['Conexiune încărcător','Putere de încărcare','Sesiuni compatibile EVCC']
 };
-const NIO_EVCC_PROMPT = {en:'Quick setup: choose an EVCC charger',nl:'Snel instellen: kies een EVCC-lader',de:'Schnelleinrichtung: EVCC-Ladegerät wählen',fr:'Configuration rapide : choisir une borne EVCC'};
+const NIO_EVCC_PROMPT = {
+  "en": "Quick setup: choose an EVCC charger",
+  "nl": "Snel instellen: kies een EVCC-lader",
+  "de": "Schnelleinrichtung: EVCC-Ladegerät wählen",
+  "fr": "Configuration rapide : choisir une borne EVCC",
+  "nb": "Hurtigoppsett: velg en EVCC-lader",
+  "sv": "Snabbinstallation: välj en EVCC-laddare",
+  "da": "Hurtig opsætning: vælg en EVCC-oplader",
+  "cs": "Rychlé nastavení: vyberte nabíječku EVCC",
+  "el": "Γρήγορη ρύθμιση: επιλέξτε έναν φορτιστή EVCC",
+  "hu": "Gyors beállítás: válasszon EVCC töltőt",
+  "lb": "Schnell Setup: wielt en EVCC Ladegerät",
+  "pl": "Szybka konfiguracja: wybierz ładowarkę EVCC",
+  "pt": "Configuração rápida: escolha um carregador EVCC",
+  "ro": "Configurare rapidă: alegeți un încărcător EVCC"
+};
 const NIO_COST_INPUTS = {
-  en:['Recorded cost sources','Charging energy (cumulative kWh)','Solar charging energy (cumulative kWh)','Charging cost (cumulative currency)','Grid import price (currency/kWh)','Solar export price (currency/kWh)'],
-  nl:['Bronnen voor geregistreerde kosten','Laadenergie (cumulatieve kWh)','Zonnelaadenergie (cumulatieve kWh)','Laadkosten (cumulatieve valuta)','Netafnameprijs (valuta/kWh)','Terugleverprijs (valuta/kWh)'],
-  de:['Quellen für erfasste Kosten','Ladeenergie (kumulierte kWh)','Solarladeenergie (kumulierte kWh)','Ladekosten (kumulierte Währung)','Netzbezugspreis (Währung/kWh)','Einspeisepreis (Währung/kWh)'],
-  fr:['Sources des coûts enregistrés','Énergie de charge (kWh cumulés)','Énergie solaire de charge (kWh cumulés)','Coût de charge (devise cumulée)','Prix du réseau (devise/kWh)','Prix de revente solaire (devise/kWh)']
+  "en": [
+    "Recorded cost sources",
+    "Charging energy (cumulative kWh)",
+    "Solar charging energy (cumulative kWh)",
+    "Charging cost (cumulative currency)",
+    "Grid import price (currency/kWh)",
+    "Solar export price (currency/kWh)"
+  ],
+  "nl": [
+    "Bronnen voor geregistreerde kosten",
+    "Laadenergie (cumulatieve kWh)",
+    "Zonnelaadenergie (cumulatieve kWh)",
+    "Laadkosten (cumulatieve valuta)",
+    "Netafnameprijs (valuta/kWh)",
+    "Terugleverprijs (valuta/kWh)"
+  ],
+  "de": [
+    "Quellen für erfasste Kosten",
+    "Ladeenergie (kumulierte kWh)",
+    "Solarladeenergie (kumulierte kWh)",
+    "Ladekosten (kumulierte Währung)",
+    "Netzbezugspreis (Währung/kWh)",
+    "Einspeisepreis (Währung/kWh)"
+  ],
+  "fr": [
+    "Sources des coûts enregistrés",
+    "Énergie de charge (kWh cumulés)",
+    "Énergie solaire de charge (kWh cumulés)",
+    "Coût de charge (devise cumulée)",
+    "Prix du réseau (devise/kWh)",
+    "Prix de revente solaire (devise/kWh)"
+  ],
+  "nb": [
+    "Registrerte kostnadskilder",
+    "Ladeenergi (kumulativ kWh)",
+    "Solar ladeenergi (kumulativ kWh)",
+    "Ladekostnad (akkumulert valuta)",
+    "Nettimportpris (valuta/kWh)",
+    "Eksportpris for solenergi (valuta/kWh)"
+  ],
+  "sv": [
+    "Inspelade kostnadskällor",
+    "Laddningsenergi (ackumulerad kWh)",
+    "Solarladdningsenergi (kumulativ kWh)",
+    "Laddningskostnad (ackumulerad valuta)",
+    "Nätimportpris (valuta/kWh)",
+    "Exportpris för solenergi (valuta/kWh)"
+  ],
+  "da": [
+    "Registrerede omkostningskilder",
+    "Opladningsenergi (kumulativ kWh)",
+    "Solar opladningsenergi (kumulativ kWh)",
+    "Opladningsomkostninger (akkumuleret valuta)",
+    "Netimportpris (valuta/kWh)",
+    "Solar eksportpris (valuta/kWh)"
+  ],
+  "cs": [
+    "Zaznamenané zdroje nákladů",
+    "Nabíjecí energie (kumulativní kWh)",
+    "Solární nabíjecí energie (kumulativní kWh)",
+    "Náklady na nabíjení (kumulativní měna)",
+    "Dovozní cena sítě (měna/kWh)",
+    "Solární vývozní cena (měna/kWh)"
+  ],
+  "el": [
+    "Καταγεγραμμένες πηγές κόστους",
+    "Ενέργεια φόρτισης (αθροιστική kWh)",
+    "Ηλιακή ενέργεια φόρτισης (αθροιστική kWh)",
+    "Κόστος χρέωσης (σωρευτικό νόμισμα)",
+    "Τιμή εισαγωγής δικτύου (νόμισμα/kWh)",
+    "Τιμή εξαγωγής ηλιακής ενέργειας (νόμισμα/kWh)"
+  ],
+  "hu": [
+    "Rögzített költségforrások",
+    "Töltési energia (halmozott kWh)",
+    "Napelemes töltési energia (halmozott kWh)",
+    "Töltési költség (halmozott pénznem)",
+    "Hálózati importár (valuta/kWh)",
+    "Napelem exportár (valuta/kWh)"
+  ],
+  "lb": [
+    "Opgeholl Käschten Quellen",
+    "Ladenenergie (kumulative kWh)",
+    "Solar Ladenenergie (kumulative kWh)",
+    "Opluedskäschte (kumulativ Währung)",
+    "Netimportpräis (Währung/kWh)",
+    "Solarexportpräis (Währung/kWh)"
+  ],
+  "pl": [
+    "Zarejestrowane źródła kosztów",
+    "Energia ładowania (skumulowana kWh)",
+    "Energia ładowania słonecznego (skumulowana kWh)",
+    "Koszt ładowania (waluta skumulowana)",
+    "Cena importu sieci (waluta/kWh)",
+    "Cena eksportowa energii słonecznej (waluta/kWh)"
+  ],
+  "pt": [
+    "Fontes de custos registradas",
+    "Energia de carregamento (kWh acumulado)",
+    "Energia de carregamento solar (kWh acumulado)",
+    "Custo de cobrança (moeda acumulada)",
+    "Preço de importação da rede (moeda/kWh)",
+    "Preço de exportação solar (moeda/kWh)"
+  ],
+  "ro": [
+    "Surse de cost înregistrate",
+    "Energie de încărcare (kWh cumulat)",
+    "Energie solară de încărcare (kWh cumulat)",
+    "Cost de încărcare (valută cumulată)",
+    "Preț de import al rețelei (valută/kWh)",
+    "Preț de export solar (valută/kWh)"
+  ]
 };
 const NIO_FIELD_HELP = {
-  en: {
-    vehicle: 'Optional. Leave empty to use the matching NIO sensor. Select another Home Assistant entity only if you need an override.',
-    evcc_connected: 'Optional charger connection sensor. Accepts on/off, connected/disconnected or true/false; EVCC is not required.',
-    evcc_power: 'Optional charger power sensor in W or kW. This is shown beside charging status.',
-    evcc_history: 'Optional EVCC-compatible charging-session history. Leave empty if your charger does not provide it.',
-    electricity_price: 'Optional current electricity price per kWh, for the overview only.',
-    reimbursement_rate: 'Optional reimbursement rate per kWh, for the overview only.',
-    battery_capacity_kwh: 'Usable battery capacity in kWh. Required only for trip and charging history.',
-    full_range_km: 'Range shown by your car at 100% charge, in km. Required only for trip and charging history.',
-    ledger_enabled: 'Store trips and charging history locally in Home Assistant. Disabling it does not erase saved history.',
-    costs: 'Optional recorded-cost inputs. Supply all five from the same accounting source, or leave all empty.'
+  "en": {
+    "vehicle": "Optional. Leave empty to use the matching NIO sensor. Select another Home Assistant entity only if you need an override.",
+    "evcc_connected": "Optional charger connection sensor. Accepts on/off, connected/disconnected or true/false; EVCC is not required.",
+    "evcc_power": "Optional charger power sensor in W or kW. This is shown beside charging status.",
+    "evcc_history": "Optional EVCC-compatible charging-session history. Leave empty if your charger does not provide it.",
+    "electricity_price": "Optional current electricity price per kWh, for the overview only.",
+    "reimbursement_rate": "Optional reimbursement rate per kWh, for the overview only.",
+    "battery_capacity_kwh": "Usable battery capacity in kWh. Required only for trip and charging history.",
+    "full_range_km": "Range shown by your car at 100% charge, in km. Required only for trip and charging history.",
+    "ledger_enabled": "Store trips and charging history locally in Home Assistant. Disabling it does not erase saved history.",
+    "costs": "Optional recorded-cost inputs. Supply all five from the same accounting source, or leave all empty."
   },
-  nl: {
-    vehicle: 'Optioneel. Leeg gebruikt de bijbehorende NIO-sensor. Kies alleen een andere Home Assistant-entiteit als je die wilt gebruiken.',
-    evcc_connected: 'Optionele sensor voor de laderverbinding. Aan/uit of verbonden/niet verbonden; EVCC is niet verplicht.',
-    evcc_power: 'Optionele sensor voor laadvermogen in W of kW.',
-    evcc_history: 'Optionele EVCC-compatibele laadsessiehistoriek. Laat leeg als je lader dit niet levert.',
-    electricity_price: 'Optionele actuele stroomprijs per kWh voor het overzicht.',
-    reimbursement_rate: 'Optioneel vergoedingstarief per kWh voor het overzicht.',
-    battery_capacity_kwh: 'Bruikbare batterijcapaciteit in kWh. Alleen nodig voor rit- en laadgeschiedenis.',
-    full_range_km: 'Bereik dat je auto bij 100% toont, in km. Alleen nodig voor rit- en laadgeschiedenis.',
-    ledger_enabled: 'Sla ritten en laadsessies lokaal in Home Assistant op. Uitschakelen wist de opgeslagen geschiedenis niet.',
-    costs: 'Optionele kostenbronnen. Vul alle vijf uit dezelfde boekhouding in, of laat ze allemaal leeg.'
+  "nl": {
+    "vehicle": "Optioneel. Leeg gebruikt de bijbehorende NIO-sensor. Kies alleen een andere Home Assistant-entiteit als je die wilt gebruiken.",
+    "evcc_connected": "Optionele sensor voor de laderverbinding. Aan/uit of verbonden/niet verbonden; EVCC is niet verplicht.",
+    "evcc_power": "Optionele sensor voor laadvermogen in W of kW.",
+    "evcc_history": "Optionele EVCC-compatibele laadsessiehistoriek. Laat leeg als je lader dit niet levert.",
+    "electricity_price": "Optionele actuele stroomprijs per kWh voor het overzicht.",
+    "reimbursement_rate": "Optioneel vergoedingstarief per kWh voor het overzicht.",
+    "battery_capacity_kwh": "Bruikbare batterijcapaciteit in kWh. Alleen nodig voor rit- en laadgeschiedenis.",
+    "full_range_km": "Bereik dat je auto bij 100% toont, in km. Alleen nodig voor rit- en laadgeschiedenis.",
+    "ledger_enabled": "Sla ritten en laadsessies lokaal in Home Assistant op. Uitschakelen wist de opgeslagen geschiedenis niet.",
+    "costs": "Optionele kostenbronnen. Vul alle vijf uit dezelfde boekhouding in, of laat ze allemaal leeg."
   },
-  de: {
-    vehicle: 'Optional. Leer verwendet den passenden NIO-Sensor. Nur für eine andere Home-Assistant-Entität ausfüllen.',
-    evcc_connected: 'Optionaler Sensor für die Ladegerätverbindung. EVCC ist nicht erforderlich.',
-    evcc_power: 'Optionaler Ladeleistungssensor in W oder kW.',
-    evcc_history: 'Optionaler EVCC-kompatibler Sitzungsverlauf. Sonst leer lassen.',
-    electricity_price: 'Optionaler aktueller Strompreis pro kWh für die Übersicht.',
-    reimbursement_rate: 'Optionaler Erstattungssatz pro kWh für die Übersicht.',
-    battery_capacity_kwh: 'Nutzbare Batteriekapazität in kWh. Nur für Fahrten- und Ladeverlauf erforderlich.',
-    full_range_km: 'Bei 100% im Auto angezeigte Reichweite in km. Nur für den Verlauf erforderlich.',
-    ledger_enabled: 'Fahrten und Ladevorgänge lokal in Home Assistant speichern. Ausschalten löscht den Verlauf nicht.',
-    costs: 'Optionale Kostenquellen. Alle fünf aus derselben Abrechnung eintragen oder alle leer lassen.'
+  "de": {
+    "vehicle": "Optional. Leer verwendet den passenden NIO-Sensor. Nur für eine andere Home-Assistant-Entität ausfüllen.",
+    "evcc_connected": "Optionaler Sensor für die Ladegerätverbindung. EVCC ist nicht erforderlich.",
+    "evcc_power": "Optionaler Ladeleistungssensor in W oder kW.",
+    "evcc_history": "Optionaler EVCC-kompatibler Sitzungsverlauf. Sonst leer lassen.",
+    "electricity_price": "Optionaler aktueller Strompreis pro kWh für die Übersicht.",
+    "reimbursement_rate": "Optionaler Erstattungssatz pro kWh für die Übersicht.",
+    "battery_capacity_kwh": "Nutzbare Batteriekapazität in kWh. Nur für Fahrten- und Ladeverlauf erforderlich.",
+    "full_range_km": "Bei 100% im Auto angezeigte Reichweite in km. Nur für den Verlauf erforderlich.",
+    "ledger_enabled": "Fahrten und Ladevorgänge lokal in Home Assistant speichern. Ausschalten löscht den Verlauf nicht.",
+    "costs": "Optionale Kostenquellen. Alle fünf aus derselben Abrechnung eintragen oder alle leer lassen."
   },
-  fr: {
-    vehicle: 'Facultatif. Vide utilise le capteur NIO correspondant. Renseignez-le seulement pour choisir une autre entité Home Assistant.',
-    evcc_connected: 'Capteur de connexion à la borne facultatif. EVCC n’est pas obligatoire.',
-    evcc_power: 'Capteur de puissance de charge facultatif, en W ou kW.',
-    evcc_history: 'Historique de sessions compatible EVCC facultatif. Sinon, laissez vide.',
-    electricity_price: 'Prix actuel de l’électricité par kWh, facultatif pour la vue d’ensemble.',
-    reimbursement_rate: 'Taux de remboursement par kWh, facultatif pour la vue d’ensemble.',
-    battery_capacity_kwh: 'Capacité utile de la batterie en kWh. Requise seulement pour l’historique.',
-    full_range_km: 'Autonomie affichée à 100% par la voiture, en km. Requise seulement pour l’historique.',
-    ledger_enabled: 'Conserver les trajets et charges localement dans Home Assistant. Désactiver ne supprime pas l’historique.',
-    costs: 'Sources de coûts facultatives. Indiquez les cinq d’une même comptabilité ou laissez-les vides.'
+  "fr": {
+    "vehicle": "Facultatif. Vide utilise le capteur NIO correspondant. Renseignez-le seulement pour choisir une autre entité Home Assistant.",
+    "evcc_connected": "Capteur de connexion à la borne facultatif. EVCC n’est pas obligatoire.",
+    "evcc_power": "Capteur de puissance de charge facultatif, en W ou kW.",
+    "evcc_history": "Historique de sessions compatible EVCC facultatif. Sinon, laissez vide.",
+    "electricity_price": "Prix actuel de l’électricité par kWh, facultatif pour la vue d’ensemble.",
+    "reimbursement_rate": "Taux de remboursement par kWh, facultatif pour la vue d’ensemble.",
+    "battery_capacity_kwh": "Capacité utile de la batterie en kWh. Requise seulement pour l’historique.",
+    "full_range_km": "Autonomie affichée à 100% par la voiture, en km. Requise seulement pour l’historique.",
+    "ledger_enabled": "Conserver les trajets et charges localement dans Home Assistant. Désactiver ne supprime pas l’historique.",
+    "costs": "Sources de coûts facultatives. Indiquez les cinq d’une même comptabilité ou laissez-les vides."
+  },
+  "nb": {
+    "vehicle": "Valgfritt. La stå tomt for å bruke den matchende NIO-sensoren. Velg en annen Home Assistant-enhet bare hvis du trenger en overstyring.",
+    "evcc_connected": "Valgfri ladertilkoblingssensor. Godtar på/av, tilkoblet/frakoblet eller sant/falsk; EVCC er ikke nødvendig.",
+    "evcc_power": "Valgfri ladereffektsensor i W eller kW. Dette vises ved siden av ladestatus.",
+    "evcc_history": "Valgfri EVCC-kompatibel ladeøktshistorikk. La det stå tomt hvis laderen ikke har det.",
+    "electricity_price": "Valgfri gjeldende strømpris per kWh, kun for oversikten.",
+    "reimbursement_rate": "Valgfri refusjonssats per kWh, kun for oversikten.",
+    "battery_capacity_kwh": "Brukbar batterikapasitet i kWh. Kun nødvendig for tur- og ladehistorikk.",
+    "full_range_km": "Rekkevidde vist av bilen din ved 100 % lading, i km. Kun nødvendig for tur- og ladehistorikk.",
+    "ledger_enabled": "Lagre turer og ladehistorikk lokalt i Home Assistant. Deaktivering sletter ikke lagret historikk.",
+    "costs": "Valgfrie inndata for registrerte kostnader. Oppgi alle fem fra samme regnskapskilde, eller la alle stå tomme."
+  },
+  "sv": {
+    "vehicle": "Tillval. Lämna tomt för att använda den matchande NIO-sensorn. Välj bara en annan Home Assistant-enhet om du behöver en åsidosättning.",
+    "evcc_connected": "Tillval laddare anslutningssensor. Accepterar på/av, ansluten/bortkopplad eller sant/falskt; EVCC krävs inte.",
+    "evcc_power": "Tillval laddare effektsensor i W eller kW. Detta visas bredvid laddningsstatus.",
+    "evcc_history": "Valfri EVCC-kompatibel laddningssessionshistorik. Lämna det tomt om din laddare inte har det.",
+    "electricity_price": "Valfritt aktuellt elpris per kWh, endast för översikten.",
+    "reimbursement_rate": "Valfri ersättningsgrad per kWh, endast för översikten.",
+    "battery_capacity_kwh": "Användbar batterikapacitet i kWh. Krävs endast för resa och laddningshistorik.",
+    "full_range_km": "Räckvidd visas av din bil vid 100 % laddning, i km. Krävs endast för resa och laddningshistorik.",
+    "ledger_enabled": "Lagra resor och laddningshistorik lokalt i Home Assistant. Att inaktivera det raderar inte sparad historik.",
+    "costs": "Valfria ingångar för registrerade kostnader. Ange alla fem från samma redovisningskälla, eller lämna alla tomma."
+  },
+  "da": {
+    "vehicle": "Valgfri. Lad være tom for at bruge den matchende NIO-sensor. Vælg kun en anden Home Assistant-enhed, hvis du har brug for en tilsidesættelse.",
+    "evcc_connected": "Valgfri opladertilslutningssensor. Accepterer til/fra, tilsluttet/afbrudt eller sandt/falsk; EVCC er ikke påkrævet.",
+    "evcc_power": "Valgfri opladereffektsensor i W eller kW. Dette vises ved siden af ​​ladestatus.",
+    "evcc_history": "Valgfri EVCC-kompatibel opladningssessionshistorik. Lad være tom, hvis din oplader ikke leverer det.",
+    "electricity_price": "Valgfri aktuel elpris pr. kWh, kun til oversigt.",
+    "reimbursement_rate": "Valgfri refusionssats pr. kWh, kun for oversigten.",
+    "battery_capacity_kwh": "Brugbar batterikapacitet i kWh. Kun påkrævet for tur- og opladningshistorik.",
+    "full_range_km": "Rækkevidde vist af din bil ved 100 % opladning, i km. Kun påkrævet for tur- og opladningshistorik.",
+    "ledger_enabled": "Gem ture og opladningshistorik lokalt i Home Assistant. Deaktivering af den sletter ikke gemt historie.",
+    "costs": "Valgfri indgange til registrerede omkostninger. Angiv alle fem fra den samme regnskabskilde, eller lad alle stå tomme."
+  },
+  "cs": {
+    "vehicle": "Volitelné. Chcete-li použít odpovídající senzor NIO, ponechte prázdné. Jinou entitu Home Assistant vyberte pouze v případě, že potřebujete přepsání.",
+    "evcc_connected": "Volitelný snímač připojení nabíječky. Přijímá zapnuto/vypnuto, připojeno/odpojeno nebo pravda/nepravda; EVCC není vyžadováno.",
+    "evcc_power": "Volitelný snímač výkonu nabíječky ve W nebo kW. Toto je zobrazeno vedle stavu nabíjení.",
+    "evcc_history": "Volitelná historie nabíjení kompatibilní s EVCC. Nechte prázdné, pokud to vaše nabíječka neposkytuje.",
+    "electricity_price": "Volitelná aktuální cena elektřiny za kWh, pouze pro přehled.",
+    "reimbursement_rate": "Volitelná sazba náhrady za kWh, pouze pro přehled.",
+    "battery_capacity_kwh": "Použitá kapacita baterie v kWh. Vyžadováno pouze pro historii cesty a nabíjení.",
+    "full_range_km": "Dojezd zobrazený vaším autem při 100% nabití, v km. Vyžadováno pouze pro historii cesty a nabíjení.",
+    "ledger_enabled": "Ukládejte výlety a historii nabíjení lokálně v Home Assistant. Vypnutím se nevymaže uložená historie.",
+    "costs": "Volitelné vstupy se zaznamenanými náklady. Dodejte všech pět ze stejného účetního zdroje nebo nechte všechny prázdné."
+  },
+  "el": {
+    "vehicle": "Προαιρετικό. Αφήστε το κενό για να χρησιμοποιήσετε τον αντίστοιχο αισθητήρα NIO. Επιλέξτε άλλη οντότητα Home Assistant μόνο εάν χρειάζεστε παράκαμψη.",
+    "evcc_connected": "Προαιρετικός αισθητήρας σύνδεσης φορτιστή. Δέχεται ενεργοποίηση/απενεργοποίηση, σύνδεση/αποσύνδεση ή true/false. Δεν απαιτείται EVCC.",
+    "evcc_power": "Προαιρετικός αισθητήρας ισχύος φορτιστή σε W ή kW. Αυτό εμφανίζεται δίπλα στην κατάσταση φόρτισης.",
+    "evcc_history": "Προαιρετικό ιστορικό περιόδου σύνδεσης φόρτισης συμβατό με EVCC. Αφήστε κενό εάν ο φορτιστής σας δεν το παρέχει.",
+    "electricity_price": "Προαιρετική τρέχουσα τιμή ηλεκτρικής ενέργειας ανά kWh, μόνο για την επισκόπηση.",
+    "reimbursement_rate": "Προαιρετικό ποσοστό αποζημίωσης ανά kWh, μόνο για την επισκόπηση.",
+    "battery_capacity_kwh": "Χρησιμοποιήσιμη χωρητικότητα μπαταρίας σε kWh. Απαιτείται μόνο για το ιστορικό ταξιδιού και φόρτισης.",
+    "full_range_km": "Εμβέλεια που δείχνει το αυτοκίνητό σας με 100% χρέωση, σε χλμ. Απαιτείται μόνο για το ιστορικό ταξιδιού και φόρτισης.",
+    "ledger_enabled": "Αποθηκεύστε ταξίδια και ιστορικό φόρτισης τοπικά στο Home Assistant. Η απενεργοποίησή του δεν διαγράφει το αποθηκευμένο ιστορικό.",
+    "costs": "Προαιρετικές εισροές καταγεγραμμένου κόστους. Προμηθευτείτε και τα πέντε από την ίδια λογιστική πηγή ή αφήστε όλα άδεια."
+  },
+  "hu": {
+    "vehicle": "Nem kötelező. Hagyja üresen a megfelelő NIO érzékelő használatához. Csak akkor válasszon másik Home Assistant entitást, ha felülírásra van szüksége.",
+    "evcc_connected": "Opcionális töltőcsatlakozási érzékelő. Be/ki, csatlakoztatva/lekapcsolva vagy igaz/hamis; EVCC nem szükséges.",
+    "evcc_power": "Opcionális töltőteljesítmény-érzékelő W-ban vagy kW-ban. Ez a töltési állapot mellett látható.",
+    "evcc_history": "Opcionális EVCC-kompatibilis töltési munkamenet-előzmények. Hagyja üresen, ha a töltő nem biztosítja.",
+    "electricity_price": "Opcionális aktuális villamosenergia-ár kWh-nként, csak az áttekintés kedvéért.",
+    "reimbursement_rate": "Választható térítési díj kWh-nként, csak az áttekintés kedvéért.",
+    "battery_capacity_kwh": "Használható akkumulátorkapacitás kWh-ban. Csak utazási és töltési előzményekhez szükséges.",
+    "full_range_km": "Autója által mutatott hatótáv 100%-os töltöttség mellett, km-ben. Csak utazási és töltési előzményekhez szükséges.",
+    "ledger_enabled": "Az utazásokat és a töltési előzményeket helyben tárolhatja a Home Assistant alkalmazásban. A letiltása nem törli a mentett előzményeket.",
+    "costs": "Opcionális rögzített költség bemenetek. Adja meg mind az ötöt ugyanabból a könyvelési forrásból, vagy hagyja mindet üresen."
+  },
+  "lb": {
+    "vehicle": "Fakultativ. Loosst eidel fir de passende NIO Sensor ze benotzen. Wielt eng aner Home Assistant Entitéit nëmmen wann Dir eng Iwwerschrëft braucht.",
+    "evcc_connected": "Optional Chargeur Verbindung Sensor. Akzeptéiert op / aus, verbonne / disconnected oder richteg / falsch; EVCC ass net erfuerderlech.",
+    "evcc_power": "Optional Chargeur Power Sensor a W oder kW. Dëst gëtt nieft dem Opluedstatus ugewisen.",
+    "evcc_history": "Optional EVCC-kompatibel Opluedsession Geschicht. Loosst eidel wann Äre Ladegerät et net ubitt.",
+    "electricity_price": "Optional aktuell Stroumpräis pro kWh, nëmme fir den Iwwerbléck.",
+    "reimbursement_rate": "Optional Remboursement Taux pro kWh, nëmmen fir den Iwwerbléck.",
+    "battery_capacity_kwh": "Benotzbar Batteriekapazitéit a kWh. Noutwendeg nëmme fir Rees- an Opluedgeschicht.",
+    "full_range_km": "Range gewisen vun Ärem Auto op 100% charge, a km. Noutwendeg nëmme fir Rees- an Opluedgeschicht.",
+    "ledger_enabled": "Späichert Reesen an Opluedgeschicht lokal am Home Assistant. Desaktivéiere läscht net gespäichert Geschicht.",
+    "costs": "Optional opgeholl-Käschte Input. Fourniture all fënnef aus der selwechter Comptablesmethod Quell, oder verloossen all eidel."
+  },
+  "pl": {
+    "vehicle": "Opcjonalne. Pozostaw puste, aby użyć pasującego czujnika NIO. Wybierz inną jednostkę Home Assistant tylko wtedy, gdy potrzebujesz zastąpienia.",
+    "evcc_connected": "Opcjonalny czujnik podłączenia ładowarki. Akceptuje włączenie/wyłączenie, połączenie/rozłączenie lub prawda/fałsz; EVCC nie jest wymagane.",
+    "evcc_power": "Opcjonalny czujnik mocy ładowarki w W lub kW. Jest to pokazane obok stanu ładowania.",
+    "evcc_history": "Opcjonalna historia sesji ładowania zgodna z EVCC. Pozostaw puste, jeśli Twoja ładowarka tego nie zapewnia.",
+    "electricity_price": "Opcjonalna aktualna cena energii elektrycznej za kWh, tylko poglądowa.",
+    "reimbursement_rate": "Opcjonalna stawka zwrotu za kWh, tylko w celach poglądowych.",
+    "battery_capacity_kwh": "Użyteczna pojemność akumulatora w kWh. Wymagane tylko w przypadku historii podróży i ładowania.",
+    "full_range_km": "Zasięg samochodu przy 100% naładowaniu, w km. Wymagane tylko w przypadku historii podróży i ładowania.",
+    "ledger_enabled": "Zapisuj historię podróży i ładowania lokalnie w Home Assistant. Wyłączenie tej opcji nie powoduje usunięcia zapisanej historii.",
+    "costs": "Opcjonalne dane wejściowe dotyczące zarejestrowanych kosztów. Dostarcz wszystkie pięć z tego samego źródła rozliczeniowego lub pozostaw wszystkie puste."
+  },
+  "pt": {
+    "vehicle": "Opcional. Deixe em branco para usar o sensor NIO correspondente. Selecione outra entidade do Home Assistant apenas se precisar de uma substituição.",
+    "evcc_connected": "Sensor opcional de conexão do carregador. Aceita ligado/desligado, conectado/desconectado ou verdadeiro/falso; EVCC não é necessário.",
+    "evcc_power": "Sensor de potência do carregador opcional em W ou kW. Isso é mostrado ao lado do status de carregamento.",
+    "evcc_history": "Histórico de sessão de carregamento compatível com EVCC opcional. Deixe em branco se o seu carregador não fornecer isso.",
+    "electricity_price": "Preço atual opcional da eletricidade por kWh, apenas para visão geral.",
+    "reimbursement_rate": "Taxa de reembolso opcional por kWh, apenas para visão geral.",
+    "battery_capacity_kwh": "Capacidade útil da bateria em kWh. Necessário apenas para histórico de viagens e cobranças.",
+    "full_range_km": "Autonomia mostrada pelo seu carro com 100% de carga, em km. Necessário apenas para histórico de viagens e cobranças.",
+    "ledger_enabled": "Armazene viagens e histórico de cobrança localmente no Home Assistant. Desativá-lo não apaga o histórico salvo.",
+    "costs": "Insumos opcionais de custo registrado. Forneça todos os cinco da mesma fonte contábil ou deixe todos vazios."
+  },
+  "ro": {
+    "vehicle": "Opțional. Lăsați gol pentru a utiliza senzorul NIO potrivit. Selectați o altă entitate Home Assistant numai dacă aveți nevoie de o modificare.",
+    "evcc_connected": "Senzor opțional de conectare la încărcător. Acceptă on/off, conectat/deconectat sau adevărat/fals; EVCC nu este necesar.",
+    "evcc_power": "Senzor opțional de putere a încărcătorului în W sau kW. Aceasta este afișată lângă starea de încărcare.",
+    "evcc_history": "Istoricul sesiunilor de încărcare opțional compatibil EVCC. Lăsați gol dacă încărcătorul nu îl oferă.",
+    "electricity_price": "Prețul curent al energiei electrice opțional pe kWh, doar pentru prezentare generală.",
+    "reimbursement_rate": "Rata opțională de rambursare per kWh, numai pentru prezentare generală.",
+    "battery_capacity_kwh": "Capacitatea bateriei utilizabilă în kWh. Necesar numai pentru istoricul călătoriilor și al încărcărilor.",
+    "full_range_km": "Autonomie afișată de mașina dvs. la încărcare de 100%, în km. Necesar numai pentru istoricul călătoriilor și al încărcărilor.",
+    "ledger_enabled": "Stochează călătoriile și istoricul de încărcare local în Home Assistant. Dezactivarea acestuia nu șterge istoricul salvat.",
+    "costs": "Intrări opționale pentru costuri înregistrate. Furnizați toate cele cinci din aceeași sursă contabilă sau lăsați toate goale."
   }
 };
 const NIO_BACKUP_WORDS = {
-  en: ['Backup & restore','Download backup','Choose backup file','Restore backup','Backup contains {imported} trips and {charges} charges; this car currently has {current} trips and {currentCharges} charges. Restoring replaces existing history.','Export your current data first. OAuth credentials are never included.','Replace this car’s dashboard settings and saved history with the selected backup?'],
-  nl: ['Back-up en herstel','Back-up downloaden','Back-upbestand kiezen','Back-up herstellen','Back-up bevat {imported} ritten en {charges} laadsessies; deze auto heeft nu {current} ritten en {currentCharges} laadsessies. Herstel vervangt de bestaande geschiedenis.','Exporteer eerst je huidige gegevens. OAuth-gegevens zijn nooit inbegrepen.','Instellingen en geschiedenis van deze auto vervangen door deze back-up?'],
-  de: ['Sicherung und Wiederherstellung','Sicherung herunterladen','Sicherungsdatei wählen','Sicherung wiederherstellen','Sicherung enthält {imported} Fahrten und {charges} Ladevorgänge; dieses Auto hat derzeit {current} Fahrten und {currentCharges} Ladevorgänge. Die Wiederherstellung ersetzt den Verlauf.','Aktuelle Daten zuerst exportieren. OAuth-Zugangsdaten sind nie enthalten.','Einstellungen und Verlauf dieses Autos durch diese Sicherung ersetzen?'],
-  fr: ['Sauvegarde et restauration','Télécharger la sauvegarde','Choisir un fichier','Restaurer','Sauvegarde : {imported} trajets et {charges} charges ; voiture actuelle : {current} trajets et {currentCharges} charges. La restauration remplace l’historique.','Exportez d’abord vos données actuelles. Les identifiants OAuth ne sont jamais inclus.','Remplacer les réglages et l’historique de cette voiture par cette sauvegarde ?']
+  "en": [
+    "Backup & restore",
+    "Download backup",
+    "Choose backup file",
+    "Restore backup",
+    "Backup contains {imported} trips and {charges} charges; this car currently has {current} trips and {currentCharges} charges. Restoring replaces existing history.",
+    "Export your current data first. OAuth credentials are never included.",
+    "Replace this car’s dashboard settings and saved history with the selected backup?",
+    "Backup exceeds the 8 MB transfer limit",
+    "Confirm the restore after reviewing its preview",
+    "History changed since preview; review the restore again",
+    "Backup history cannot be read by this version"
+  ],
+  "nl": [
+    "Back-up en herstel",
+    "Back-up downloaden",
+    "Back-upbestand kiezen",
+    "Back-up herstellen",
+    "Back-up bevat {imported} ritten en {charges} laadsessies; deze auto heeft nu {current} ritten en {currentCharges} laadsessies. Herstel vervangt de bestaande geschiedenis.",
+    "Exporteer eerst je huidige gegevens. OAuth-gegevens zijn nooit inbegrepen.",
+    "Instellingen en geschiedenis van deze auto vervangen door deze back-up?",
+    "Back-up overschrijdt de overdrachtslimiet van 8 MB.",
+    "Bevestig het herstel nadat je het voorbeeld hebt bekeken.",
+    "De geschiedenis is gewijzigd sinds het voorbeeld; bekijk het herstel opnieuw.",
+    "De back-upgeschiedenis kan niet door deze versie worden gelezen."
+  ],
+  "de": [
+    "Sicherung und Wiederherstellung",
+    "Sicherung herunterladen",
+    "Sicherungsdatei wählen",
+    "Sicherung wiederherstellen",
+    "Sicherung enthält {imported} Fahrten und {charges} Ladevorgänge; dieses Auto hat derzeit {current} Fahrten und {currentCharges} Ladevorgänge. Die Wiederherstellung ersetzt den Verlauf.",
+    "Aktuelle Daten zuerst exportieren. OAuth-Zugangsdaten sind nie enthalten.",
+    "Einstellungen und Verlauf dieses Autos durch diese Sicherung ersetzen?",
+    "Die Sicherung überschreitet das Übertragungslimit von 8 MB.",
+    "Bestätige die Wiederherstellung, nachdem du die Vorschau geprüft hast.",
+    "Der Verlauf wurde seit der Vorschau geändert; prüfe die Wiederherstellung erneut.",
+    "Der Sicherungsverlauf kann von dieser Version nicht gelesen werden."
+  ],
+  "fr": [
+    "Sauvegarde et restauration",
+    "Télécharger la sauvegarde",
+    "Choisir un fichier",
+    "Restaurer",
+    "Sauvegarde : {imported} trajets et {charges} charges ; voiture actuelle : {current} trajets et {currentCharges} charges. La restauration remplace l’historique.",
+    "Exportez d’abord vos données actuelles. Les identifiants OAuth ne sont jamais inclus.",
+    "Remplacer les réglages et l’historique de cette voiture par cette sauvegarde ?",
+    "La sauvegarde dépasse la limite de transfert de 8 Mo.",
+    "Confirmez la restauration après avoir vérifié l’aperçu.",
+    "L’historique a changé depuis l’aperçu ; vérifiez à nouveau la restauration.",
+    "Cette version ne peut pas lire l’historique de la sauvegarde."
+  ],
+  "nb": [
+    "Sikkerhetskopiering og gjenoppretting",
+    "Last ned sikkerhetskopi",
+    "Velg sikkerhetskopifil",
+    "Gjenopprett sikkerhetskopi",
+    "Backup inneholder {imported}-turer og {charges}-kostnader; denne bilen har for øyeblikket {current}-turer og {currentCharges}-ladninger. Gjenoppretting erstatter eksisterende historikk.",
+    "Eksporter gjeldende data først. OAuth-legitimasjon er aldri inkludert.",
+    "Vil du erstatte denne bilens dashbordinnstillinger og lagrede historikk med den valgte sikkerhetskopien?",
+    "Sikkerhetskopien overskrider overføringsgrensen på 8 MB.",
+    "Bekreft gjenopprettingen etter at du har gjennomgått forhåndsvisningen.",
+    "Historikken er endret siden forhåndsvisningen; gå gjennom gjenopprettingen på nytt.",
+    "Denne versjonen kan ikke lese sikkerhetskopihistorikken."
+  ],
+  "sv": [
+    "Säkerhetskopiera och återställa",
+    "Ladda ner säkerhetskopia",
+    "Välj säkerhetskopia",
+    "Återställ säkerhetskopia",
+    "Backup innehåller {imported}-resor och {charges}-avgifter; denna bil har för närvarande {current}-resor och {currentCharges}-avgifter. Återställning ersätter befintlig historik.",
+    "Exportera din nuvarande data först. OAuth-uppgifter ingår aldrig.",
+    "Ersätta den här bilens instrumentpanelsinställningar och sparade historik med den valda säkerhetskopian?",
+    "Säkerhetskopian överskrider överföringsgränsen på 8 MB.",
+    "Bekräfta återställningen efter att du har granskat förhandsvisningen.",
+    "Historiken har ändrats sedan förhandsvisningen; granska återställningen igen.",
+    "Den här versionen kan inte läsa säkerhetskopians historik."
+  ],
+  "da": [
+    "Sikkerhedskopiering og gendannelse",
+    "Download sikkerhedskopi",
+    "Vælg backup-fil",
+    "Gendan backup",
+    "Backup indeholder {imported}-ture og {charges}-afgifter; denne bil har i øjeblikket {current}-ture og {currentCharges}-afgifter. Gendannelse erstatter eksisterende historik.",
+    "Eksportér dine nuværende data først. OAuth-legitimationsoplysninger er aldrig inkluderet.",
+    "Vil du erstatte denne bils instrumentbrætindstillinger og gemte historik med den valgte backup?",
+    "Sikkerhedskopien overskrider overførselsgrænsen på 8 MB.",
+    "Bekræft gendannelsen efter at have gennemgået forhåndsvisningen.",
+    "Historikken er ændret siden forhåndsvisningen; gennemgå gendannelsen igen.",
+    "Denne version kan ikke læse sikkerhedskopiens historik."
+  ],
+  "cs": [
+    "Zálohování a obnovení",
+    "Stáhnout zálohu",
+    "Vyberte záložní soubor",
+    "Obnovit zálohu",
+    "Záloha obsahuje vypnutí {imported} a nabíjení {charges}; tento vůz má aktuálně jízdy {current} a poplatky {currentCharges}. Obnovení nahradí stávající historii.",
+    "Nejprve exportujte svá aktuální data. Přihlašovací údaje OAuth nejsou nikdy zahrnuty.",
+    "Nahradit nastavení palubní desky tohoto auta a uloženou historii vybranou zálohou?",
+    "Záloha překračuje limit přenosu 8 MB.",
+    "Po kontrole náhledu potvrďte obnovení.",
+    "Historie se od náhledu změnila; znovu zkontrolujte obnovení.",
+    "Tato verze nedokáže přečíst historii zálohy."
+  ],
+  "el": [
+    "Δημιουργία αντιγράφων ασφαλείας και επαναφορά",
+    "Λήψη αντιγράφου ασφαλείας",
+    "Επιλέξτε αρχείο αντιγράφου ασφαλείας",
+    "Επαναφορά αντιγράφου ασφαλείας",
+    "Το αντίγραφο ασφαλείας περιέχει ταξίδια {imported} και χρεώσεις {charges}. Αυτό το αυτοκίνητο έχει επί του παρόντος ταξίδια {current} και χρεώσεις {currentCharges}. Η επαναφορά αντικαθιστά το υπάρχον ιστορικό.",
+    "Εξάγετε πρώτα τα τρέχοντα δεδομένα σας. Τα διαπιστευτήρια OAuth δεν περιλαμβάνονται ποτέ.",
+    "Αντικατάσταση των ρυθμίσεων του ταμπλό και του αποθηκευμένου ιστορικού αυτού του αυτοκινήτου με το επιλεγμένο αντίγραφο ασφαλείας;",
+    "Το αντίγραφο ασφαλείας υπερβαίνει το όριο μεταφοράς των 8 MB.",
+    "Επιβεβαιώστε την επαναφορά αφού ελέγξετε την προεπισκόπηση.",
+    "Το ιστορικό άλλαξε μετά την προεπισκόπηση· ελέγξτε ξανά την επαναφορά.",
+    "Αυτή η έκδοση δεν μπορεί να διαβάσει το ιστορικό του αντιγράφου ασφαλείας."
+  ],
+  "hu": [
+    "Biztonsági mentés és visszaállítás",
+    "Biztonsági másolat letöltése",
+    "Válassza ki a biztonsági mentési fájlt",
+    "Biztonsági másolat visszaállítása",
+    "A biztonsági másolat {imported} kioldásokat és {charges} díjakat tartalmaz; ennek az autónak jelenleg {current} utazásai és {currentCharges} díjai vannak. A visszaállítás lecseréli a meglévő előzményeket.",
+    "Először exportálja jelenlegi adatait. Az OAuth hitelesítési adatokat soha nem tartalmazza.",
+    "Lecseréli ennek az autónak a műszerfal beállításait és a mentett előzményeket a kiválasztott biztonsági másolatra?",
+    "A biztonsági mentés meghaladja a 8 MB-os átviteli korlátot.",
+    "Az előnézet áttekintése után erősítse meg a visszaállítást.",
+    "Az előzmények megváltoztak az előnézet óta; tekintse át újra a visszaállítást.",
+    "Ez a verzió nem tudja beolvasni a biztonsági mentés előzményeit."
+  ],
+  "lb": [
+    "Backup & Restauréieren",
+    "Download Backupsatellit",
+    "Wielt Backupsatellit",
+    "Backupsatellit Restauréieren",
+    "Backupsatellit enthält {imported} Reesen an {charges} Käschten; dësen Auto huet am Moment {current} Reesen an {currentCharges} Käschten. Restauréieren ersetzt existent Geschicht.",
+    "Export Är aktuell Donnéeën éischt. OAuth Umeldungsinformatiounen sinn ni abegraff.",
+    "Ersetzen d'Dashboard-Astellungen vun dësem Auto a gespäichert Geschicht mam gewielte Backup?",
+    "De Backup iwwerschreit d'Iwwerdroungslimit vun 8 MB.",
+    "Bestätegt d’Restauratioun nodeems Dir d’Virschau iwwerpréift hutt.",
+    "D’Historik huet sech zënter der Virschau geännert; iwwerpréift d’Restauratioun nach eng Kéier.",
+    "Dës Versioun kann d’Backup-Historik net liesen."
+  ],
+  "pl": [
+    "Kopia zapasowa i przywracanie",
+    "Pobierz kopię zapasową",
+    "Wybierz plik kopii zapasowej",
+    "Przywróć kopię zapasową",
+    "Kopia zapasowa zawiera wyłączenia {imported} i opłaty {charges}; ten samochód ma obecnie {current} przejazdów i opłaty {currentCharges}. Przywrócenie zastępuje istniejącą historię.",
+    "Najpierw wyeksportuj bieżące dane. Dane uwierzytelniające OAuth nigdy nie są uwzględniane.",
+    "Zamienić ustawienia deski rozdzielczej i zapisaną historię tego samochodu na wybraną kopię zapasową?",
+    "Kopia zapasowa przekracza limit transferu 8 MB.",
+    "Potwierdź przywracanie po sprawdzeniu podglądu.",
+    "Historia zmieniła się od czasu podglądu; sprawdź przywracanie ponownie.",
+    "Ta wersja nie może odczytać historii kopii zapasowej."
+  ],
+  "pt": [
+    "Backup e restauração",
+    "Baixar backup",
+    "Escolha o arquivo de backup",
+    "Restaurar cópia de segurança",
+    "Backup contém viagens {imported} e cobranças {charges}; este carro atualmente tem viagens {current} e cobranças {currentCharges}. A restauração substitui o histórico existente.",
+    "Exporte primeiro seus dados atuais. As credenciais OAuth nunca são incluídas.",
+    "Substituir as configurações do painel deste carro e o histórico salvo pelo backup selecionado?",
+    "A cópia de segurança excede o limite de transferência de 8 MB.",
+    "Confirme o restauro depois de rever a pré-visualização.",
+    "O histórico mudou desde a pré-visualização; reveja o restauro novamente.",
+    "Esta versão não consegue ler o histórico da cópia de segurança."
+  ],
+  "ro": [
+    "Backup și restaurare",
+    "Descărcați backup",
+    "Alegeți fișierul de rezervă",
+    "Restaurați backup",
+    "Backup conține călătorii {imported} și taxe {charges}; această mașină are în prezent călătorii {current} și taxe {currentCharges}. Restaurarea înlocuiește istoricul existent.",
+    "Exportați mai întâi datele dvs. curente. Acreditările OAuth nu sunt niciodată incluse.",
+    "Înlocuiți setările tabloului de bord ale acestei mașini și istoricul salvat cu copia de rezervă selectată?",
+    "Copia de rezervă depășește limita de transfer de 8 MB.",
+    "Confirmați restaurarea după ce verificați previzualizarea.",
+    "Istoricul s-a schimbat de la previzualizare; verificați din nou restaurarea.",
+    "Această versiune nu poate citi istoricul copiei de rezervă."
+  ]
 };
 
 class NioVehicleCard extends HTMLElement {
@@ -120,11 +641,28 @@ class NioVehicleCard extends HTMLElement {
   getGridOptions(){return {columns:12,rows:'auto'};}
   static getConfigElement(){return document.createElement('nio-vehicle-card-editor');}
   static getStubConfig(){return {};}
-  set hass(value){this._hass=value;if(!this.loaded&&!this.loading)this.load();else this.updateValues();}
-  connectedCallback(){if(this._hass&&!this.loaded&&!this.loading)this.load();}
-  async load(){if(!this._hass||this.loading)return;this.loading=true;try{const result=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/get'});this.vehicles=result.vehicles||[];this.loaded=true;this.error='';}catch(err){this.error=err.message||String(err);}finally{this.loading=false;this.render();}}
+  set hass(value){this._hass=value;if(!this.loaded&&!this.loading)this.load();else {this.updateValues();if(!this.artworkCatalogue)this.refreshArtwork();}}
+  connectedCallback(){if(this.loaded){if(!this.artworkCatalogue)this.refreshArtwork();else if(!this.shadowRoot.querySelector('dialog[open]'))this.render();}else if(this._hass&&!this.loading)this.load();}
+  async load(){if(!this._hass||this.loading)return;this.loading=true;try{const result=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/get'});this.vehicles=result.vehicles||[];this.loaded=true;this.error='';}catch(err){this.error=err.message||String(err);}finally{this.loading=false;this.render();}this.refreshArtwork();}
+  refreshArtwork(){
+    if(this._artworkLoading||this.artworkCatalogue)return;
+    this._artworkLoading=true;
+    nioLoadArtworkCatalogue().then(catalogue=>{
+      if(!catalogue)return;
+      this.artworkCatalogue=catalogue;
+      if(!this.isConnected)return;
+      const dialog=this.shadowRoot.querySelector('dialog[open]');
+      if(dialog){
+        const picker=dialog.querySelector('[name="paint"]');
+        if(picker){const selected=picker.value,model=this.effectiveModel(dialog.querySelector('[name="model"]')?.value,this.vehicle?.name);picker.innerHTML=this.paintOptions(model,selected);picker.value=[...picker.options].some(item=>item.value===selected)?selected:'auto';}
+        const carArt=this.shadowRoot.querySelector('.car-art'),model=this.modelFor?this.modelFor(this.vehicle):this.effectiveModel(this.vehicle?.preferences?.model,this.vehicle?.name);
+        if(carArt)carArt.innerHTML=this.carImage?this.carImage(model,this.vehicle?.preferences?.paint):this.artwork(model,this.vehicle?.preferences?.paint);
+        this._renderCatalogue=catalogue;
+      }else this.render();
+    }).finally(()=>{this._artworkLoading=false;});
+  }
   get vehicle(){return this.vehicles.find(v=>v.entry_id===this.config?.entry_id)||this.vehicles[0];}
-  get words(){const language=this.vehicle?.preferences?.language||'auto';const code=(language==='auto'?this._hass?.language||'en':language).replace('_','-').split('-')[0].toLowerCase();const row=NIO_WORDS[code]||NIO_WORDS.en;const input=NIO_INPUT_LABELS[code]||NIO_INPUT_LABELS.en;return {...Object.fromEntries(NIO_KEYS.map((key,i)=>[key,row[i]])),...Object.fromEntries(['fullRange','ledgerEnabled','automatic'].map((key,i)=>[key,(NIO_EXTRA[code]||NIO_EXTRA.en)[i]])),connected:input[0],power:input[1],history:input[2],sourceHint:NIO_SOURCE_HINT[code]||NIO_SOURCE_HINT.en};}
+  get words(){const language=this.vehicle?.preferences?.language||'auto';const code=(language==='auto'?this._hass?.language||'en':language).replace('_','-').split('-')[0].toLowerCase();const row=NIO_WORDS[code]||NIO_WORDS.en;const input=NIO_INPUT_LABELS[code]||NIO_INPUT_LABELS.en;return {...Object.fromEntries(NIO_KEYS.map((key,i)=>[key,row[i]])),...Object.fromEntries(['fullRange','ledgerEnabled','automatic','nativeDefault'].map((key,i)=>[key,(NIO_EXTRA[code]||NIO_EXTRA.en)[i]])),connected:input[0],power:input[1],history:input[2],sourceHint:NIO_SOURCE_HINT[code]||NIO_SOURCE_HINT.en};}
   esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   state(entity){return this._hass?.states[entity];}
   number(entity,digits=0){const state=this.state(entity)?.state;const value=Number(state);if(!state||['unknown','unavailable','none'].includes(state.toLowerCase())||!Number.isFinite(value))return null;return new Intl.NumberFormat(this.locale(),{maximumFractionDigits:digits,minimumFractionDigits:digits}).format(value);}
@@ -145,15 +683,36 @@ class NioVehicleCard extends HTMLElement {
   }
   locale(){const setting=this.vehicle?.preferences?.language||'auto';return setting==='auto'?this._hass?.language||'en':setting;}
   stamp(entity){const state=this.state(entity);const raw=state?.attributes?.last_valid_sample||state?.attributes?.source_sample;if(!raw)return null;const date=new Date(raw);return Number.isNaN(date.getTime())?null:new Intl.DateTimeFormat(this.locale(),{dateStyle:'short',timeStyle:'short'}).format(date);}
-  artwork(model){
+  artworkChoice(model,paint='auto'){
+    const id=NIO_MODEL_IDS[model];
+    const family=this.artworkCatalogue?.models?.find(item=>item.id===id);
+    if(!family||(model==='ET5 Touring'&&paint==='auto'))return null;
+    const choice=family.paints?.find(item=>item.id===(paint==='auto'?family.default_paint:paint));
+    return choice&&typeof choice.file==='string'&&new RegExp(`^${id}/[a-z0-9-]+\\.[0-9a-f]{12}\\.webp$`).test(choice.file)?choice:null;
+  }
+  artworkImage(model,paint='auto'){
+    const choice=this.artworkChoice(model,paint);
+    return choice?`<img class="car-photo" src="/nio_telematics/artwork/${this.esc(choice.file)}" alt="${this.esc(model)} · ${this.esc(choice.label)}" loading="eager">`:null;
+  }
+  effectiveModel(selected,name=''){
+    return selected&&selected!=='auto'?selected:[...NIO_MODELS].filter(item=>item!=='auto'&&item!=='other').sort((a,b)=>b.length-a.length).find(item=>name.toLowerCase().includes(item.toLowerCase()))||'NIO';
+  }
+  paintOptions(model,current='auto'){
+    const code=this.locale().replace('_','-').split('-')[0].toLowerCase(),auto=(NIO_EXTRA[code]||NIO_EXTRA.en)[2];
+    const family=this.artworkCatalogue?.models?.find(item=>item.id===NIO_MODEL_IDS[model]);
+    const paints=family?.paints||[];
+    return `<option value="auto" ${current==='auto'?'selected':''}>${this.esc(auto)}</option>`+paints.map(item=>`<option value="${this.esc(item.id)}" ${item.id===current?'selected':''}>${this.esc(item.label)}</option>`).join('');
+  }
+  artwork(model,paint='auto'){
+    const image=this.artworkImage(model,paint);if(image)return image;
     const suv=/^(EL|ES)/.test(model),touring=/Touring/.test(model);
     const roof=suv?'M96 113 C112 69 137 62 178 62 L291 63 C319 67 337 85 350 112':touring?'M96 113 C112 81 141 72 183 72 L288 73 C314 76 336 93 350 112':'M96 113 C118 84 146 75 185 75 L272 76 C308 80 332 94 350 112';
     const glass=suv?'M112 111 C125 80 145 74 180 73 L286 74 C306 77 323 89 337 111 Z':touring?'M112 111 C127 87 148 82 181 82 L283 83 C304 85 321 95 336 111 Z':'M112 111 C130 89 150 84 183 84 L269 85 C299 88 317 97 334 111 Z';
     return `<svg viewBox="0 0 440 190" role="img" aria-label="${this.esc(model==='auto'?'NIO':model)}"><defs><linearGradient id="nio-paint" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#d4d9dc"/><stop offset=".55" stop-color="#adb6bb"/><stop offset="1" stop-color="#7f8b92"/></linearGradient><linearGradient id="nio-glass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#80939f"/><stop offset="1" stop-color="#344752"/></linearGradient></defs><ellipse cx="220" cy="162" rx="184" ry="11" fill="#000" opacity=".10"/><path d="M49 118 Q67 113 96 113 ${roof.slice(8)} Q389 114 397 125 L401 146 Q397 153 386 153 H53 Q40 153 38 145 L41 128 Q42 121 49 118 Z" fill="url(#nio-paint)" stroke="#68757c" stroke-width="1.5"/><path d="${glass}" fill="url(#nio-glass)"/><path d="M216 77 L216 111 M102 114 H350 M49 132 L61 130 M373 127 L391 131" stroke="#72818a" stroke-width="1.3" fill="none"/><path d="M71 119 H382" stroke="#eef1f2" stroke-width="1.3" opacity=".65"/><path d="M40 140 H399" stroke="#5d6b72" opacity=".4"/><circle cx="117" cy="150" r="20" fill="#252e34"/><circle cx="117" cy="150" r="12" fill="#aab4b8"/><circle cx="117" cy="150" r="5" fill="#56656c"/><circle cx="343" cy="150" r="20" fill="#252e34"/><circle cx="343" cy="150" r="12" fill="#aab4b8"/><circle cx="343" cy="150" r="5" fill="#56656c"/></svg>`;
   }
-  render(){if(!this.shadowRoot)return;const w=this.words,v=this.vehicle,e=v?.entities||{},p=v?.preferences||{};const soc=this.number(e.battery_state_of_charge,1),range=this.number(e.remaining_range),odo=this.number(e.odometer),limit=this.number(e.maximum_soc),power=this.formatNumber(this.powerKw(p.evcc_power));const sample=this.stamp(e.battery_state_of_charge)||this.stamp(e.remaining_range);const retained=Boolean(this.state(e.battery_state_of_charge)?.attributes?.data_retained);const chargingRaw=this.state(e.charging_state)?.state;const charging=/^(charging|charge|1|on|true)$/i.test(chargingRaw||'')?w.charging:/^(not_charging|idle|0|off|false)$/i.test(chargingRaw||'')?w.idle:null;const connected=this.connectedState(p.evcc_connected);const model=p.model==='auto'||!p.model?v?.name||'NIO':p.model;
+  render(){if(!this.shadowRoot)return;const w=this.words,v=this.vehicle,e=v?.entities||{},p=v?.preferences||{};const soc=this.number(e.battery_state_of_charge,1),range=this.number(e.remaining_range),odo=this.number(e.odometer),limit=this.number(e.maximum_soc),power=this.formatNumber(this.powerKw(p.evcc_power));const sample=this.stamp(e.battery_state_of_charge)||this.stamp(e.remaining_range);const retained=Boolean(this.state(e.battery_state_of_charge)?.attributes?.data_retained);const chargingRaw=this.state(e.charging_state)?.state;const charging=/^(charging|charge|1|on|true)$/i.test(chargingRaw||'')?w.charging:/^(not_charging|idle|0|off|false)$/i.test(chargingRaw||'')?w.idle:null;const connected=this.connectedState(p.evcc_connected);const model=this.effectiveModel(p.model,v?.name||'');
     if(this.view==='history'&&v?.ledger_available){this.shadowRoot.innerHTML=`<style>${NioVehicleCard.styles}</style><ha-card><div class="wrap"><header><h2>${this.esc(w.chargeHistory)}</h2><button type="button" data-back aria-label="${this.esc(w.cancel)}">←</button></header><car-ledger-card></car-ledger-card></div></ha-card>`;const ledger=this.shadowRoot.querySelector('car-ledger-card');ledger.setConfig({entry_id:v.entry_id,language:this.locale()});ledger.hass=this._hass;this.shadowRoot.querySelector('[data-back]').onclick=()=>{this.view='overview';this.render();};return;}
-    this.shadowRoot.innerHTML=`<style>${NioVehicleCard.styles}</style><ha-card><div class="wrap">${!v?`<p>${this.esc(this.error||w.noVehicle)}</p>`:`<header><div><span class="eyebrow">NIO</span><h2>${this.esc(v.name)}</h2></div><button type="button" data-action="settings" title="${this.esc(w.settings)}" aria-label="${this.esc(w.settings)}">⚙</button></header><div class="car-art">${this.artwork(model)}</div><div class="hero"><div class="charge"><span>${this.esc(w.soc)}</span><strong>${soc??'—'}<small>${soc===null?'':'%'}</small></strong></div><div class="range"><span>${this.esc(w.range)}</span><strong>${range??'—'}<small>${range===null?'':' km'}</small></strong></div></div><div class="status">${this.esc(charging??(connected===null?w.unavailable:w.idle))}${power!==null?` · ${power} kW`:''}</div><div class="facts"><div><span>${this.esc(w.odometer)}</span><b>${odo??'—'}${odo===null?'':' km'}</b></div><div><span>${this.esc(w.limit)}</span><b>${limit??'—'}${limit===null?'':'%'}</b></div></div><footer><span>${this.esc(w.sample)} · ${sample?this.esc(sample):this.esc(w.unavailable)}${retained?' · ◷':''}</span><button type="button" data-action="details" aria-expanded="${this.openDetails}">${this.esc(w.details)}</button></footer>${this.openDetails?`<div class="detail">${p.evcc_history?`<p>${this.esc(w.history)}: ${this.esc(p.evcc_history)}</p>`:''}${p.electricity_price?`<p>${this.esc(w.price)}: ${this.esc(this.state(p.electricity_price)?.state||w.unavailable)}</p>`:''}${p.reimbursement_rate?`<p>${this.esc(w.reimbursement)}: ${this.esc(this.state(p.reimbursement_rate)?.state||w.unavailable)}</p>`:''}</div>`:''}`}</div></ha-card>`;
+    this.shadowRoot.innerHTML=`<style>${NioVehicleCard.styles}</style><ha-card><div class="wrap">${!v?`<p>${this.esc(this.error||w.noVehicle)}</p>`:`<header><div><span class="eyebrow">NIO</span><h2>${this.esc(v.name)}</h2></div><button type="button" data-action="settings" title="${this.esc(w.settings)}" aria-label="${this.esc(w.settings)}">⚙</button></header><div class="car-art">${this.artwork(model,p.paint||"auto")}</div><div class="hero"><div class="charge"><span>${this.esc(w.soc)}</span><strong>${soc??'—'}<small>${soc===null?'':'%'}</small></strong></div><div class="range"><span>${this.esc(w.range)}</span><strong>${range??'—'}<small>${range===null?'':' km'}</small></strong></div></div><div class="status">${this.esc(charging??(connected===null?w.unavailable:w.idle))}${power!==null?` · ${power} kW`:''}</div><div class="facts"><div><span>${this.esc(w.odometer)}</span><b>${odo??'—'}${odo===null?'':' km'}</b></div><div><span>${this.esc(w.limit)}</span><b>${limit??'—'}${limit===null?'':'%'}</b></div></div><footer><span>${this.esc(w.sample)} · ${sample?this.esc(sample):this.esc(w.unavailable)}${retained?' · ◷':''}</span><button type="button" data-action="details" aria-expanded="${this.openDetails}">${this.esc(w.details)}</button></footer>${this.openDetails?`<div class="detail">${p.evcc_history?`<p>${this.esc(w.history)}: ${this.esc(p.evcc_history)}</p>`:''}${p.electricity_price?`<p>${this.esc(w.price)}: ${this.esc(this.state(p.electricity_price)?.state||w.unavailable)}</p>`:''}${p.reimbursement_rate?`<p>${this.esc(w.reimbursement)}: ${this.esc(this.state(p.reimbursement_rate)?.state||w.unavailable)}</p>`:''}</div>`:''}`}</div></ha-card>`;
     this.shadowRoot.querySelector('[data-action="settings"]')?.addEventListener('click',()=>this.settings());this.shadowRoot.querySelector('[data-action="details"]')?.addEventListener('click',()=>{this.openDetails=!this.openDetails;this.render();});
     if(v?.ledger_available){const button=document.createElement('button');button.type='button';button.textContent=w.chargeHistory;button.onclick=()=>{this.view='history';this.render();};this.shadowRoot.querySelector('footer')?.append(button);}
   }
@@ -166,17 +725,19 @@ class NioVehicleCard extends HTMLElement {
     const inputLanguage=this.locale().replace('_','-').split('-')[0].toLowerCase();
     const costLabels=NIO_COST_INPUTS[inputLanguage]||NIO_COST_INPUTS.en;
     const backupWords=NIO_BACKUP_WORDS[inputLanguage]||NIO_BACKUP_WORDS.en;
+    const backupError=error=>({"Confirm the restore after reviewing its preview":backupWords[8],"History changed since preview; review the restore again":backupWords[9],"Backup history cannot be read by this version":backupWords[10]}[error?.message]||error?.message||String(error));
+    const paintLabel=NIO_PAINT_LABELS[inputLanguage]||NIO_PAINT_LABELS.en;
     const costFields=['cost_energy','cost_solar','cost_total_cost','cost_grid_price','cost_export_price'].map((key,i)=>[key,costLabels[i+1]]);
     const fields=[...vehicleFields,...householdFields,...costFields];
     const entities=Object.keys(this._hass.states).sort();
     const presets=this.evccPresets();
     const options=entities.map(id=>`<option value="${this.esc(id)}"></option>`).join('');
     const dialog=document.createElement('dialog');
-    const sourceInputs=vehicleFields.map(([key,label,nativeKey])=>`<div class="field-row"><label>${this.esc(label)}<input name="${key}" list="nio-entities" value="${this.esc(p[key]||'')}" placeholder="${this.esc(v.native_entities?.[nativeKey]||'NIO default')}"></label>${this.fieldHelp('vehicle',inputLanguage)}</div>`).join('');
+    const sourceInputs=vehicleFields.map(([key,label,nativeKey])=>`<div class="field-row"><label>${this.esc(label)}<input name="${key}" list="nio-entities" value="${this.esc(p[key]||'')}" placeholder="${this.esc(v.native_entities?.[nativeKey]||w.nativeDefault)}"></label>${this.fieldHelp('vehicle',inputLanguage)}</div>`).join('');
     const extraInputs=householdFields.map(([key,label])=>`<div class="field-row"><label>${this.esc(label)}<input name="${key}" list="nio-entities" value="${this.esc(p[key]||'')}"></label>${this.fieldHelp(key,inputLanguage)}</div>`).join('');
     const costInputs=`<details class="advanced"><summary>${this.esc(costLabels[0])}</summary><p class="source-hint">${this.esc((NIO_FIELD_HELP[inputLanguage]||NIO_FIELD_HELP.en).costs)}</p>${costFields.map(([key,label])=>`<label>${this.esc(label)}<input name="${key}" list="nio-entities" value="${this.esc(p[key]||'')}"></label>`).join('')}</details>`;
     const presetPicker=presets.length?`<label>${this.esc(NIO_EVCC_PROMPT[inputLanguage]||NIO_EVCC_PROMPT.en)}<select data-evcc-preset><option value="">—</option>${presets.map((item,i)=>`<option value="${i}">${this.esc(item.name)}</option>`).join('')}</select></label>`:'';
-    dialog.innerHTML=`<form><h2>${this.esc(w.settings)}</h2><label>${this.esc(w.model)}<select name="model">${NIO_MODELS.map(m=>`<option value="${m}" ${m===p.model?'selected':''}>${this.esc(m==='auto'?w.automatic:m)}</option>`).join('')}</select></label><label>${this.esc(w.language)}<select name="language">${NIO_LANGUAGES.map(m=>`<option value="${m}" ${m===p.language?'selected':''}>${this.esc(m==='auto'?w.automatic:m)}</option>`).join('')}</select></label><datalist id="nio-entities">${options}</datalist><p class="source-hint">${this.esc(w.sourceHint||'Leave a vehicle source empty to use its NIO entity.')}</p>${sourceInputs}${presetPicker}${extraInputs}<label>${this.esc(w.capacity)} (kWh)<input name="battery_capacity_kwh" type="number" min="1" max="300" step="0.1" value="${p.battery_capacity_kwh??''}"></label><label>${this.esc(w.fullRange)} (km)<input name="full_range_km" type="number" min="1" max="2000" step="1" value="${p.full_range_km??''}"></label><label><input name="ledger_enabled" type="checkbox" ${p.ledger_enabled?'checked':''}> ${this.esc(w.ledgerEnabled)}</label>${costInputs}<p class="error" role="alert"></p><div class="actions"><button type="button" data-cancel>${this.esc(w.cancel)}</button><button type="submit">${this.esc(w.save)}</button></div></form>`;
+    dialog.innerHTML=`<form><h2>${this.esc(w.settings)}</h2><label>${this.esc(w.model)}<select name="model">${NIO_MODELS.map(m=>`<option value="${m}" ${m===p.model?'selected':''}>${this.esc(m==='auto'?w.automatic:m)}</option>`).join('')}</select></label><label>${this.esc(paintLabel)}<select name="paint">${this.paintOptions(this.effectiveModel(p.model,v.name),p.paint||"auto")}</select></label><label>${this.esc(w.language)}<select name="language">${NIO_LANGUAGES.map(m=>`<option value="${m}" ${m===p.language?'selected':''}>${this.esc(m==='auto'?w.automatic:m)}</option>`).join('')}</select></label><datalist id="nio-entities">${options}</datalist><p class="source-hint">${this.esc(w.sourceHint||'Leave a vehicle source empty to use its NIO entity.')}</p>${sourceInputs}${presetPicker}${extraInputs}<label>${this.esc(w.capacity)} (kWh)<input name="battery_capacity_kwh" type="number" min="1" max="300" step="0.1" value="${p.battery_capacity_kwh??''}"></label><label>${this.esc(w.fullRange)} (km)<input name="full_range_km" type="number" min="1" max="2000" step="1" value="${p.full_range_km??''}"></label><label><input name="ledger_enabled" type="checkbox" ${p.ledger_enabled?'checked':''}> ${this.esc(w.ledgerEnabled)}</label>${costInputs}<p class="error" role="alert"></p><div class="actions"><button type="button" data-cancel>${this.esc(w.cancel)}</button><button type="submit">${this.esc(w.save)}</button></div></form>`;
     for(const key of ['battery_capacity_kwh','full_range_km','ledger_enabled']){
       dialog.querySelector(`[name="${key}"]`)?.closest('label')?.insertAdjacentHTML('afterend',this.fieldHelp(key,inputLanguage));
     }
@@ -189,18 +750,18 @@ class NioVehicleCard extends HTMLElement {
         const data=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/backup',entry_id:v.entry_id,action:'export'});
         const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
         const link=document.createElement('a');link.href=url;link.download=`nio-dashboard-${new Date().toISOString().slice(0,10)}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-      }catch(err){errorNode.textContent=err.message||String(err);}
+      }catch(err){errorNode.textContent=backupError(err);}
     };
     dialog.querySelector('[data-import]').onchange=async event=>{
       selectedBackup=null;backupPreview=null;dialog.querySelector('[data-restore]').hidden=true;dialog.querySelector('[data-backup-preview]').textContent='';errorNode.textContent='';
       const file=event.target.files?.[0];if(!file)return;
-      if(file.size>8*1024*1024){errorNode.textContent='Backup exceeds the 8 MB transfer limit';return;}
+      if(file.size>8*1024*1024){errorNode.textContent=backupWords[7];return;}
       try{
         selectedBackup=JSON.parse(await file.text());
         backupPreview=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/backup',entry_id:v.entry_id,action:'preview',backup:selectedBackup});
         dialog.querySelector('[data-backup-preview]').textContent=backupWords[4].replace('{imported}',backupPreview.imported.trips).replace('{charges}',backupPreview.imported.charges).replace('{current}',backupPreview.current.trips).replace('{currentCharges}',backupPreview.current.charges);
         dialog.querySelector('[data-restore]').hidden=false;
-      }catch(err){selectedBackup=null;backupPreview=null;errorNode.textContent=err.message||String(err);}
+      }catch(err){selectedBackup=null;backupPreview=null;errorNode.textContent=backupError(err);}
     };
     dialog.querySelector('[data-restore]').onclick=async()=>{
       if(!selectedBackup||!backupPreview||!window.confirm(backupWords[6]))return;
@@ -208,12 +769,18 @@ class NioVehicleCard extends HTMLElement {
       try{
         const result=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/backup',entry_id:v.entry_id,action:'restore',backup:selectedBackup,expected_revision:backupPreview.current.revision,confirmation:'RESTORE'});
         this.vehicles=this.vehicles.map(old=>old.entry_id===v.entry_id?result.vehicle:old);dialog.close();this.render();
-      }catch(err){errorNode.textContent=err.message||String(err);dialog.querySelector('[data-restore]').hidden=true;}
+      }catch(err){errorNode.textContent=backupError(err);dialog.querySelector('[data-restore]').hidden=true;}
     };
     this.shadowRoot.append(dialog);
+    dialog.querySelector('[name="model"]')?.addEventListener('change',event=>{
+      const picker=dialog.querySelector('[name="paint"]'),previous=picker.value;
+      const model=this.effectiveModel(event.target.value,v.name);
+      picker.innerHTML=this.paintOptions(model,previous);
+      if(![...picker.options].some(option=>option.value===previous))picker.value='auto';
+    });
     dialog.querySelector('[data-evcc-preset]')?.addEventListener('change',event=>{if(event.target.value==='')return;const choice=presets[Number(event.target.value)];if(!choice)return;dialog.querySelector('[name="evcc_connected"]').value=choice.connected;dialog.querySelector('[name="evcc_power"]').value=choice.power;});
     dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove());
-    dialog.querySelector('form').onsubmit=async event=>{event.preventDefault();const form=new FormData(event.target),preferences={};for(const [key] of fields)preferences[key]=String(form.get(key)||'').trim();preferences.model=String(form.get('model'));preferences.language=String(form.get('language'));preferences.battery_capacity_kwh=form.get('battery_capacity_kwh')===''?null:Number(form.get('battery_capacity_kwh'));preferences.full_range_km=form.get('full_range_km')===''?null:Number(form.get('full_range_km'));preferences.ledger_enabled=form.has('ledger_enabled');try{const updated=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/save',entry_id:v.entry_id,preferences});this.vehicles=this.vehicles.map(old=>old.entry_id===v.entry_id?updated:old);dialog.close();this.render();}catch(err){dialog.querySelector('.error').textContent=err.message||String(err);}};
+    dialog.querySelector('form').onsubmit=async event=>{event.preventDefault();const form=new FormData(event.target),preferences={};for(const [key] of fields)preferences[key]=String(form.get(key)||'').trim();preferences.model=String(form.get('model'));preferences.paint=String(form.get('paint')||'auto');preferences.language=String(form.get('language'));preferences.battery_capacity_kwh=form.get('battery_capacity_kwh')===''?null:Number(form.get('battery_capacity_kwh'));preferences.full_range_km=form.get('full_range_km')===''?null:Number(form.get('full_range_km'));preferences.ledger_enabled=form.has('ledger_enabled');try{const updated=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/save',entry_id:v.entry_id,preferences});this.vehicles=this.vehicles.map(old=>old.entry_id===v.entry_id?updated:old);dialog.close();this.render();}catch(err){dialog.querySelector('.error').textContent=err.message||String(err);}};
     dialog.showModal();
   }
   static styles=`:host{display:block;color:var(--primary-text-color);font-family:var(--paper-font-body1_-_font-family,Arial,sans-serif)}*{box-sizing:border-box}ha-card{background:var(--card-background-color);border:1px solid var(--divider-color,#8884);border-radius:22px;overflow:hidden}.wrap{max-width:760px;margin:auto;padding:22px 24px 18px}header,footer,.facts,.hero{display:flex;align-items:center;justify-content:space-between;gap:16px}h2{font-size:21px;line-height:1.2;letter-spacing:-.03em;font-weight:500;margin:5px 0 0}.eyebrow{font-size:11px;letter-spacing:.15em;color:var(--secondary-text-color)}button{font:inherit;cursor:pointer;color:inherit}header button{border:1px solid var(--divider-color,#8884);background:transparent;border-radius:12px;width:34px;height:34px;font-size:18px}.car-art{display:grid;place-items:center;padding:10px 0 0}.car-art svg{width:min(100%,430px);height:auto;filter:drop-shadow(0 13px 11px #0002)}.hero{align-items:stretch;gap:10px;margin:4px 0 14px}.hero>div{flex:1;min-width:0;border:1px solid var(--divider-color,#8884);border-radius:16px;padding:15px 17px}.hero span,.facts span{display:block;color:var(--secondary-text-color);font-size:12px}.hero strong{display:block;margin-top:7px;font-size:36px;font-weight:500;line-height:1.1;letter-spacing:-.04em}.hero small{font-size:16px;font-weight:400;letter-spacing:0}.status{font-size:13px;padding:3px 1px 18px}.facts{border-top:1px solid var(--divider-color,#8884);padding:15px 1px}.facts>div{flex:1}.facts b{font-size:17px;font-weight:500}footer{border-top:1px solid var(--divider-color,#8884);padding-top:14px;color:var(--secondary-text-color);font-size:11px}footer button{background:transparent;border:1px solid var(--divider-color,#8884);border-radius:10px;padding:6px 11px;font-size:11px}.detail{padding-top:12px;font-size:12px;color:var(--secondary-text-color)}.detail p{margin:5px 0}dialog{border:1px solid var(--divider-color,#8884);border-radius:18px;padding:22px;width:min(92vw,430px);max-height:88dvh;background:var(--card-background-color);color:var(--primary-text-color)}dialog::backdrop{background:#0007}dialog h2{margin:0 0 12px}dialog label{display:block;font-size:12px;margin:12px 0}dialog input,dialog select{display:block;width:100%;margin-top:5px;padding:9px 10px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color,#8886);border-radius:9px;font:inherit}dialog input[type=checkbox]{display:inline-block;width:16px;height:16px;vertical-align:middle;margin:0 7px 2px 0;padding:0;accent-color:var(--primary-color,#426b66)}.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:17px}.actions button{border:1px solid var(--divider-color,#8886);border-radius:10px;background:var(--card-background-color);padding:9px 15px}.actions button[type=submit]{background:var(--primary-color,#426b66);color:white}.error{color:var(--error-color,#b44);font-size:12px}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--primary-color,#426b66)}@media(max-width:480px){.wrap{padding:17px 16px}.hero strong{font-size:30px}.hero>div{padding:12px}.facts b{font-size:15px}footer{align-items:flex-start}}`;
@@ -223,7 +790,7 @@ class NioVehicleCardEditor extends HTMLElement {
   setConfig(config){this.config=config||{};this.render();}
   set hass(value){this._hass=value;if(!this.loaded)this.load();}
   async load(){if(!this._hass||this.loading)return;this.loading=true;try{const data=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/get'});this.vehicles=data.vehicles||[];this.loaded=true;this.render();}finally{this.loading=false;}}
-  render(){if(!this.shadowRoot)return;const vehicles=this.vehicles||[];this.shadowRoot.innerHTML=`<style>:host{display:block;padding:12px 0}label{display:block;font-size:13px}select{display:block;margin-top:7px;width:100%;padding:10px;border:1px solid var(--divider-color,#8885);border-radius:9px;background:var(--card-background-color);color:var(--primary-text-color)}</style><label>NIO vehicle<select>${vehicles.map(v=>`<option value="${v.entry_id}" ${v.entry_id===this.config?.entry_id?'selected':''}>${String(v.name).replace(/[&<>"']/g,'')}</option>`).join('')}</select></label>`;this.shadowRoot.querySelector('select')?.addEventListener('change',event=>{this.config={...this.config,entry_id:event.target.value};this.dispatchEvent(new CustomEvent('config-changed',{detail:{config:this.config},bubbles:true,composed:true}));});}
+  render(){if(!this.shadowRoot)return;const vehicles=this.vehicles||[];this.shadowRoot.innerHTML=`<style>:host{display:block;padding:12px 0}label{display:block;font-size:13px}select{display:block;margin-top:7px;width:100%;padding:10px;border:1px solid var(--divider-color,#8885);border-radius:9px;background:var(--card-background-color);color:var(--primary-text-color)}</style><label>${(NIO_WORDS[(this._hass?.language||'en').replace('_','-').split('-')[0].toLowerCase()]||NIO_WORDS.en)[21]}<select>${vehicles.map(v=>`<option value="${v.entry_id}" ${v.entry_id===this.config?.entry_id?'selected':''}>${String(v.name).replace(/[&<>"']/g,'')}</option>`).join('')}</select></label>`;this.shadowRoot.querySelector('select')?.addEventListener('change',event=>{this.config={...this.config,entry_id:event.target.value};this.dispatchEvent(new CustomEvent('config-changed',{detail:{config:this.config},bubbles:true,composed:true}));});}
 }
 
 /* Exact approved Car metric artwork. The compact card above stays compatible. */
@@ -244,25 +811,44 @@ class NioVehicleDashboard extends NioVehicleCard {
   get words(){
     const code=this.locale().replace('_','-').split('-')[0].toLowerCase();
     const row=NIO_WORDS[code]||NIO_WORDS.en;
-    const base={...Object.fromEntries(NIO_KEYS.map((key,i)=>[key,row[i]])),...Object.fromEntries(['fullRange','ledgerEnabled','automatic'].map((key,i)=>[key,(NIO_EXTRA[code]||NIO_EXTRA.en)[i]]))};
+    const base={...Object.fromEntries(NIO_KEYS.map((key,i)=>[key,row[i]])),...Object.fromEntries(['fullRange','ledgerEnabled','automatic','nativeDefault'].map((key,i)=>[key,(NIO_EXTRA[code]||NIO_EXTRA.en)[i]]))};
     const extra={
       en:['Connected','Vehicle history','History is optional. Enable it in Settings.','Vehicle data unavailable'],
       nl:['Verbonden','Autohistoriek','Historiek is optioneel. Schakel die in bij Instellingen.','Autogegevens niet beschikbaar'],
       de:['Verbunden','Fahrzeugverlauf','Der Verlauf ist optional. Aktiviere ihn in den Einstellungen.','Fahrzeugdaten nicht verfügbar'],
       fr:['Connecté','Historique du véhicule','L’historique est facultatif. Activez-le dans les paramètres.','Données du véhicule indisponibles'],
+      nb:['Tilkoblet','Kjøretøyhistorikk','Historikk er valgfritt. Aktiver den i innstillingene.','Kjøretøydata er ikke tilgjengelige'],
+      sv:['Ansluten','Fordonshistorik','Historik är valfri. Aktivera den i inställningarna.','Fordonsdata är inte tillgängliga'],
+      da:['Tilsluttet','Køretøjshistorie','Historik er valgfri. Aktivér den i indstillingerne.','Køretøjsdata er ikke tilgængelige'],
+      cs:['Připojeno','Historie vozidla','Historie je volitelná. Povolte ji v nastavení.','Údaje o vozidle nejsou k dispozici'],
+      el:['Συνδεδεμένο','Ιστορικό οχήματος','Το ιστορικό είναι προαιρετικό. Ενεργοποιήστε το στις ρυθμίσεις.','Τα δεδομένα του οχήματος δεν είναι διαθέσιμα'],
+      hu:['Csatlakoztatva','Járműelőzmények','Az előzmények használata nem kötelező. Engedélyezze a beállításokban.','A jármű adatai nem érhetők el'],
+      lb:['Verbonnen','Gefiergeschicht',"D'Historik ass fakultativ. Aktivéiert se an den Astellungen.",'Gefierdaten net verfügbar'],
+      pl:['Połączono','Historia pojazdu','Historia jest opcjonalna. Włącz ją w ustawieniach.','Dane pojazdu są niedostępne'],
+      pt:['Ligado','Histórico do veículo','O histórico é opcional. Ative-o nas definições.','Dados do veículo indisponíveis'],
+      ro:['Conectat','Istoricul vehiculului','Istoricul este opțional. Activați-l în setări.','Datele vehiculului nu sunt disponibile'],
     }[code]||['Connected','Vehicle history','History is optional. Enable it in Settings.','Vehicle data unavailable'];
-    const tabs={en:['Charging','Trips','Consumption','Parked'],nl:['Laden','Ritten','Verbruik','Stilstand'],de:['Laden','Fahrten','Verbrauch','Parken'],fr:['Charge','Trajets','Consommation','Stationnement']}[code]||['Charging','Trips','Consumption','Parked'];
+    const tabs={
+      en:['Charging','Trips','Consumption','Parked'],nl:['Laden','Ritten','Verbruik','Stilstand'],
+      de:['Laden','Fahrten','Verbrauch','Parken'],fr:['Recharge','Trajets','Consommation','Stationnement'],
+      nb:['Lading','Turer','Forbruk','Parkert'],sv:['Laddning','Resor','Förbrukning','Parkerad'],
+      da:['Opladning','Ture','Forbrug','Parkeret'],cs:['Nabíjení','Jízdy','Spotřeba','Zaparkováno'],
+      el:['Φόρτιση','Ταξίδια','Κατανάλωση','Σταθμευμένο'],hu:['Töltés','Utak','Fogyasztás','Parkolt'],
+      lb:['Laden','Reesen','Verbrauch','Parkéiert'],pl:['Ładowanie','Przejazdy','Zużycie','Zaparkowany'],
+      pt:['Carregamento','Viagens','Consumo','Estacionado'],ro:['Încărcare','Călătorii','Consum','Parcată'],
+    }[code]||['Charging','Trips','Consumption','Parked'];
     const input=NIO_INPUT_LABELS[code]||NIO_INPUT_LABELS.en;
     return {...base,connected:input[0],power:input[1],history:input[2],sourceHint:NIO_SOURCE_HINT[code]||NIO_SOURCE_HINT.en,connectedStatus:extra[0],vehicleHistory:extra[1],historyOptional:extra[2],noData:extra[3],historyTabs:tabs};
   }
-  carImage(model){
+  carImage(model,paint='auto'){
+    const image=this.artworkImage(model,paint);if(image)return image;
     if(model==='ET5 Touring')return '<img class="car-photo" src="/nio_telematics/et5-touring-studio.png" alt="ET5 Touring" loading="eager">';
     // Do not imply that a generic drawing depicts another NIO model.
     return `<div class="car-placeholder" role="img" aria-label="${this.esc(model)}"><svg viewBox="0 0 64 52" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M28 8V5q0-2 2-2h4q2 0 2 2v3h8q5 0 7 5l5 11q5 4 5 10v13q0 3-3 3h-6q-3 0-3-4H15q0 4-3 4H6q-3 0-3-3V34q0-6 5-10l5-11q2-5 7-5Zm-9 5-5 11h36l-5-11q-13-2-26 0ZM9 30q1 3 14 4v-2Zm46 0-14 2v2q13-1 14-4ZM10 38l-1 6q5-5 1-6Zm44 0q-4 1 1 6Zm-30 5-4 3h24l-4-3Zm5-8q3-4 6 0l-2 1q-1-2-2 0Zm1 3q2-3 4 0l-2-1Z"/><path d="M8 20q-7-4-8 2 0 3 7 3Zm48 0q7-4 8 2 0 3-7 3Z"/></svg><span>${this.esc(model)}</span></div>`;
   }
   modelFor(v){
     const chosen=this.config?.model&&this.config.model!=='auto'?this.config.model:v.preferences?.model;
-    return chosen&&chosen!=='auto'?chosen:[...NIO_MODELS].filter(name=>name!=='auto'&&name!=='other').sort((a,b)=>b.length-a.length).find(name=>v.name.toLowerCase().includes(name.toLowerCase()))||'NIO';
+    return this.effectiveModel(chosen,v.name);
   }
   render(){
     if(!this.shadowRoot)return;
@@ -270,13 +856,14 @@ class NioVehicleDashboard extends NioVehicleCard {
     if(!v){this.shadowRoot.innerHTML=`<style>${NioVehicleDashboard.styles}</style><ha-card class="dashboard"><p class="empty">${this.esc(this.error||w.noVehicle)}</p></ha-card>`;return;}
     const model=this.modelFor(v);
     const language=this.locale();
+    const paint=v.preferences?.paint||'auto';
     const root=this.shadowRoot.querySelector('.dashboard[data-entry-id]');
-    if(root?.dataset.entryId===v.entry_id&&this._renderModel===model&&this._renderLanguage===language&&this._renderLedger===Boolean(v.ledger_available)){
+    if(root?.dataset.entryId===v.entry_id&&this._renderModel===model&&this._renderPaint===paint&&this._renderCatalogue===this.artworkCatalogue&&this._renderLanguage===language&&this._renderLedger===Boolean(v.ledger_available)){
       this.updateDisplay();return;
     }
-    this._renderModel=model;this._renderLanguage=language;this._renderLedger=Boolean(v.ledger_available);
+    this._renderModel=model;this._renderPaint=paint;this._renderCatalogue=this.artworkCatalogue;this._renderLanguage=language;this._renderLedger=Boolean(v.ledger_available);
     const mark='<svg class="nio-mark" viewBox="66 90 368 344" aria-hidden="true"><path d="m334.64 261.9c-12.44-12.44-11.39-12-29-12h-111.64c-17.62 0-16.57-.43-29 12l-59.52 59.53a161.1 161.1 0 0 0 60.34 65.93c15.25-15.24 61-60.95 68.57-68.57 6.25-6.24 9-8.66 12.39-9.7a9.87 9.87 0 0 1 3-.56 9.71 9.71 0 0 1 3 .56c3.39 1 6.15 3.46 12.39 9.7l68.57 68.57a161.06 161.06 0 0 0 60.35-65.93z"/><path d="m173.62 244.05c4.49-4.85 3.86-9 8.26-20.37a72.81 72.81 0 0 1 135.86 0c4.41 11.41 3.78 15.52 8.27 20.37s9 5.84 23.28 5.84h61.63a161.11 161.11 0 0 0 -322.21 0h61.63c14.3 0 18.9-1.11 23.28-5.84"/></svg>';
-    this.shadowRoot.innerHTML=`<style>${NioVehicleDashboard.styles}</style><ha-card class="dashboard" data-entry-id="${this.esc(v.entry_id)}"><header><div class="identity">${mark}<h2>${this.esc(v.name)}</h2></div><button class="settings" type="button" aria-label="${this.esc(w.settings)}" title="${this.esc(w.settings)}">⚙</button></header><div class="showcase"><div class="car-art">${this.carImage(model)}</div><div class="battery"><svg viewBox="0 0 74 40" aria-hidden="true"><rect x="1.5" y="2" width="66" height="36" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><rect x="69" y="13" width="4" height="14" rx="1" fill="currentColor"/><rect class="battery-fill" x="5" y="5.5" height="29" rx="1"/></svg><strong data-value="soc">—</strong></div></div><div class="metrics"><div class="metric"><span class="metric-icon" aria-hidden="true">${NIO_METRIC_ICONS.range}</span><strong data-value="range">—</strong><span class="sr-only">${this.esc(w.range)}</span></div><div class="metric"><span class="metric-icon" aria-hidden="true">${NIO_METRIC_ICONS.odometer}</span><strong data-value="odometer">—</strong><span class="sr-only">${this.esc(w.odometer)}</span></div><div class="metric"><ha-icon icon="mdi:power-plug" data-icon="third" aria-hidden="true"></ha-icon><strong data-value="third">—</strong><span class="sr-only" data-label="third"></span></div></div><div class="status"><span data-value="status">—</span><span data-value="sample"></span></div><div class="history" data-history></div></ha-card>`;
+    this.shadowRoot.innerHTML=`<style>${NioVehicleDashboard.styles}</style><ha-card class="dashboard" data-entry-id="${this.esc(v.entry_id)}"><header><div class="identity">${mark}<h2>${this.esc(v.name)}</h2></div><button class="settings" type="button" aria-label="${this.esc(w.settings)}" title="${this.esc(w.settings)}">⚙</button></header><div class="showcase"><div class="car-art">${this.carImage(model,v.preferences?.paint||"auto")}</div><div class="battery"><svg viewBox="0 0 74 40" aria-hidden="true"><rect x="1.5" y="2" width="66" height="36" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><rect x="69" y="13" width="4" height="14" rx="1" fill="currentColor"/><rect class="battery-fill" x="5" y="5.5" height="29" rx="1"/></svg><strong data-value="soc">—</strong></div></div><div class="metrics"><div class="metric"><span class="metric-icon" aria-hidden="true">${NIO_METRIC_ICONS.range}</span><strong data-value="range">—</strong><span class="sr-only">${this.esc(w.range)}</span></div><div class="metric"><span class="metric-icon" aria-hidden="true">${NIO_METRIC_ICONS.odometer}</span><strong data-value="odometer">—</strong><span class="sr-only">${this.esc(w.odometer)}</span></div><div class="metric"><ha-icon icon="mdi:power-plug" data-icon="third" aria-hidden="true"></ha-icon><strong data-value="third">—</strong><span class="sr-only" data-label="third"></span></div></div><div class="status"><span data-value="status">—</span><span data-value="sample"></span></div><div class="history" data-history></div></ha-card>`;
     this.shadowRoot.querySelector('.metric-icon').innerHTML=this.rangeIcon(model);
     this.shadowRoot.querySelector('[data-icon="third"]').outerHTML='<span class="metric-icon third-icon" data-icon="third" aria-hidden="true"></span>';
     this.shadowRoot.querySelector('.settings').onclick=()=>this.settings();
@@ -330,6 +917,7 @@ NioVehicleCard.styles+=' dialog .field-row{display:flex;align-items:center;gap:8
 NioVehicleDashboard.styles+=' .car-art{position:relative;isolation:isolate}.car-art:before{content:"";position:absolute;z-index:-1;left:18%;right:18%;bottom:16%;height:12%;border-radius:50%;background:radial-gradient(ellipse,#0003 0%,#0002 46%,transparent 75%);filter:blur(7px)}.car-photo{position:relative;filter:drop-shadow(0 5px 4px #0002)}.metric-icon ha-icon{--mdc-icon-size:22px;width:30px;height:22px;color:var(--secondary-text-color)}.third-icon svg[data-car-icon="power-plug"]{width:22px;height:22px;color:var(--primary-text-color)}.metric strong{font-weight:300}.settings{background:color-mix(in srgb,var(--card-background-color,#fff) 87%,transparent)}';
 NioVehicleDashboard.styles+=' dialog{width:min(92vw,440px);max-height:85dvh;overflow:auto;border:1px solid color-mix(in srgb,currentColor 22%,transparent);border-radius:18px;padding:20px;background:var(--card-background-color,#fff);color:var(--primary-text-color);font-family:"Segoe UI",system-ui,Arial,sans-serif}dialog::backdrop{background:#0008}dialog h2{font-size:19px;font-weight:400;margin:0 0 12px}dialog label{display:block;font-size:12px;margin:12px 0}dialog input,dialog select{display:block;width:100%;margin-top:5px;padding:9px 10px;border:1px solid color-mix(in srgb,currentColor 22%,transparent);border-radius:9px;background:var(--card-background-color,#fff);color:inherit;font:inherit}dialog input[type=checkbox]{display:inline-block;width:16px;height:16px;margin:0 7px 2px 0;vertical-align:middle;accent-color:var(--primary-color,#426b66)}dialog .source-hint{font-size:11px;line-height:1.45;color:var(--secondary-text-color)}dialog .advanced{border-top:1px solid color-mix(in srgb,currentColor 22%,transparent);margin-top:16px;padding-top:12px}dialog .advanced summary{font-size:12px;cursor:pointer}dialog .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}dialog .actions button{border:1px solid color-mix(in srgb,currentColor 22%,transparent);border-radius:10px;padding:9px 14px;background:var(--card-background-color,#fff);color:inherit;font:inherit;cursor:pointer}dialog .actions button[type=submit]{background:var(--primary-color,#426b66);color:white}dialog .error{color:var(--error-color,#b44);font-size:12px}';
 NioVehicleCard.styles+=' dialog .backup{border-top:1px solid color-mix(in srgb,currentColor 22%,transparent);margin-top:16px;padding-top:12px;font-size:12px}dialog .backup summary{cursor:pointer}dialog .backup p{font-size:11px;line-height:1.45;color:var(--secondary-text-color)}dialog .backup button{border:1px solid color-mix(in srgb,currentColor 22%,transparent);border-radius:9px;padding:8px 11px;background:var(--card-background-color,#fff);color:inherit;cursor:pointer}dialog .backup button[hidden]{display:none}dialog .backup input[type=file]{font-size:11px}';
+NioVehicleCard.styles+=' .car-art img{display:block;width:min(100%,430px);height:auto;object-fit:contain}';
 NioVehicleDashboard.styles+=' dialog .field-row{display:flex;align-items:center;gap:8px}dialog .field-row label{flex:1;min-width:0}dialog .field-help{font-size:11px;color:var(--secondary-text-color);margin:3px 0 9px}dialog .field-row .field-help{flex:none;margin:15px 0 0}dialog .field-help summary{display:grid;place-items:center;width:24px;height:24px;border:1px solid color-mix(in srgb,currentColor 30%,transparent);border-radius:50%;cursor:pointer;list-style:none}dialog .field-help summary::-webkit-details-marker{display:none}dialog .field-help summary:focus-visible{outline:2px solid var(--primary-color,#426b66)}dialog .field-help p{margin:6px 0 10px;line-height:1.45}dialog .field-row .field-help[open] p{position:absolute;z-index:2;right:20px;left:20px;padding:10px 12px;border:1px solid color-mix(in srgb,currentColor 22%,transparent);border-radius:10px;background:var(--card-background-color,#fff);box-shadow:0 6px 20px #0002}dialog .backup{border-top:1px solid color-mix(in srgb,currentColor 22%,transparent);margin-top:16px;padding-top:12px;font-size:12px}dialog .backup summary{cursor:pointer}dialog .backup p{font-size:11px;line-height:1.45;color:var(--secondary-text-color)}dialog .backup button{border:1px solid color-mix(in srgb,currentColor 22%,transparent);border-radius:9px;padding:8px 11px;background:var(--card-background-color,#fff);color:inherit;cursor:pointer}dialog .backup button[hidden]{display:none}dialog .backup input[type=file]{font-size:11px}';
 // The studio artwork includes its own soft contact shadow. Do not stack the
 // synthetic ellipse and drop-shadow that made the car resemble a toy model.

@@ -1,0 +1,166 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Conexão do veículo",
+        "description": "Para uso normal do Home Assistant, escolha Direct NIO. O Companion é experimental e destinado a testadores com uma conta Companion existente, um carro conectado e um link separado do Home Assistant.",
+        "menu_options": {
+          "direct": "NIO direto (recomendado)",
+          "companion": "Conta complementar (teste)",
+          "change_connection": "Alterar conexão para um veículo existente"
+        }
+      },
+      "reconfigure": {
+        "title": "Conexão do veículo",
+        "description": "Para uso normal do Home Assistant, escolha Direct NIO. O Companion permanece disponível para testadores com uma conta Companion existente, um carro conectado e um link separado do Home Assistant. Sua conexão atual permanece ativa até você confirmar uma alteração.",
+        "menu_options": {
+          "direct": "Direcionar NIO/alterar credenciais do aplicativo",
+          "companion": "Conta complementar (teste)"
+        }
+      },
+      "companion": {
+        "title": "Conectar companheiro",
+        "description": "Companion é experimental e destinado a testadores; para uso normal do Home Assistant, escolha Direct NIO. Se você estiver testando o Companion, crie um link persistente do Home Assistant em sua [página de conexões do Companion]({connections_url}) e cole sua credencial de HA aqui. O carro vinculado deve ter dados recentes sobre estado de carga, autonomia e hodômetro. Atualmente, o Companion fornece apenas dados básicos do veículo; sensores Direct NIO adicionais não estarão disponíveis.",
+        "data": {
+          "vehicle_name": "Nome do veículo",
+          "vin": "VIN",
+          "companion_credential": "Credencial de assistente doméstico persistente"
+        }
+      },
+      "confirm_source": {
+        "title": "Mudar este veículo para Companion?",
+        "description": "Mantenha as entidades, as configurações do painel e o histórico deste veículo e leia sua telemetria principal no Companion. Sensores somente diretos ficarão indisponíveis. A configuração anterior será restaurada se a nova fonte não puder ser carregada. Uma entrada pausada ativará o Companion somente após a validação. Um retorno ao Direct NIO pode exigir autorização do NIO novamente."
+      },
+      "vehicle": {
+        "title": "Adicione seu veículo NIO",
+        "description": "Insira a identidade do veículo após autorizar o Home Assistant com NIO.",
+        "data": {
+          "vehicle_name": "Nome do veículo",
+          "vin": "VIN"
+        }
+      },
+      "change_connection": {
+        "title": "Escolha seu veículo existente",
+        "description": "Altere a fonte de dados deste veículo preservando suas entidades, configurações e histórico. Um veículo pausado permanece pausado até que a fonte de substituição validada esteja pronta.",
+        "data": {
+          "existing_entry_id": "Veículo"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Este veículo já está configurado.",
+      "source_unload_failed": "A conexão atual não pôde ser interrompida. Nenhuma alteração de origem foi salva.",
+      "source_switch_failed": "A nova conexão não pôde ser carregada. A configuração anterior foi restaurada.",
+      "source_rollback_failed": "O switch falhou e a configuração anterior foi restaurada, mas não foi possível carregar. Verifique a integração e reconecte, se necessário.",
+      "no_existing_vehicle": "Nenhum veículo NIO existente está disponível para reconfiguração.",
+      "existing_vehicle_missing": "Este veículo não existe mais ou pertence a outra integração. Nenhuma conexão foi alterada."
+    },
+    "error": {
+      "invalid_vin": "Insira um VIN válido de 17 caracteres.",
+      "persistent_credential_required": "Use uma credencial Companion HA persistente, não um token de prova temporário.",
+      "consumer_reauthentication_required": "Esta credencial de HA foi rejeitada. Crie um novo link HA na página Conexões complementares.",
+      "upstream_reauthorization_required": "Reconecte o NIO na página de conexões do Companion; mantenha sua credencial de HA existente.",
+      "source_disconnected": "Reconecte sua fonte NIO na página de conexões Companion.",
+      "retry_later": "O companheiro está temporariamente indisponível. Tente novamente mais tarde.",
+      "invalid_response": "Companion retornou uma resposta inválida.",
+      "identity_mismatch": "Este link complementar pertence a um veículo diferente.",
+      "insufficient_coverage": "O Companion precisa de dados recentes e verificados do estado de carga, autonomia e hodômetro antes desta troca.",
+      "source_unload_failed": "A conexão existente não pôde ser interrompida. Tente novamente mais tarde.",
+      "source_switch_failed": "A troca falhou. A configuração anterior foi restaurada.",
+      "source_rollback_failed": "A configuração anterior foi restaurada, mas não foi possível carregar. Verifique a integração antes de tentar novamente.",
+      "existing_vehicle_missing": "Este veículo não existe mais. Selecione um veículo existente."
+    }
+  },
+  "issues": {
+    "companion_source_reconnect": {
+      "title": "Reconecte NIO no Companion",
+      "description": "Sua conexão NIO upstream precisa de atenção. Abra a [página de conexões complementares]({connections_url}) e reconecte o NIO. Mantenha o link existente do Home Assistant: sua credencial permanece válida. O Home Assistant retomará as leituras em cache automaticamente quando a fonte se recuperar."
+    }
+  },
+  "application_credentials": {
+    "description": "Crie ou abra seu aplicativo pessoal no [console do desenvolvedor NIO Open Telematics]({console_url}), defina seu URI de redirecionamento OAuth exatamente como [{redirect_url}]({redirect_url}) e insira seu ID de cliente e segredo de cliente."
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Painel do veículo",
+        "description": "Veículos opcionais e fontes domésticas. Deixe uma fonte de veículo vazia para usar sua entidade NIO automaticamente; a conexão e a alimentação podem vir de qualquer carregador HA e o EVCC não é necessário. A importação da sessão de histórico requer o formato compatível com EVCC.",
+        "data": {
+          "model": "Modelo de carro para arte local",
+          "paint": "Cor do carro (mantém automaticamente a imagem existente do ET5 Touring)",
+          "language": "Idioma do painel (segue automaticamente o idioma do Home Assistant de cada visualizador)",
+          "soc_entity": "Estado da entidade de cobrança (substituição NIO opcional)",
+          "range_entity": "Entidade de intervalo restante (substituição NIO opcional)",
+          "odometer_entity": "Entidade do odômetro (substituição NIO opcional)",
+          "charging_state_entity": "Entidade de estado de cobrança (substituição NIO opcional)",
+          "charge_limit_entity": "Entidade de limite de cobrança (substituição NIO opcional)",
+          "cost_energy": "Entidade de energia de cobrança registrada (kWh acumulado)",
+          "cost_solar": "Entidade de energia de carregamento solar registrada (kWh cumulativo)",
+          "cost_total_cost": "Entidade de custo de cobrança registrada (moeda acumulada)",
+          "cost_grid_price": "Entidade de preço de importação da rede (moeda/kWh)",
+          "cost_export_price": "Entidade de preço de exportação solar (moeda/kWh)",
+          "evcc_connected": "Entidade conectada ao carregador (EVCC ou outra fonte HA)",
+          "evcc_power": "Entidade de energia de carregamento (EVCC ou outra fonte de HA)",
+          "evcc_history": "Entidade de sessões de cobrança compatíveis com EVCC",
+          "electricity_price": "Entidade de preço de eletricidade",
+          "reimbursement_rate": "Entidade de taxa de reembolso",
+          "battery_capacity_kwh": "Capacidade útil da bateria (kWh)",
+          "full_range_km": "Alcance com carga total (km; reserva de registro)",
+          "ledger_enabled": "Habilitar histórico de viagens e cobranças"
+        }
+      }
+    },
+    "error": {
+      "ledger_calibration_required": "Defina a capacidade utilizável da bateria e a faixa de carga total antes de ativar o histórico.",
+      "incomplete_cost_sources": "Defina todas as cinco fontes de custos registrados ou deixe-as vazias.",
+      "invalid_paint_for_model": "Escolha uma cor disponível para este modelo de carro."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_state_of_charge": {
+        "name": "Estado de carga da bateria"
+      },
+      "remaining_range": {
+        "name": "Faixa restante"
+      },
+      "charging_state": {
+        "name": "Estado de carregamento"
+      },
+      "charging_target": {
+        "name": "Alvo de carregamento"
+      },
+      "maximum_soc": {
+        "name": "Estado máximo de carga"
+      },
+      "high_voltage_battery_current": {
+        "name": "Corrente da bateria de alta tensão"
+      },
+      "data_timestamp": {
+        "name": "Carimbo de data/hora dos dados"
+      }
+    }
+  },
+  "selector": {
+    "paint": {
+      "options": {
+        "auto": "Automático",
+        "cloud-white": "Cloud White",
+        "deep-black": "Deep Black",
+        "star-gray": "Star Gray",
+        "stratosphere-blue": "Stratosphere Blue",
+        "airspace-blue": "Airspace Blue",
+        "arctic-green": "Arctic Green",
+        "first-light-kiss": "First Light Kiss",
+        "sunbath-yellow": "Sunbath / Sunbathe Yellow",
+        "luminous-orange": "Luminous Orange",
+        "sunlight-gold": "Sunlight Gold",
+        "galaxy-shadow": "Galaxy Shadow",
+        "southern-star": "Southern Star",
+        "sunrise-beige": "Sunrise Beige",
+        "new-moon-silver": "New Moon Silver",
+        "nebula-green": "Nebula Green"
+      }
+    }
+  }
+}

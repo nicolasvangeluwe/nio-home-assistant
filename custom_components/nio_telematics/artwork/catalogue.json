@@ -1,0 +1,769 @@
+{
+  "schema_version": 1,
+  "selection": "model_and_paint",
+  "models": [
+    {
+      "id": "et5",
+      "label": "ET5",
+      "default_paint": "star-gray",
+      "paints": [
+        {
+          "id": "cloud-white",
+          "label": "Cloud White",
+          "file": "et5/cloud-white.8c210fd6f108.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            84.89999999999998,
+            139.32500000000005,
+            1215.2,
+            562.3499999999999
+          ],
+          "sha256": "8c210fd6f108c3420c5c8f761c957c512fc5966a67d7eb0cbd277c17de4cf655"
+        },
+        {
+          "id": "deep-black",
+          "label": "Deep Black",
+          "file": "et5/deep-black.4f8c58972532.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            85.01999999999998,
+            139.40000000000003,
+            1212.96,
+            561.1999999999999
+          ],
+          "sha256": "4f8c589725324b23b372e3c5881378d88152a4ff815a754dd819f11c1dc8fbec"
+        },
+        {
+          "id": "star-gray",
+          "label": "Star Gray",
+          "file": "et5/star-gray.7bf7d4b38e2f.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            84.95999999999992,
+            139.47500000000002,
+            1214.0800000000002,
+            560.05
+          ],
+          "sha256": "7bf7d4b38e2f44495b17c94ea0a9a860211ef2c630b8370be113df6eaa5a194b"
+        },
+        {
+          "id": "stratosphere-blue",
+          "label": "Stratosphere Blue",
+          "file": "et5/stratosphere-blue.659701d92a6f.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            85.01999999999998,
+            139.40000000000003,
+            1212.96,
+            561.1999999999999
+          ],
+          "sha256": "659701d92a6f1bc77655bc5af9bef286ba2b8fb54db008797faa10c51f1ca570"
+        },
+        {
+          "id": "airspace-blue",
+          "label": "Airspace Blue",
+          "file": "et5/airspace-blue.a30da3d21df4.webp",
+          "width": 1774,
+          "height": 887,
+          "view_box": [
+            113.11999999999989,
+            117.14545454545453,
+            1565.7600000000002,
+            711.709090909091
+          ],
+          "sha256": "a30da3d21df4c87fa48a855ef2f79a0228778db0c147759b4d1d0b092f9f61ce"
+        },
+        {
+          "id": "arctic-green",
+          "label": "Arctic Green",
+          "file": "et5/arctic-green.9efdb7e6df6b.webp",
+          "width": 1774,
+          "height": 887,
+          "view_box": [
+            41.43999999999994,
+            104.79090909090911,
+            1653.1200000000001,
+            751.4181818181818
+          ],
+          "sha256": "9efdb7e6df6b6344a78dd46799312753972b73ada36752625b1f9b442d0ea4a3"
+        },
+        {
+          "id": "first-light-kiss",
+          "label": "First Light Kiss",
+          "file": "et5/first-light-kiss.5eb1df4de5f8.webp",
+          "width": 1774,
+          "height": 887,
+          "view_box": [
+            61.559999999999945,
+            103.30000000000001,
+            1650.88,
+            750.4
+          ],
+          "sha256": "5eb1df4de5f8ba258eefcea35a4cbf5b2d07a86326c12995ea755cdf073dd13f"
+        },
+        {
+          "id": "sunbath-yellow",
+          "label": "Sunbath / Sunbathe Yellow",
+          "file": "et5/sunbath-yellow.08de6d12c11d.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            84.95999999999992,
+            138.47500000000002,
+            1214.0800000000002,
+            560.05
+          ],
+          "sha256": "08de6d12c11dd05375d1ee8c9b9b05c786f11017c947f943ad3c639130cf276d"
+        },
+        {
+          "id": "luminous-orange",
+          "label": "Luminous Orange",
+          "file": "et5/luminous-orange.2207e79a61f3.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            2.939999999999941,
+            128.15454545454548,
+            1625.1200000000001,
+            738.690909090909
+          ],
+          "sha256": "2207e79a61f31c4cb4e0fa77bcce6977ad11a48f9b5e6c13e3c0cf1facbc5f9b"
+        }
+      ]
+    },
+    {
+      "id": "et5-touring",
+      "label": "ET5 Touring",
+      "default_paint": "star-gray",
+      "paints": [
+        {
+          "id": "cloud-white",
+          "label": "Cloud White",
+          "file": "et5-touring/cloud-white.143f9e983a8f.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            91.25999999999999,
+            132.84545454545457,
+            1208.48,
+            549.3090909090909
+          ],
+          "sha256": "143f9e983a8fc95dab168042eb8ef3eeb24b2297bd1430c259d2881b5df685cd"
+        },
+        {
+          "id": "deep-black",
+          "label": "Deep Black",
+          "file": "et5-touring/deep-black.332101fd770f.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            91.25999999999999,
+            132.84545454545457,
+            1208.48,
+            549.3090909090909
+          ],
+          "sha256": "332101fd770ff1a8fc79cc5115459884c783d3f212d27907828c183e5a392704"
+        },
+        {
+          "id": "star-gray",
+          "label": "Star Gray",
+          "file": "et5-touring/star-gray.3e0f9a9d114c.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            91.19999999999993,
+            133.59090909090907,
+            1209.6000000000001,
+            549.8181818181819
+          ],
+          "sha256": "3e0f9a9d114cbce552bbc14d1ac979ea9ddbb29bd97dedc1d9df11a7904a3c90"
+        },
+        {
+          "id": "stratosphere-blue",
+          "label": "Stratosphere Blue",
+          "file": "et5-touring/stratosphere-blue.27927acb3ed2.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            90.13999999999999,
+            132.33636363636367,
+            1210.72,
+            550.3272727272727
+          ],
+          "sha256": "27927acb3ed22bcdc60cc4d9e982ec3087ef270b152d932356d5179f424521aa"
+        },
+        {
+          "id": "airspace-blue",
+          "label": "Airspace Blue",
+          "file": "et5-touring/airspace-blue.de1f0c1d447a.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            154.07999999999993,
+            294.08181818181816,
+            1211.8400000000001,
+            550.8363636363637
+          ],
+          "sha256": "de1f0c1d447a770d292314f64d870f515f850a63edd6c5ed6af55ef2aaf55757"
+        },
+        {
+          "id": "arctic-green",
+          "label": "Arctic Green",
+          "file": "et5-touring/arctic-green.e836711e0ce9.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            178.1199999999999,
+            277.0090909090909,
+            1229.7600000000002,
+            558.9818181818182
+          ],
+          "sha256": "e836711e0ce96fc0e4b4b74361caaf324f70ce5b1bb4590d1790304a22bcfa22"
+        },
+        {
+          "id": "first-light-kiss",
+          "label": "First Light Kiss",
+          "file": "et5-touring/first-light-kiss.153c8c0542f3.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            134.2199999999999,
+            268.23636363636365,
+            1358.5600000000002,
+            617.5272727272727
+          ],
+          "sha256": "153c8c0542f3ca09d7f442f8c80f67be6a23a5f00bec3dd1df823841e821ea6f"
+        },
+        {
+          "id": "sunbath-yellow",
+          "label": "Sunbath / Sunbathe Yellow",
+          "file": "et5-touring/sunbath-yellow.eb4e072339b5.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            101.2399999999999,
+            275.56363636363636,
+            1339.5200000000002,
+            608.8727272727273
+          ],
+          "sha256": "eb4e072339b52caab67e996d48d4be9443430dad6231597f9e0ce440837b1bb5"
+        },
+        {
+          "id": "luminous-orange",
+          "label": "Luminous Orange",
+          "file": "et5-touring/luminous-orange.da135c60ce25.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            154.01999999999998,
+            292.8272727272727,
+            1212.96,
+            551.3454545454546
+          ],
+          "sha256": "da135c60ce25449d0a68bcf13c354cb92d7ae37a427fecd4716c1e6c7163b114"
+        },
+        {
+          "id": "sunlight-gold",
+          "label": "Sunlight Gold",
+          "file": "et5-touring/sunlight-gold.a19619cb8e09.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            152.89999999999998,
+            293.8181818181818,
+            1215.2,
+            552.3636363636364
+          ],
+          "sha256": "a19619cb8e098d6d239c397c855c41dc8dd9c05aab30106b228e96a53897fae9"
+        }
+      ]
+    },
+    {
+      "id": "el6",
+      "label": "EL6",
+      "default_paint": "star-gray",
+      "paints": [
+        {
+          "id": "cloud-white",
+          "label": "Cloud White",
+          "file": "el6/cloud-white.45b120131365.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            98.71999999999991,
+            111.27500000000003,
+            1218.5600000000002,
+            578.4499999999999
+          ],
+          "sha256": "45b120131365eaae4b246e1db1dd3b2cdf5528338d5dd78e8f386a0432d6b427"
+        },
+        {
+          "id": "deep-black",
+          "label": "Deep Black",
+          "file": "el6/deep-black.6224a2705dca.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            98.77999999999997,
+            111.27500000000003,
+            1217.44,
+            578.4499999999999
+          ],
+          "sha256": "6224a2705dca926444f651ac7e628d281bf73f893a93bf5c0b0edda677d040c2"
+        },
+        {
+          "id": "star-gray",
+          "label": "Star Gray",
+          "file": "el6/star-gray.5fce16a10917.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            98.77999999999997,
+            111.27500000000003,
+            1217.44,
+            578.4499999999999
+          ],
+          "sha256": "5fce16a10917a3fb0cfea05b735a6df0eb7ab6a92ad5f616330c6d7806501f62"
+        },
+        {
+          "id": "stratosphere-blue",
+          "label": "Stratosphere Blue",
+          "file": "el6/stratosphere-blue.ea6398e9c4c5.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            98.77999999999997,
+            111.27500000000003,
+            1217.44,
+            578.4499999999999
+          ],
+          "sha256": "ea6398e9c4c5335bd085af4af0cb99882350269028f44bd202846e9cecbb1892"
+        },
+        {
+          "id": "airspace-blue",
+          "label": "Airspace Blue",
+          "file": "el6/airspace-blue.9718956969e3.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            41.479999999999905,
+            116.55000000000001,
+            1559.0400000000002,
+            742.9
+          ],
+          "sha256": "9718956969e3c08307ac0e639afd956af42752fbad95fedec67d17b5ef62d42b"
+        },
+        {
+          "id": "arctic-green",
+          "label": "Arctic Green",
+          "file": "el6/arctic-green.f5ca42590d72.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            40.39999999999998,
+            114.55000000000001,
+            1579.2,
+            742.9
+          ],
+          "sha256": "f5ca42590d72e0a9ebc91190536c03ec57ff7c701ba6de2a1c44b970ecc7747f"
+        },
+        {
+          "id": "galaxy-shadow",
+          "label": "Galaxy Shadow",
+          "file": "el6/galaxy-shadow.d22babf42485.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            72.29999999999995,
+            124.72500000000002,
+            1506.4,
+            709.55
+          ],
+          "sha256": "d22babf42485a28ce301269e10192ebbef7b933b8379368c9b7f1099cf7344d6"
+        },
+        {
+          "id": "sunlight-gold",
+          "label": "Sunlight Gold",
+          "file": "el6/sunlight-gold.cfdbf0ea468e.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            61.979999999999905,
+            114.45000000000005,
+            1531.0400000000002,
+            729.0999999999999
+          ],
+          "sha256": "cfdbf0ea468e383e10b92c71728831d76eaa4ee923885af8c2c2c936f435f79d"
+        },
+        {
+          "id": "southern-star",
+          "label": "Southern Star",
+          "file": "el6/southern-star.6ca54c2b798e.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            39.219999999999914,
+            117.47500000000002,
+            1582.5600000000002,
+            744.05
+          ],
+          "sha256": "6ca54c2b798e8d69f3a8f7d4f37f4483d15d13f25c4edf710c67d4e6434506ce"
+        },
+        {
+          "id": "luminous-orange",
+          "label": "Luminous Orange",
+          "file": "el6/luminous-orange.c2220c6a1137.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            26.159999999999968,
+            103.62500000000006,
+            1583.68,
+            741.7499999999999
+          ],
+          "sha256": "c2220c6a113705d18f15192f53b3c6dd3041ea6794d7da7af52f5e67b39b8b8c"
+        }
+      ]
+    },
+    {
+      "id": "et7",
+      "label": "ET7",
+      "default_paint": "star-gray",
+      "paints": [
+        {
+          "id": "cloud-white",
+          "label": "Cloud White",
+          "file": "et7/cloud-white.9f1d256d5eef.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            16.09999999999991,
+            178.09090909090907,
+            1640.8000000000002,
+            745.8181818181819
+          ],
+          "sha256": "9f1d256d5eef9774671275e5f77f3409898c0fc91bc779e21adabdb92f92c1b7"
+        },
+        {
+          "id": "deep-black",
+          "label": "Deep Black",
+          "file": "et7/deep-black.5dbcceab8434.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            13.979999999999905,
+            176.08181818181816,
+            1643.0400000000002,
+            746.8363636363637
+          ],
+          "sha256": "5dbcceab84345d73f6c2dbfdcc2cf86ee2953d0a9913d3d45e79168a508a064d"
+        },
+        {
+          "id": "star-gray",
+          "label": "Star Gray",
+          "file": "et7/star-gray.bc9ff7cbc340.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            16.219999999999914,
+            178.09999999999997,
+            1638.5600000000002,
+            744.8000000000001
+          ],
+          "sha256": "bc9ff7cbc3408b4f03fc6f6d2078b5df43bb5f3d96b2b8f9d8e6581b38ed8352"
+        },
+        {
+          "id": "sunrise-beige",
+          "label": "Sunrise Beige",
+          "file": "et7/sunrise-beige.6ba6a70b5c58.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            16.159999999999968,
+            177.84545454545457,
+            1639.68,
+            745.3090909090909
+          ],
+          "sha256": "6ba6a70b5c5884c53d1029d7127506f927f11ae2de88ed525e3857052a3540df"
+        },
+        {
+          "id": "southern-star",
+          "label": "Southern Star",
+          "file": "et7/southern-star.3e07f3263806.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            15.039999999999964,
+            176.83636363636367,
+            1641.92,
+            746.3272727272727
+          ],
+          "sha256": "3e07f326380664526e29b2e4cea02862d56631137d43e4501a55c25727207996"
+        }
+      ]
+    },
+    {
+      "id": "el7",
+      "label": "EL7",
+      "default_paint": "star-gray",
+      "paints": [
+        {
+          "id": "cloud-white",
+          "label": "Cloud White",
+          "file": "el7/cloud-white.1a8749d7e3bb.webp",
+          "width": 1612,
+          "height": 976,
+          "view_box": [
+            -7.480000000000132,
+            153.35000000000002,
+            1632.9600000000003,
+            761.3
+          ],
+          "sha256": "1a8749d7e3bb083cc83c99547f61b779b09d93812b3b5417a336a263a622e201"
+        },
+        {
+          "id": "deep-black",
+          "label": "Deep Black",
+          "file": "el7/deep-black.4f8a89e46c85.webp",
+          "width": 1612,
+          "height": 976,
+          "view_box": [
+            -6.300000000000068,
+            153.425,
+            1629.6000000000001,
+            760.15
+          ],
+          "sha256": "4f8a89e46c853741208f0b3904a8f340f52a96a79c35ed9684288a320a405d68"
+        },
+        {
+          "id": "star-gray",
+          "label": "Star Gray",
+          "file": "el7/star-gray.9296e9cde482.webp",
+          "width": 1612,
+          "height": 976,
+          "view_box": [
+            -6.240000000000123,
+            154.57500000000005,
+            1628.4800000000002,
+            757.8499999999999
+          ],
+          "sha256": "9296e9cde482a28fb120c8e35985985d707a431b3cb1872d59241a76f714b59e"
+        },
+        {
+          "id": "southern-star",
+          "label": "Southern Star",
+          "file": "el7/southern-star.3b901e8338c8.webp",
+          "width": 1612,
+          "height": 976,
+          "view_box": [
+            -7.480000000000132,
+            153.27500000000003,
+            1632.9600000000003,
+            762.4499999999999
+          ],
+          "sha256": "3b901e8338c80d876f33825e1c6322b14b9520ffd5221cb9ef9cfbcc1b3dec33"
+        },
+        {
+          "id": "airspace-blue",
+          "label": "Airspace Blue",
+          "file": "el7/airspace-blue.467eb286dcd0.webp",
+          "width": 1612,
+          "height": 976,
+          "view_box": [
+            -6.480000000000132,
+            153.35000000000002,
+            1632.9600000000003,
+            761.3
+          ],
+          "sha256": "467eb286dcd0d2689250d5e6a00485babbf01c3f201f26742629d720226e0b51"
+        },
+        {
+          "id": "arctic-green",
+          "label": "Arctic Green",
+          "file": "el7/arctic-green.f3bbab166bfe.webp",
+          "width": 1612,
+          "height": 976,
+          "view_box": [
+            -6.420000000000073,
+            153.35000000000002,
+            1631.8400000000001,
+            761.3
+          ],
+          "sha256": "f3bbab166bfefd8673cff9973d050f8fcd2086d2eb2584ed894e4a340fd1d8e5"
+        },
+        {
+          "id": "luminous-orange",
+          "label": "Luminous Orange",
+          "file": "el7/luminous-orange.9074e7cb1c0a.webp",
+          "width": 1612,
+          "height": 976,
+          "view_box": [
+            -6.420000000000073,
+            153.35000000000002,
+            1631.8400000000001,
+            761.3
+          ],
+          "sha256": "9074e7cb1c0a0f9d9c944ecef34530ae75d6b70fb765e84467d8df88f5058f28"
+        }
+      ]
+    },
+    {
+      "id": "el8",
+      "label": "EL8",
+      "default_paint": "new-moon-silver",
+      "paints": [
+        {
+          "id": "cloud-white",
+          "label": "Cloud White",
+          "file": "el8/cloud-white.55cecd1ac6cc.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            96.17999999999995,
+            114.05000000000001,
+            1228.64,
+            581.9
+          ],
+          "sha256": "55cecd1ac6cc1db45ba76ad491c832b20979b8a0dacfb51cf6c8303368b87d6c"
+        },
+        {
+          "id": "deep-black",
+          "label": "Deep Black",
+          "file": "el8/deep-black.777ffbf1e540.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            96.17999999999995,
+            114.05000000000001,
+            1228.64,
+            581.9
+          ],
+          "sha256": "777ffbf1e540941e28c24805fc245f29ffd40ff5ef55de08473183464f92bd2a"
+        },
+        {
+          "id": "new-moon-silver",
+          "label": "New Moon Silver",
+          "file": "el8/new-moon-silver.223a579711e3.webp",
+          "width": 1672,
+          "height": 941,
+          "view_box": [
+            73.41999999999996,
+            123.42500000000001,
+            1504.16,
+            714.15
+          ],
+          "sha256": "223a579711e316b2ee40ddd37954fdaba8a43c06bc0b0fc62d700ebe8d574868"
+        },
+        {
+          "id": "sunlight-gold",
+          "label": "Sunlight Gold",
+          "file": "el8/sunlight-gold.9b116afc5716.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            96.17999999999995,
+            114.05000000000001,
+            1228.64,
+            581.9
+          ],
+          "sha256": "9b116afc5716168afe07371f5ae696e5490932f19ac382e013762f4cd779716f"
+        },
+        {
+          "id": "nebula-green",
+          "label": "Nebula Green",
+          "file": "el8/nebula-green.90a2005d83a6.webp",
+          "width": 1440,
+          "height": 810,
+          "view_box": [
+            96.17999999999995,
+            114.05000000000001,
+            1228.64,
+            581.9
+          ],
+          "sha256": "90a2005d83a638a90ffd122255efd769c415dd8c7793a2740e426dbb91085293"
+        }
+      ]
+    },
+    {
+      "id": "es8",
+      "label": "ES8 (legacy)",
+      "default_paint": "star-gray",
+      "paints": [
+        {
+          "id": "cloud-white",
+          "label": "Cloud White",
+          "file": "es8/cloud-white.19e5954ccabc.webp",
+          "width": 1618,
+          "height": 972,
+          "view_box": [
+            -36.90000000000009,
+            168.60000000000002,
+            1696.8000000000002,
+            772.8
+          ],
+          "sha256": "19e5954ccabcf096fd36dbaeb1a810ce927b0750a664b3508ace942d5e7c7dc2"
+        },
+        {
+          "id": "deep-black",
+          "label": "Deep Black",
+          "file": "es8/deep-black.c9fae04076c7.webp",
+          "width": 1618,
+          "height": 972,
+          "view_box": [
+            -38.020000000000095,
+            168.60000000000002,
+            1699.0400000000002,
+            772.8
+          ],
+          "sha256": "c9fae04076c7f3b841404b03895ec0c8e61b13fcd8f7af49a41af3d3c09af928"
+        },
+        {
+          "id": "star-gray",
+          "label": "Star Gray",
+          "file": "es8/star-gray.ba957f9623a2.webp",
+          "width": 1618,
+          "height": 972,
+          "view_box": [
+            -36.780000000000086,
+            169.87272727272727,
+            1694.5600000000002,
+            770.2545454545455
+          ],
+          "sha256": "ba957f9623a2a28ab03966ba9ff5aaa77c4fd4ba2d250e1314f6f4841f176d0d"
+        },
+        {
+          "id": "southern-star",
+          "label": "Southern Star",
+          "file": "es8/southern-star.40b5cdf1d444.webp",
+          "width": 1618,
+          "height": 972,
+          "view_box": [
+            -37.960000000000036,
+            167.45000000000005,
+            1697.92,
+            775.0999999999999
+          ],
+          "sha256": "40b5cdf1d444be058747d5cd1682f88a5eacd3e2a9a45cb4a270566262843ec5"
+        },
+        {
+          "id": "arctic-green",
+          "label": "Arctic Green",
+          "file": "es8/arctic-green.ab9f3ac68d6d.webp",
+          "width": 1618,
+          "height": 972,
+          "view_box": [
+            -37.020000000000095,
+            167.60000000000002,
+            1699.0400000000002,
+            772.8
+          ],
+          "sha256": "ab9f3ac68d6d1986c073b02be7fabfa10b826c4abbb377159e29bc6f01f73670"
+        }
+      ]
+    }
+  ]
+}

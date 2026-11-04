@@ -179,8 +179,9 @@ test('rolling native 100 km reaches past gaps but excludes range-derived trips',
   assert.equal(rolling.projected_range_km, 225);
 });
 
-test('other NIO models use the approved NIO front icon, not a fabricated model image', () => {
-  const html = Dashboard.prototype.carImage.call({esc: value => value}, 'EL6');
+test('other NIO models keep their placeholder before local artwork arrives', () => {
+  const card = Object.create(Dashboard.prototype);
+  const html = card.carImage('EL6');
   assert.match(html, /class="car-placeholder"/);
   assert.doesNotMatch(html, /et5-touring-hero/);
   const range = Dashboard.prototype.rangeIcon.call({}, 'EL6');
@@ -190,15 +191,92 @@ test('other NIO models use the approved NIO front icon, not a fabricated model i
 });
 
 test('ET5 Touring uses the locally bundled studio render without stacked shadows', () => {
-  const html = Dashboard.prototype.carImage.call({}, 'ET5 Touring');
+  const card = Object.create(Dashboard.prototype);
+  const html = card.carImage('ET5 Touring');
   assert.match(html, /et5-touring-studio\.png/);
   assert.match(Dashboard.styles, /\.car-art:before\{display:none\}/);
   assert.match(Dashboard.styles, /\.car-photo\{filter:none\}/);
 });
 
 test('automatic model detection prefers ET5 Touring over the shorter ET5 name', () => {
-  const model = Dashboard.prototype.modelFor.call({config: {}}, {name: 'My ET5 Touring', preferences: {model: 'auto'}});
+  const card = Object.create(Dashboard.prototype);
+  card.config = {};
+  const model = card.modelFor({name: 'My ET5 Touring', preferences: {model: 'auto'}});
   assert.equal(model, 'ET5 Touring');
-  const unknown = Dashboard.prototype.modelFor.call({config: {}}, {name: 'My car', preferences: {model: 'auto'}});
+  const unknown = card.modelFor({name: 'My car', preferences: {model: 'auto'}});
   assert.equal(unknown, 'NIO');
+});
+
+test('paint images use bundled model paths and preserve the Touring default', () => {
+  const catalogue = JSON.parse(fs.readFileSync(path.join(__dirname, '../custom_components/nio_telematics/artwork/catalogue.json'), 'utf8'));
+  const card = Object.create(Dashboard.prototype);
+  card.artworkCatalogue = catalogue;
+  card.vehicles = [];
+  card.config = {};
+  card._hass = {language: 'en'};
+  assert.match(card.carImage('EL6', 'auto'), /\/nio_telematics\/artwork\/el6\//);
+  assert.match(card.carImage('ES8', 'auto'), /\/nio_telematics\/artwork\/es8\//);
+  assert.match(card.paintOptions('ES8'), /cloud-white/);
+  assert.match(card.carImage('ET5 Touring', 'auto'), /et5-touring-studio\.png/);
+  assert.match(card.carImage('ET5 Touring', 'sunlight-gold'), /\/nio_telematics\/artwork\/et5-touring\//);
+  assert.doesNotMatch(card.carImage('ET7', 'sunlight-gold'), /\/nio_telematics\/artwork\//);
+});
+
+test('all offered dashboard languages translate the history tabs and empty state', () => {
+  const card = Object.create(Dashboard.prototype);
+  card._hass = {language: 'en'};
+  card.vehicles = [{entry_id: 'car', preferences: {language: 'auto'}}];
+  for(const language of ['nl','fr','de','nb','sv','da','cs','el','hu','lb','pl','pt','ro']){
+    card.config = {language};
+    assert.notEqual(card.words.vehicleHistory, 'Vehicle history', language);
+    assert.notEqual(card.words.historyTabs[0], 'Charging', language);
+    assert.notEqual(card.words.noData, 'Vehicle data unavailable', language);
+  }
+});
+
+test('late artwork does not replace an open settings dialog', async () => {
+  const catalogue = JSON.parse(fs.readFileSync(path.join(__dirname, '../custom_components/nio_telematics/artwork/catalogue.json'), 'utf8'));
+  const localElements = new Map();
+  vm.runInNewContext(source, {
+    HTMLElement: class {},
+    customElements: {get: name => localElements.get(name), define: (name, cls) => localElements.set(name, cls)},
+    window: {customCards: []},
+    fetch: async () => ({ok: true, json: async () => catalogue}),
+  });
+  const card = Object.create(localElements.get('nio-vehicle-dashboard').prototype);
+  card.vehicles = [{entry_id: 'car', name: 'My EL6', preferences: {model: 'EL6', paint: 'auto'}}];
+  card.config = {};
+  card._hass = {language: 'en'};
+  card.isConnected = true;
+  const picker = {value: 'auto', options: [{value: 'auto'}], innerHTML: ''};
+  const dialog = {querySelector: selector => selector === '[name="paint"]' ? picker : selector === '[name="model"]' ? {value: 'EL6'} : null};
+  const art = {innerHTML: ''};
+  card.shadowRoot = {querySelector: selector => selector === 'dialog[open]' ? dialog : selector === '.car-art' ? art : null};
+  let renders = 0;
+  card.render = () => {renders++};
+  card.refreshArtwork();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(renders, 0);
+  assert.match(picker.innerHTML, /cloud-white/);
+  assert.match(art.innerHTML, /\/nio_telematics\/artwork\/el6\//);
+});
+
+test('a failed artwork fetch can retry after the cooldown', async () => {
+  const localElements = new Map();
+  let now = 1000, calls = 0;
+  const context = {
+    HTMLElement: class {},
+    customElements: {get: name => localElements.get(name), define: (name, cls) => localElements.set(name, cls)},
+    window: {customCards: []},
+    Date: class extends Date {static now(){return now;}},
+    fetch: async () => {calls++; if(calls === 1)throw new Error('Temporary outage'); return {ok: true, json: async () => ({schema_version: 1, selection: 'model_and_paint', models: []})};},
+  };
+  vm.createContext(context);
+  vm.runInContext(source + '\nglobalThis.loadArtwork = nioLoadArtworkCatalogue;', context);
+  assert.equal(await context.loadArtwork(), null);
+  assert.equal(await context.loadArtwork(), null);
+  assert.equal(calls, 1);
+  now += 30001;
+  assert.equal((await context.loadArtwork()).schema_version, 1);
+  assert.equal(calls, 2);
 });

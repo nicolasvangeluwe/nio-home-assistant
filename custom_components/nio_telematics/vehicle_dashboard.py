@@ -18,6 +18,7 @@ from .car_dashboard import async_configure_recorder, start_recorder
 from .car_dashboard import manager as ledger_manager
 from .car_dashboard.cost_split import SOURCE_KEYS as COST_SOURCE_KEYS
 from .car_dashboard.ledger import Ledger
+from .artwork import ALL_PAINTS, pin_model_for_paint, valid_paint
 from .const import DOMAIN
 from .dashboard_backup import history_summary, make_backup, parse_backup
 
@@ -67,6 +68,7 @@ ENTITY_PREFERENCES = (
 PREFERENCES_SCHEMA = vol.Schema(
     {
         vol.Optional("model", default="auto"): vol.In(MODELS),
+        vol.Optional("paint", default="auto"): vol.In(("auto", *sorted(ALL_PAINTS))),
         vol.Optional("language", default="auto"): vol.In(LANGUAGES),
         vol.Optional("soc_entity", default=""): vol.Any("", cv.entity_id),
         vol.Optional("range_entity", default=""): vol.Any("", cv.entity_id),
@@ -196,7 +198,10 @@ async def websocket_save(hass, connection, msg):
         if entity_id and not hass.states.get(entity_id):
             connection.send_error(msg["id"], "invalid_entity", f"{key} does not exist")
             return
-    preferences = msg["preferences"]
+    preferences = pin_model_for_paint(msg["preferences"], entry.title)
+    if not valid_paint(preferences["model"], preferences["paint"], entry.title):
+        connection.send_error(msg["id"], "invalid_paint", "Choose a paint offered for this model")
+        return
     selected_costs = [preferences[key] for key in COST_PREFERENCES]
     if any(selected_costs) and not all(selected_costs):
         connection.send_error(
@@ -238,7 +243,9 @@ async def websocket_save(hass, connection, msg):
 
 def _check_import_preferences(hass, entry, preferences):
     """Require an imported configuration to be usable on this HA."""
-    configured = PREFERENCES_SCHEMA(preferences)
+    configured = pin_model_for_paint(PREFERENCES_SCHEMA(preferences), entry.title)
+    if not valid_paint(configured["model"], configured["paint"], entry.title):
+        raise ValueError("Choose a paint offered for this model")
     for key in ENTITY_PREFERENCES:
         entity_id = configured[key]
         if entity_id and not hass.states.get(entity_id):
@@ -459,6 +466,11 @@ async def async_setup_vehicle_dashboard(hass):
             StaticPathConfig(
                 "/nio_telematics/et5-touring-studio.png",
                 str(component_path / "et5-touring-studio.png"),
+                False,
+            ),
+            StaticPathConfig(
+                "/nio_telematics/artwork",
+                str(component_path / "artwork"),
                 False,
             ),
         ]

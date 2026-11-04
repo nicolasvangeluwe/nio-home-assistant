@@ -1,0 +1,166 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Připojení vozidla",
+        "description": "Pro běžné použití Home Assistant zvolte Direct NIO. Companion je experimentální a je určen pro testery se stávajícím účtem Companion, připojeným autem a samostatným odkazem Home Assistant.",
+        "menu_options": {
+          "direct": "Direct NIO (doporučeno)",
+          "companion": "Doprovodný účet (testování)",
+          "change_connection": "Změnit připojení pro stávající vozidlo"
+        }
+      },
+      "reconfigure": {
+        "title": "Připojení vozidla",
+        "description": "Pro běžné použití Home Assistant zvolte Direct NIO. Companion zůstává k dispozici pro testery se stávajícím účtem Companion, připojeným autem a samostatným odkazem Home Assistant. Vaše aktuální připojení zůstane na svém místě, dokud nepotvrdíte změnu.",
+        "menu_options": {
+          "direct": "Přímé NIO / změna přihlašovacích údajů aplikace",
+          "companion": "Doprovodný účet (testování)"
+        }
+      },
+      "companion": {
+        "title": "Connect Companion",
+        "description": "Companion je experimentální a je určen pro testery; pro běžné použití Home Assistant zvolte Direct NIO. Pokud Companion testujete, vytvořte trvalý odkaz Home Assistant na své [stránce Companion connections] ({connections_url}), poté sem vložte jeho pověření HA. Propojené auto musí mít aktuální stav nabití, dojezd a údaje počítadla kilometrů. Companion v současné době dodává pouze základní údaje o vozidle; další senzory Direct NIO nebudou k dispozici.",
+        "data": {
+          "vehicle_name": "Název vozidla",
+          "vin": "VIN",
+          "companion_credential": "Pověření trvalého domácího asistenta"
+        }
+      },
+      "confirm_source": {
+        "title": "Přepnout toto vozidlo na Companion?",
+        "description": "Uchovávejte entity, nastavení palubní desky a historii tohoto vozidla a čtěte jeho základní telemetrii z Companion. Pouze přímé senzory budou nedostupné. Pokud nový zdroj nelze načíst, obnoví se předchozí konfigurace. Pozastavená položka povolí Companion pouze po ověření. Návrat do Direct NIO může vyžadovat opětovnou autorizaci NIO."
+      },
+      "vehicle": {
+        "title": "Přidejte své vozidlo NIO",
+        "description": "Zadejte identitu vozidla po autorizaci Home Assistant pomocí NIO.",
+        "data": {
+          "vehicle_name": "Název vozidla",
+          "vin": "VIN"
+        }
+      },
+      "change_connection": {
+        "title": "Vyberte si své stávající vozidlo",
+        "description": "Změňte zdroj dat tohoto vozidla a zachovejte jeho entity, nastavení a historii. Pozastavené vozidlo zůstane pozastaveno, dokud nebude připraven ověřený náhradní zdroj.",
+        "data": {
+          "existing_entry_id": "Vehicle"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Toto vozidlo je již nakonfigurováno.",
+      "source_unload_failed": "Aktuální připojení nelze zastavit. Žádná změna zdroje nebyla uložena.",
+      "source_switch_failed": "Nové připojení se nepodařilo načíst. Předchozí konfigurace byla obnovena.",
+      "source_rollback_failed": "Přepínač selhal a předchozí konfigurace byla obnovena, ale nelze jej načíst. Zkontrolujte integraci a v případě potřeby znovu připojte.",
+      "no_existing_vehicle": "Žádné stávající vozidlo NIO není k dispozici pro překonfigurování.",
+      "existing_vehicle_missing": "Toto vozidlo již neexistuje nebo patří do jiné integrace. Nebylo změněno žádné připojení."
+    },
+    "error": {
+      "invalid_vin": "Zadejte platný 17místný VIN.",
+      "persistent_credential_required": "Použijte trvalé pověření Companion HA, nikoli dočasný důkazní token.",
+      "consumer_reauthentication_required": "Toto pověření HA bylo odmítnuto. Vytvořte nový odkaz HA na stránce Companion connections.",
+      "upstream_reauthorization_required": "Znovu připojte NIO na stránce Companion connections; ponechte si své stávající pověření HA.",
+      "source_disconnected": "Znovu připojte zdroj NIO na stránce Companion connections.",
+      "retry_later": "Companion je dočasně nedostupný. Zkuste to znovu později.",
+      "invalid_response": "Companion vrátil neplatnou odpověď.",
+      "identity_mismatch": "Tento doprovodný odkaz patří jinému vozidlu.",
+      "insufficient_coverage": "Companion potřebuje před tímto přepnutím aktuální ověřený stav nabití, dojezd a počítadlo kilometrů.",
+      "source_unload_failed": "Stávající připojení nelze zastavit. Zkuste to znovu později.",
+      "source_switch_failed": "Přepínač selhal. Předchozí konfigurace byla obnovena.",
+      "source_rollback_failed": "Předchozí konfigurace byla obnovena, ale nelze ji načíst. Před dalším pokusem zkontrolujte integraci.",
+      "existing_vehicle_missing": "Toto vozidlo již neexistuje. Vyberte stávající vozidlo."
+    }
+  },
+  "issues": {
+    "companion_source_reconnect": {
+      "title": "Znovu připojte NIO v doprovodu",
+      "description": "Vaše upstream připojení NIO vyžaduje pozornost. Otevřete stránku [Companion connections] ({connections_url}) a znovu připojte NIO. Ponechat stávající odkaz Home Assistant: jeho přihlašovací údaje zůstávají platné. Home Assistant automaticky obnoví čtení z mezipaměti, jakmile se zdroj obnoví."
+    }
+  },
+  "application_credentials": {
+    "description": "Vytvořte nebo otevřete svou osobní aplikaci v [konzole pro vývojáře NIO Open Telematics]({console_url}), nastavte její URI přesměrování OAuth přesně na [{redirect_url}]({redirect_url}), poté zadejte její ID klienta a tajný klíč klienta."
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Přístrojová deska vozidla",
+        "description": "Volitelné zdroje pro vozidla a domácnost. Nechte zdroj vozidla prázdný, aby se jeho entita NIO používala automaticky; připojení a napájení může pocházet z jakékoli HA nabíječky a EVCC není vyžadováno. Import relace historie vyžaduje formát kompatibilní s EVCC.",
+        "data": {
+          "model": "Model auta pro místní umělecká díla",
+          "paint": "Barva vozu (automaticky zachovává stávající obrázek ET5 Touring)",
+          "language": "Jazyk ovládacího panelu (automaticky se řídí jazykem domácího asistenta každého diváka)",
+          "soc_entity": "Entita stavu nabití (volitelné přepsání NIO)",
+          "range_entity": "Entita zbývajícího rozsahu (volitelné přepsání NIO)",
+          "odometer_entity": "Entita počítadla kilometrů (volitelné přepsání NIO)",
+          "charging_state_entity": "Entita stavu nabíjení (volitelné přepsání NIO)",
+          "charge_limit_entity": "Entita limitu poplatku (volitelné přepsání NIO)",
+          "cost_energy": "Zaznamenaná entita nabíjecí energie (kumulativní kWh)",
+          "cost_solar": "Zaznamenaná entita energie solárního nabíjení (kumulativní kWh)",
+          "cost_total_cost": "Zaznamenaná účetní jednotka nákladů (kumulativní měna)",
+          "cost_grid_price": "Entita importní ceny mřížky (měna/kWh)",
+          "cost_export_price": "Solární jednotka exportní ceny (měna/kWh)",
+          "evcc_connected": "Entita připojená k nabíječce (EVCC nebo jiný zdroj HA)",
+          "evcc_power": "Nabíjecí jednotka (EVCC nebo jiný zdroj HA)",
+          "evcc_history": "entita nabíjecích relací kompatibilní s EVCC",
+          "electricity_price": "Entita ceny elektřiny",
+          "reimbursement_rate": "Subjekt sazby náhrady",
+          "battery_capacity_kwh": "Užitečná kapacita baterie (kWh)",
+          "full_range_km": "Dojezd při plném nabití (km; záložní kniha)",
+          "ledger_enabled": "Povolit historii jízd a nabíjení"
+        }
+      }
+    },
+    "error": {
+      "ledger_calibration_required": "Před povolením historie nastavte použitelnou kapacitu baterie a dojezd na plné nabití.",
+      "incomplete_cost_sources": "Nastavte všech pět zdrojů zaznamenaných nákladů nebo je nechte prázdné.",
+      "invalid_paint_for_model": "Vyberte si barvu dostupnou pro tento model vozu."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_state_of_charge": {
+        "name": "Stav nabití baterie"
+      },
+      "remaining_range": {
+        "name": "Zbývající rozsah"
+      },
+      "charging_state": {
+        "name": "Stav nabíjení"
+      },
+      "charging_target": {
+        "name": "Cíl nabíjení"
+      },
+      "maximum_soc": {
+        "name": "Maximální stav nabití"
+      },
+      "high_voltage_battery_current": {
+        "name": "Vysokonapěťový proud baterie"
+      },
+      "data_timestamp": {
+        "name": "Časové razítko dat"
+      }
+    }
+  },
+  "selector": {
+    "paint": {
+      "options": {
+        "auto": "Automaticky",
+        "cloud-white": "Cloud White",
+        "deep-black": "Deep Black",
+        "star-gray": "Star Gray",
+        "stratosphere-blue": "Stratosphere Blue",
+        "airspace-blue": "Airspace Blue",
+        "arctic-green": "Arctic Green",
+        "first-light-kiss": "First Light Kiss",
+        "sunbath-yellow": "Sunbath / Sunbathe Yellow",
+        "luminous-orange": "Luminous Orange",
+        "sunlight-gold": "Sunlight Gold",
+        "galaxy-shadow": "Galaxy Shadow",
+        "southern-star": "Southern Star",
+        "sunrise-beige": "Sunrise Beige",
+        "new-moon-silver": "New Moon Silver",
+        "nebula-green": "Nebula Green"
+      }
+    }
+  }
+}

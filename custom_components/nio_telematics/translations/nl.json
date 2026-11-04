@@ -105,24 +105,62 @@
           "reimbursement_rate": "Entiteit voor vergoedingstarief",
           "battery_capacity_kwh": "Bruikbare batterijcapaciteit (kWh)",
           "full_range_km": "Bereik bij volle batterij (km; terugval voor rittenhistoriek)",
-          "ledger_enabled": "Ritten- en laadhistoriek inschakelen"
+          "ledger_enabled": "Ritten- en laadhistoriek inschakelen",
+          "paint": "Autokleur (automatisch behoudt de bestaande ET5 Touring-afbeelding)"
         }
       }
     },
     "error": {
       "ledger_calibration_required": "Stel de bruikbare batterijcapaciteit en het bereik bij volle batterij in voordat je historiek inschakelt.",
-      "incomplete_cost_sources": "Stel alle vijf bronnen voor geregistreerde kosten in, of laat ze allemaal leeg."
+      "incomplete_cost_sources": "Stel alle vijf bronnen voor geregistreerde kosten in, of laat ze allemaal leeg.",
+      "invalid_paint_for_model": "Kies een kleur die beschikbaar is voor dit automodel."
     }
   },
   "entity": {
     "sensor": {
-      "battery_state_of_charge": {"name": "Laadpercentage batterij"},
-      "remaining_range": {"name": "Resterend bereik"},
-      "charging_state": {"name": "Laadstatus"},
-      "charging_target": {"name": "Laaddoel"},
-      "maximum_soc": {"name": "Maximaal laadpercentage"},
-      "high_voltage_battery_current": {"name": "Hoogspanningsbatterijstroom"},
-      "data_timestamp": {"name": "Tijdstip gegevens"}
+      "battery_state_of_charge": {
+        "name": "Laadpercentage batterij"
+      },
+      "remaining_range": {
+        "name": "Resterend bereik"
+      },
+      "charging_state": {
+        "name": "Laadstatus"
+      },
+      "charging_target": {
+        "name": "Laaddoel"
+      },
+      "maximum_soc": {
+        "name": "Maximaal laadpercentage"
+      },
+      "high_voltage_battery_current": {
+        "name": "Hoogspanningsbatterijstroom"
+      },
+      "data_timestamp": {
+        "name": "Tijdstip gegevens"
+      }
+    }
+  },
+  "selector": {
+    "paint": {
+      "options": {
+        "auto": "Automatisch",
+        "cloud-white": "Cloud White",
+        "deep-black": "Deep Black",
+        "star-gray": "Star Gray",
+        "stratosphere-blue": "Stratosphere Blue",
+        "airspace-blue": "Airspace Blue",
+        "arctic-green": "Arctic Green",
+        "first-light-kiss": "First Light Kiss",
+        "sunbath-yellow": "Sunbath / Sunbathe Yellow",
+        "luminous-orange": "Luminous Orange",
+        "sunlight-gold": "Sunlight Gold",
+        "galaxy-shadow": "Galaxy Shadow",
+        "southern-star": "Southern Star",
+        "sunrise-beige": "Sunrise Beige",
+        "new-moon-silver": "New Moon Silver",
+        "nebula-green": "Nebula Green"
+      }
     }
   }
 }
