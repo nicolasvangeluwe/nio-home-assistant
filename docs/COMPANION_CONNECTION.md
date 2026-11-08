@@ -1,5 +1,24 @@
 # Optional Companion connection — design handoff
 
+## 8 November — public onboarding boundary
+
+Issue #16 concerns a new account reaching the private proof portal after Auth0
+authentication. The deployed proof is fixed-owner: its documented `allowedSub`
+check rejects other accounts, and account registration does not grant access.
+This is an access boundary, not evidence of an iPhone, passkey, Denmark or EL7
+defect. The README now states this prerequisite before linking the portal.
+Normal users should choose Direct NIO. No owner allowlist, session validation,
+provider configuration or HA connection is changed by this clarification.
+
+Public multi-owner onboarding remains a separate architecture/security milestone
+in Companion's `docs/backend/COORDINATED_ROADMAP.md`. It must establish owner and
+vehicle isolation before admitting additional accounts; a HACS release cannot
+enable it. Source evidence: Companion's
+`docs/backend/OWNER_CONNECTIONS_DEPLOYMENT_2026-10-21.md`,
+`docs/backend/OWNER_WEB_AUTH_2026-10-21.md` and
+`backend/src/owner-web-auth.ts`. The reporter's account was not inspected and a
+successful public-user sign-in is not claimed.
+
 ## 28 October recovery release v0.5.0-dev.1
 
 Released and installed through HACS on 28 October after four CI jobs passed. HA

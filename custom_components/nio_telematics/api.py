@@ -10,12 +10,12 @@ from email.utils import parsedate_to_datetime
 from typing import Any
 
 from aiohttp import ClientError, ClientResponse
-from homeassistant.helpers.config_entry_oauth2_flow import (
-    OAuth2Session,
+from homeassistant.exceptions import (
     OAuth2TokenRequestError,
     OAuth2TokenRequestReauthError,
     OAuth2TokenRequestTransientError,
 )
+from homeassistant.helpers.config_entry_oauth2_flow import OAuth2Session
 
 from .const import TELEMATICS_PATH
 from .models import NioSocStatus

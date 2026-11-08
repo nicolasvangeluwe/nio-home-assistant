@@ -9,12 +9,14 @@ from aiohttp import BasicAuth, ClientError, RequestInfo
 from homeassistant.components.application_credentials import ClientCredential
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.config_entry_oauth2_flow import (
-    AbstractOAuth2Implementation,
-    LocalOAuth2ImplementationWithPkce,
+from homeassistant.exceptions import (
     OAuth2TokenRequestError,
     OAuth2TokenRequestReauthError,
     OAuth2TokenRequestTransientError,
+)
+from homeassistant.helpers.config_entry_oauth2_flow import (
+    AbstractOAuth2Implementation,
+    LocalOAuth2ImplementationWithPkce,
 )
 from multidict import CIMultiDict, CIMultiDictProxy
 from yarl import URL

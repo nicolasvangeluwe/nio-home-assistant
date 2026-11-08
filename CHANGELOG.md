@@ -3,6 +3,22 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.6.0-dev.2
+
+- Fix startup on Home Assistant 2026.11 by importing OAuth token exceptions
+  from `homeassistant.exceptions`, their supported location since the declared
+  Home Assistant 2026.7 minimum. Preserve retryable token failures and native
+  reauthentication for rejected grants. Thanks to @Yenti484 for the report and
+  patch in #19.
+- Clarify that the linked Companion portal is a private, fixed-owner proof.
+  Auth0 registration does not grant access; public Home Assistant users should
+  choose Direct NIO. This release does not open Companion registration or change
+  an existing connection (#16).
+- Document the remaining Danish Firefly telemetry denial separately from the
+  explicit read-only scope fix already shipped in v0.4.0-dev.3 (#3, #15).
+  Existing Direct entries can reauthenticate in place; do not delete the car.
+  The compatibility fix does not override NIO's vehicle/account permissions.
+
 ## 0.6.0-dev.1
 
 - Add bundled, locally served artwork for ET5, ET5 Touring, ET7, EL6, EL7,
