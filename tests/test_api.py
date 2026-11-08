@@ -4,7 +4,7 @@ import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from homeassistant.helpers.config_entry_oauth2_flow import (
+from homeassistant.exceptions import (
     OAuth2TokenRequestReauthError,
     OAuth2TokenRequestTransientError,
 )

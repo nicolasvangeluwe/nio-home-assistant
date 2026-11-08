@@ -43,7 +43,9 @@ Settings now has short help beside optional inputs and a **Backup & restore** se
 
 **Companion bridge (experimental — testing only):** This option remains available and selectable for development testing and future beta testers. It is not recommended for normal Home Assistant use at this stage. Unless you are participating in Companion testing, choose **Direct NIO** instead; you do not need a Companion account for this integration.
 
-If you are testing Companion and already have a connected car there:
+The linked Companion portal is currently a **private, fixed-owner proof**, not public beta registration. Creating an Auth0 account or passkey does not grant access. A successful Auth0 login can therefore return “Sign-in could not be completed” for an account outside that proof. This is separate from NIO vehicle permissions and is not a country restriction. New users should use **Direct NIO**; reinstalling this integration or repeatedly signing up will not unlock the private portal.
+
+If you are the authorized proof owner and already have a connected car there:
 
 1. Open the [Companion Connections page](https://nio-companion-proof.nio-companion-backend.workers.dev/connections) and create a persistent **Home Assistant link** for that car.
 2. In the integration's connection chooser, select **Companion account** and enter the link's Home Assistant credential.
@@ -58,6 +60,8 @@ You can enable additional sensors on the vehicle's **Entities** page. Existing H
 For a Direct NIO connection, to switch to a different Personal Application later, add its Client ID and Secret in Home Assistant's **Application Credentials**, then use **Reconfigure** on the existing vehicle integration. Select the new application and authorize it; the vehicle and its existing entities stay in place. An expired grant uses the same credential picker during reauthentication.
 
 A Direct NIO upgrade that changes requested permissions may prompt **Reauthenticate** in Home Assistant. Complete that flow once using your saved NIO application credential; do not delete and re-add the vehicle. A completed login does not guarantee NIO permits every vehicle feed: if the API availability diagnostic still reports `access_denied`, include your model, country, integration version and sanitized endpoint results in a [bug report](https://github.com/nicolasvangeluwe/nio-home-assistant/issues).
+
+**Known Firefly limitation:** a Danish Firefly owner confirmed that the explicit read-only scope request and same-entry reauthentication work on v0.4.0-dev.4, but API availability still reports `permission_denied` for the tested feeds and supplies no usable telemetry. This account/model case remains unresolved upstream; another scope request, a Companion account or this compatibility update does not establish Firefly support. See [the test report in issue #3](https://github.com/nicolasvangeluwe/nio-home-assistant/issues/3#issuecomment-6401341231).
 
 ## Try it and tell us what you find
 
