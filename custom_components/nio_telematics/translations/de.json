@@ -83,8 +83,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Fahrzeug-Armaturenbrett",
-        "description": "Optionale Fahrzeug- und Haushaltsquellen. Lassen Sie eine Fahrzeugquelle leer, um ihre NIO-Entität automatisch zu verwenden. Anschluss und Strom können von jedem HA-Ladegerät erfolgen, EVCC ist nicht erforderlich. Für den Import von Verlaufssitzungen ist das EVCC-kompatible Format erforderlich.",
+        "title": "Fahrzeugeinstellungen",
+        "description": "Optionale Fahrzeug- und Haushaltsquellen. Lassen Sie eine Fahrzeugquelle leer, um ihre NIO-Entität automatisch zu verwenden. Anschluss und Strom können von jedem HA-Ladegerät erfolgen, EVCC ist nicht erforderlich. Für den Import von Verlaufssitzungen ist das EVCC-kompatible Format erforderlich. Nur bei Companion ändert dies das Leseintervall des Caches in Home Assistant, nicht die vorgelagerte NIO-Abfrage.",
         "data": {
           "model": "Automodell für lokale Kunstwerke",
           "paint": "Wagenfarbe (Automatik behält das bestehende ET5 Touring-Image bei)",
@@ -106,14 +106,30 @@
           "reimbursement_rate": "Erstattungssatzeinheit",
           "battery_capacity_kwh": "Nutzbare Batteriekapazität (kWh)",
           "full_range_km": "Reichweite bei voller Ladung (km; Ledger-Fallback)",
-          "ledger_enabled": "Fahrt- und Ladehistorie aktivieren"
+          "ledger_enabled": "Fahrt- und Ladehistorie aktivieren",
+          "interval_seconds": "Abrufintervall (Sekunden)",
+          "idle_interval_seconds": "Abrufintervall im Ruhezustand (Sekunden)",
+          "adaptive": "Adaptiver Abruf",
+          "connected_entity": "Entität für die Ladeverbindung",
+          "charging_entity": "Entität für aktives Laden",
+          "power_entity": "Leistungsentität des Ladegeräts"
+        },
+        "data_description": {
+          "interval_seconds": "Dieses Intervall gilt für den normalen Abruf. Standard: 15 Sekunden bei Direct NIO und 30 Sekunden bei Companion.",
+          "idle_interval_seconds": "Dieses Intervall gilt, wenn das Fahrzeug nicht lädt; es darf nicht kürzer als das normale Intervall sein.",
+          "adaptive": "Bei Aktivierung bestimmt der Ladestatus das normale oder das Ruheintervall. Unabhängig vom Fahrzeug-Dashboard und EVCC.",
+          "connected_entity": "Verbindungsstatus der Ladestation; bei adaptiver Abfrage erforderlich.",
+          "charging_entity": "Optionaler Binärsensor oder Sensor, der aktives Laden meldet.",
+          "power_entity": "Optionaler Leistungssensor in W oder kW; adaptiver Abruf benötigt eine Lade- oder Leistungsentität."
         }
       }
     },
     "error": {
       "ledger_calibration_required": "Stellen Sie die nutzbare Batteriekapazität und den Vollladebereich ein, bevor Sie den Verlauf aktivieren.",
       "incomplete_cost_sources": "Legen Sie alle fünf erfassten Kostenquellen fest oder lassen Sie sie leer.",
-      "invalid_paint_for_model": "Wählen Sie eine für dieses Automodell verfügbare Farbe."
+      "invalid_paint_for_model": "Wählen Sie eine für dieses Automodell verfügbare Farbe.",
+      "invalid_polling_interval": "Das Abrufintervall ist für diese Verbindung ungültig.",
+      "invalid_polling_sources": "Adaptiver Abruf benötigt eine Entität für die Verbindung und mindestens eine Lade- oder Leistungsentität."
     }
   },
   "entity": {

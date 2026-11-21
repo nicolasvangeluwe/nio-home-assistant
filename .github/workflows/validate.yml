@@ -29,7 +29,18 @@ jobs:
       - run: python -m pip install -r requirements_test.txt
       - name: Compare issue 21 replay with previous release
         run: python .github/scripts/replay_issue21_baseline.py
-      - run: python -m pytest
+      - run: python -m pytest --junitxml=pytest-results.xml
+      - name: Record polling comparison measurements
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import xml.etree.ElementTree as ET
+          for case in ET.parse('pytest-results.xml').iter('testcase'):
+              properties = case.find('properties')
+              if properties is not None:
+                  print(case.attrib['name'], json.dumps({p.attrib['name']: p.attrib['value'] for p in properties}))
+          PY
 
   ha-oauth-compat:
     runs-on: ubuntu-latest

@@ -83,8 +83,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Instrumentpanel for kjøretøy",
-        "description": "Valgfrie kjøretøy- og husholdningskilder. La en kjøretøykilde være tom for å bruke dens NIO-enhet automatisk; tilkobling og strøm kan komme fra hvilken som helst HA-lader, og EVCC er ikke nødvendig. Import av historikkøkter krever det EVCC-kompatible formatet.",
+        "title": "Kjøretøyinnstillinger",
+        "description": "Valgfrie kjøretøy- og husholdningskilder. La en kjøretøykilde være tom for å bruke dens NIO-enhet automatisk; tilkobling og strøm kan komme fra hvilken som helst HA-lader, og EVCC er ikke nødvendig. Import av historikkøkter krever det EVCC-kompatible formatet. Bare for Companion endres hvor ofte Home Assistant leser hurtigbufferen, ikke innhentingen fra NIO.",
         "data": {
           "model": "Bilmodell for lokale kunstverk",
           "paint": "Bilfarge (automatisk beholder eksisterende ET5 Touring-bilde)",
@@ -106,14 +106,30 @@
           "reimbursement_rate": "Refusjonssatsenhet",
           "battery_capacity_kwh": "Brukbar batterikapasitet (kWh)",
           "full_range_km": "Rekkevidde ved full lading (km; reservebok)",
-          "ledger_enabled": "Aktiver tur- og ladehistorikk"
+          "ledger_enabled": "Aktiver tur- og ladehistorikk",
+          "interval_seconds": "Pollingintervall (sekunder)",
+          "idle_interval_seconds": "Hvileintervall for polling (sekunder)",
+          "adaptive": "Adaptiv polling",
+          "connected_entity": "Entitet for ladertilkobling",
+          "charging_entity": "Entitet for aktiv lading",
+          "power_entity": "Laderens effektentitet"
+        },
+        "data_description": {
+          "interval_seconds": "Intervall for normal polling. Standard er 15 sekunder for Direct NIO og 30 sekunder for Companion.",
+          "idle_interval_seconds": "Intervall når bilen er inaktiv; kan ikke være kortere enn normalintervallet.",
+          "adaptive": "Når aktivert velger laderstatus normal- eller hvileintervall. Uavhengig av kjøretøydashbord og EVCC.",
+          "connected_entity": "Laderens tilkoblingsstatus; påkrevd når adaptiv polling er aktivert.",
+          "charging_entity": "Valgfri binærsensor eller sensor som viser aktiv lading.",
+          "power_entity": "Valgfri effektsensor i W eller kW; adaptiv polling krever en lade- eller effektentitet."
         }
       }
     },
     "error": {
       "ledger_calibration_required": "Angi brukbar batterikapasitet og full laderekkevidde før du aktiverer historikk.",
       "incomplete_cost_sources": "Still inn alle fem registrerte kostnadskilder eller la dem stå tomme.",
-      "invalid_paint_for_model": "Velg en farge tilgjengelig for denne bilmodellen."
+      "invalid_paint_for_model": "Velg en farge tilgjengelig for denne bilmodellen.",
+      "invalid_polling_interval": "Ugyldig intervall for denne tilkoblingen.",
+      "invalid_polling_sources": "Adaptiv polling krever en tilkoblingsentitet og minst én lade- eller effektentitet."
     }
   },
   "entity": {

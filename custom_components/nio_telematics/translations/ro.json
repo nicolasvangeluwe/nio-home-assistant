@@ -83,8 +83,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Tabloul de bord al vehiculului",
-        "description": "Opțional pentru vehicule și surse casnice. Lăsați o sursă de vehicul goală pentru a-și utiliza automat entitatea NIO; conexiunea și alimentarea pot proveni de la orice încărcător HA, iar EVCC nu este necesar. Importul sesiunii de istoric necesită formatul compatibil EVCC.",
+        "title": "Setările vehiculului",
+        "description": "Opțional pentru vehicule și surse casnice. Lăsați o sursă de vehicul goală pentru a-și utiliza automat entitatea NIO; conexiunea și alimentarea pot proveni de la orice încărcător HA, iar EVCC nu este necesar. Importul sesiunii de istoric necesită formatul compatibil EVCC. Doar pentru Companion se modifică intervalul de citire a memoriei cache de către Home Assistant, nu colectarea datelor de la NIO.",
         "data": {
           "model": "Model de mașină pentru lucrări de artă locale",
           "paint": "Culoare mașină (automat păstrează imaginea ET5 Touring existentă)",
@@ -106,14 +106,30 @@
           "reimbursement_rate": "Entitatea rata de rambursare",
           "battery_capacity_kwh": "Capacitatea utilizabilă a bateriei (kWh)",
           "full_range_km": "Autonomie la încărcare completă (km; registru de rezervă)",
-          "ledger_enabled": "Activați istoricul călătoriilor și al încărcării"
+          "ledger_enabled": "Activați istoricul călătoriilor și al încărcării",
+          "interval_seconds": "Interval de interogare (secunde)",
+          "idle_interval_seconds": "Interval de interogare inactivă (secunde)",
+          "adaptive": "Interogare adaptivă",
+          "connected_entity": "Entitatea conexiunii încărcătorului",
+          "charging_entity": "Entitate încărcare activă",
+          "power_entity": "Entitate putere încărcător"
+        },
+        "data_description": {
+          "interval_seconds": "Interval pentru interogarea normală. Implicit: 15 secunde pentru Direct NIO și 30 pentru Companion.",
+          "idle_interval_seconds": "Interval când vehiculul este inactiv; nu poate fi mai scurt decât intervalul normal.",
+          "adaptive": "Când este activată, starea încărcătorului selectează intervalul normal sau inactiv. Independent de tabloul vehiculului și EVCC.",
+          "connected_entity": "Starea conexiunii încărcătorului; obligatorie când interogarea adaptivă este activată.",
+          "charging_entity": "Senzor binar sau senzor opțional pentru încărcare activă.",
+          "power_entity": "Senzor opțional de putere în W sau kW; interogarea adaptivă necesită un indicator de încărcare sau putere."
         }
       }
     },
     "error": {
       "ledger_calibration_required": "Setați capacitatea utilizabilă a bateriei și intervalul de încărcare completă înainte de a activa istoricul.",
       "incomplete_cost_sources": "Setați toate cele cinci surse de cost înregistrat sau lăsați-le goale.",
-      "invalid_paint_for_model": "Alegeți o culoare disponibilă pentru acest model de mașină."
+      "invalid_paint_for_model": "Alegeți o culoare disponibilă pentru acest model de mașină.",
+      "invalid_polling_interval": "Interval nevalid pentru această conexiune.",
+      "invalid_polling_sources": "Interogarea adaptivă necesită o entitate de conectare și cel puțin o entitate de încărcare sau putere."
     }
   },
   "entity": {

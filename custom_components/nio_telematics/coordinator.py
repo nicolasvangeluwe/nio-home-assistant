@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import logging
 import math
+import time
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -22,8 +23,9 @@ from .api import (
     NioPermissionError,
     NioResourceNotFoundError,
 )
-from .const import CONF_VIN, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import CONF_VIN, DOMAIN
 from .models import NioSocStatus, NioVehicleData, _event_datetime
+from .polling import polling_settings_for_entry
 
 
 class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
@@ -41,13 +43,18 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
             hass,
             logger=self._LOGGER,
             name=DOMAIN,
-            update_interval=DEFAULT_SCAN_INTERVAL,
+            update_interval=timedelta(
+                seconds=polling_settings_for_entry(entry)["interval_seconds"]
+            ),
             config_entry=entry,
         )
         self._client = client
         self._vin = entry.data[CONF_VIN]
         self._telemetry: dict[str, dict] = {}
         self._request_count = 0
+        self._polling_refresh_count = 0
+        self._polling_last_attempt_monotonic: float | None = None
+        self._polling_auth_failed = False
         self._background_index = 0
 
     _CHANGE_ENDPOINTS = (
@@ -69,6 +76,10 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
 
     async def _async_update_data(self) -> NioVehicleData:
         """Fetch one resource per cycle: energy, energy, energy, background."""
+        self._polling_refresh_count += 1
+        self._polling_last_attempt_monotonic = time.monotonic()
+        if (controller := getattr(self, "polling_controller", None)) is not None:
+            controller.refresh_mode()
         previous = self.data
         endpoint_status = dict(previous.endpoint_status) if previous else {}
         energy_record = None
@@ -111,10 +122,12 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
         except NioPermissionError:
             endpoint_status[resource] = "permission_denied"
         except OAuth2TokenRequestReauthError as err:
+            self._polling_auth_failed = True
             raise ConfigEntryAuthFailed(
                 "NIO OAuth authorization expired; reauthentication is required"
             ) from err
         except NioAuthenticationError as err:
+            self._polling_auth_failed = True
             raise ConfigEntryAuthFailed(str(err)) from err
         except NioApiError as err:
             # Keep optional-feed failures from pinning Direct to one endpoint.
@@ -123,6 +136,7 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
             if resource != "soc_status":
                 self._background_index += 1
             raise UpdateFailed(str(err)) from err
+        self._polling_auth_failed = False
         self._request_count += 1
         if resource != "soc_status":
             self._background_index += 1

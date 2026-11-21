@@ -31,6 +31,36 @@ History is stored by Home Assistant outside HACS-managed integration files, so u
 
 Settings now has short help beside optional inputs and a **Backup & restore** section. An HA administrator can download a JSON copy of this car's dashboard settings and trip/charging history, then preview and explicitly confirm a restore to the same car. Export your current copy before replacing history. OAuth credentials and the full VIN are not exported, but the file contains private trip and cost details: store it securely. This is a dashboard/ledger backup, not a whole-Home-Assistant backup.
 
+## Polling
+
+In the vehicle integration's **Configure** form, you can set the normal polling
+interval or enable **Adaptive polling**. EVCC and the NIO dashboard are optional.
+Existing installations keep their previous timing until you change these options:
+15 seconds for Direct NIO, 30 seconds for Companion cache reads.
+
+For adaptive polling, select a charger connection entity and either a charging
+state entity, a power entity, or both. Use independent charger readings for the
+same car, not this integration's own NIO sensors or templates based on them.
+Power sensors can report W or kW. The default idle interval is 120 seconds.
+Polling slows only while the inputs confirm connected and not charging. Charging,
+unplugging, missing data or uncertain inputs return it to the normal interval.
+Periodic checks continue; polling is never stopped just because the car is idle.
+
+Unknown or unavailable inputs, restored/assumed states and explicit stale-data
+flags use normal polling. An unchanged value with an older report timestamp is
+not treated as a failure: some HA integrations only write states when they
+change. If a charger integration silently freezes a value while keeping it
+available, these inputs cannot reveal that; the periodic vehicle checks still
+continue. The form accepts normal intervals up to 120
+seconds and idle intervals up to 240 seconds; Companion's normal minimum is 30
+seconds. These settings trade update frequency for fewer requests, and do not
+make NIO publish vehicle data sooner.
+
+For **Direct NIO**, this reduces NIO API requests. For **Companion**, it only
+reduces Home Assistant's reads of the Companion cache; Companion's own NIO
+collection schedule is unchanged. Polling mode, effective interval and the
+reason for a fallback are included in the integration's diagnostics.
+
 ## Install
 
 **For normal Home Assistant use, choose Direct NIO.** Companion is a separate experimental testing route, not a requirement for using this integration. See the testing instructions below before selecting it.

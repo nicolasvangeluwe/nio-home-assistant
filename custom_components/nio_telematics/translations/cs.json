@@ -83,8 +83,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Přístrojová deska vozidla",
-        "description": "Volitelné zdroje pro vozidla a domácnost. Nechte zdroj vozidla prázdný, aby se jeho entita NIO používala automaticky; připojení a napájení může pocházet z jakékoli HA nabíječky a EVCC není vyžadováno. Import relace historie vyžaduje formát kompatibilní s EVCC.",
+        "title": "Nastavení vozidla",
+        "description": "Volitelné zdroje pro vozidla a domácnost. Nechte zdroj vozidla prázdný, aby se jeho entita NIO používala automaticky; připojení a napájení může pocházet z jakékoli HA nabíječky a EVCC není vyžadováno. Import relace historie vyžaduje formát kompatibilní s EVCC. Pouze u Companion se mění interval čtení mezipaměti v Home Assistant, nikoli získávání dat od NIO.",
         "data": {
           "model": "Model auta pro místní umělecká díla",
           "paint": "Barva vozu (automaticky zachovává stávající obrázek ET5 Touring)",
@@ -106,14 +106,30 @@
           "reimbursement_rate": "Subjekt sazby náhrady",
           "battery_capacity_kwh": "Užitečná kapacita baterie (kWh)",
           "full_range_km": "Dojezd při plném nabití (km; záložní kniha)",
-          "ledger_enabled": "Povolit historii jízd a nabíjení"
+          "ledger_enabled": "Povolit historii jízd a nabíjení",
+          "interval_seconds": "Interval dotazování (sekundy)",
+          "idle_interval_seconds": "Interval při nečinnosti (sekundy)",
+          "adaptive": "Adaptivní dotazování",
+          "connected_entity": "Entita připojení nabíječky",
+          "charging_entity": "Entita nabíjení",
+          "power_entity": "Entita výkonu nabíječky"
+        },
+        "data_description": {
+          "interval_seconds": "Interval pro běžné dotazování. Výchozí je 15 sekund pro Direct NIO a 30 sekund pro Companion.",
+          "idle_interval_seconds": "Interval při nečinnosti vozidla; nesmí být kratší než běžný interval.",
+          "adaptive": "Při zapnutí vybírá stav nabíječky běžný interval nebo interval při nečinnosti. Nezávislé na panelu vozidla a EVCC.",
+          "connected_entity": "Stav připojení nabíječky; povinný při zapnutém adaptivním dotazování.",
+          "charging_entity": "Volitelný binární senzor nebo senzor aktivního nabíjení.",
+          "power_entity": "Volitelný senzor výkonu ve W nebo kW; adaptivní režim vyžaduje indikátor nabíjení nebo výkonu."
         }
       }
     },
     "error": {
       "ledger_calibration_required": "Před povolením historie nastavte použitelnou kapacitu baterie a dojezd na plné nabití.",
       "incomplete_cost_sources": "Nastavte všech pět zdrojů zaznamenaných nákladů nebo je nechte prázdné.",
-      "invalid_paint_for_model": "Vyberte si barvu dostupnou pro tento model vozu."
+      "invalid_paint_for_model": "Vyberte si barvu dostupnou pro tento model vozu.",
+      "invalid_polling_interval": "Neplatný interval pro toto připojení.",
+      "invalid_polling_sources": "Adaptivní režim vyžaduje entitu připojení a alespoň jednu entitu nabíjení nebo výkonu."
     }
   },
   "entity": {
