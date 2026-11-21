@@ -1,9 +1,9 @@
 """Prove the regression fixture fails against the previous released sources."""
 
-from pathlib import Path
 import subprocess
 import sys
 import urllib.request
+from pathlib import Path
 
 paths = [
     "custom_components/nio_telematics/api.py",
@@ -37,7 +37,9 @@ try:
         or "FAILED" not in baseline.stdout
         or "HTTP 404" not in baseline.stdout
     ):
-        raise RuntimeError("Legacy source did not reproduce the expected HTTP404 failure")
+        raise RuntimeError(
+            "Legacy source did not reproduce the expected HTTP404 failure"
+        )
     print("Confirmed prior release fails the identical generic-404 replay.")
 finally:
     for path, content in saved.items():
