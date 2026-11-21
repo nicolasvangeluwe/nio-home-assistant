@@ -501,8 +501,8 @@ async def test_actual_ha_scheduler_reduces_idle_calls_and_wakes_for_soc(
     controller = AdaptivePollingController(hass, adaptive, adaptive_entry)
     adaptive.polling_controller = controller
     await controller.async_start()
-    await baseline.async_config_entry_first_refresh()
-    await adaptive.async_config_entry_first_refresh()
+    await baseline.async_refresh()
+    await adaptive.async_refresh()
     loop_clock = [hass.loop.time()]
     monkeypatch.setattr(hass.loop, "time", lambda: loop_clock[0])
     baseline_unsub = baseline.async_add_listener(lambda: None)
@@ -603,8 +603,8 @@ async def test_companion_ha_scheduler_reduces_cache_reads_only(
         side_effect=lambda: fake_monotonic[0],
     ):
         await controller.async_start()
-        await baseline.async_config_entry_first_refresh()
-        await adaptive.async_config_entry_first_refresh()
+        await baseline.async_refresh()
+        await adaptive.async_refresh()
         baseline_unsub = baseline.async_add_listener(lambda: None)
         adaptive_unsub = adaptive.async_add_listener(lambda: None)
 
@@ -696,7 +696,7 @@ async def test_companion_retry_later_uses_normal_recovery_interval_and_keeps_clo
         side_effect=lambda: fake_monotonic[0],
     ):
         await controller.async_start()
-        await coordinator.async_config_entry_first_refresh()
+        await coordinator.async_refresh()
         original = coordinator.data
         original_clock = original.field_metadata["socPercent"]["source_timestamp"]
         unsubscribe = coordinator.async_add_listener(lambda: None)
@@ -733,6 +733,8 @@ async def test_companion_retry_later_uses_normal_recovery_interval_and_keeps_clo
         await hass.async_block_till_done()
         assert client.reads == 2
         assert coordinator.update_interval == timedelta(seconds=30)
+        hass.states.async_set("binary_sensor.charger_charging", "off")
+        await hass.async_block_till_done()
 
         current += timedelta(seconds=26)
         fake_monotonic[0] += 26
@@ -746,6 +748,7 @@ async def test_companion_retry_later_uses_normal_recovery_interval_and_keeps_clo
     assert coordinator._polling_transport_recovering is False
     assert coordinator.data.soc_last_valid_at > original_clock
     assert coordinator.data.soc_status.soc != original.soc_status.soc
-    assert controller.mode == "normal"
+    assert controller.mode == "idle"
+    assert coordinator.update_interval == timedelta(seconds=120)
     unsubscribe()
     await controller.async_stop()
