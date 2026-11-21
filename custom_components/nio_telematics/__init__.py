@@ -29,6 +29,7 @@ from .const import (
 )
 from .coordinator import NioDataUpdateCoordinator
 from .pacing import NioRequestPacer
+from .polling import AdaptivePollingController
 from .vehicle_dashboard import async_reconcile_ledger, async_setup_vehicle_dashboard
 
 type NioConfigEntry = ConfigEntry[
@@ -81,14 +82,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: NioConfigEntry) -> bool:
         coordinator = CompanionDataUpdateCoordinator(hass, entry, client)
     else:
         coordinator = await _async_direct_coordinator(hass, entry)
-    await coordinator.async_config_entry_first_refresh()
-    if entry.data.get(CONF_CONNECTION_METHOD) != CONNECTION_COMPANION:
-        ir.async_delete_issue(hass, DOMAIN, f"companion_source_{entry.entry_id}")
-    entry.runtime_data = coordinator
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    # Dashboard preferences are applied explicitly by the options flow. A config-entry
-    # update listener cannot coexist with the OAuth flow's reload helper on HA 2026.12.
-    await _async_dashboard_options_updated(hass, entry)
+    coordinator.polling_controller = AdaptivePollingController(hass, coordinator, entry)
+    await coordinator.polling_controller.async_start()
+    try:
+        await coordinator.async_config_entry_first_refresh()
+        if entry.data.get(CONF_CONNECTION_METHOD) != CONNECTION_COMPANION:
+            ir.async_delete_issue(hass, DOMAIN, f"companion_source_{entry.entry_id}")
+        entry.runtime_data = coordinator
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        # Dashboard preferences are applied explicitly by the options flow.
+        # A config-entry update listener conflicts with OAuth reload on HA 2026.12.
+        await _async_dashboard_options_updated(hass, entry)
+    except BaseException:
+        await coordinator.polling_controller.async_stop()
+        raise
     return True
 
 
@@ -118,4 +125,9 @@ async def _async_direct_coordinator(hass, entry):
 
 async def async_unload_entry(hass: HomeAssistant, entry: NioConfigEntry) -> bool:
     """Unload a NIO config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        controller = getattr(entry.runtime_data, "polling_controller", None)
+        if controller is not None:
+            await controller.async_stop()
+    return unloaded

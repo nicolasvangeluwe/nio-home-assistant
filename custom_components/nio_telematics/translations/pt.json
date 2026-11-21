@@ -83,8 +83,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Painel do veículo",
-        "description": "Veículos opcionais e fontes domésticas. Deixe uma fonte de veículo vazia para usar sua entidade NIO automaticamente; a conexão e a alimentação podem vir de qualquer carregador HA e o EVCC não é necessário. A importação da sessão de histórico requer o formato compatível com EVCC.",
+        "title": "Definições do veículo",
+        "description": "Veículos opcionais e fontes domésticas. Deixe uma fonte de veículo vazia para usar sua entidade NIO automaticamente; a conexão e a alimentação podem vir de qualquer carregador HA e o EVCC não é necessário. A importação da sessão de histórico requer o formato compatível com EVCC. Apenas no Companion, isto altera o intervalo de leitura da cache pelo Home Assistant, não a recolha de dados da NIO.",
         "data": {
           "model": "Modelo de carro para arte local",
           "paint": "Cor do carro (mantém automaticamente a imagem existente do ET5 Touring)",
@@ -106,14 +106,30 @@
           "reimbursement_rate": "Entidade de taxa de reembolso",
           "battery_capacity_kwh": "Capacidade útil da bateria (kWh)",
           "full_range_km": "Alcance com carga total (km; reserva de registro)",
-          "ledger_enabled": "Habilitar histórico de viagens e cobranças"
+          "ledger_enabled": "Habilitar histórico de viagens e cobranças",
+          "interval_seconds": "Intervalo de polling (segundos)",
+          "idle_interval_seconds": "Intervalo de polling em inatividade (segundos)",
+          "adaptive": "Polling adaptativo",
+          "connected_entity": "Entidade de ligação do carregador",
+          "charging_entity": "Entidade de carregamento ativo",
+          "power_entity": "Entidade de potência do carregador"
+        },
+        "data_description": {
+          "interval_seconds": "Intervalo de polling normal. Predefinição: 15 segundos para Direct NIO e 30 segundos para Companion.",
+          "idle_interval_seconds": "Intervalo quando o veículo está inativo; não pode ser inferior ao intervalo normal.",
+          "adaptive": "Quando ativado, o estado do carregador seleciona o intervalo normal ou de inatividade. Independente do painel do veículo e do EVCC.",
+          "connected_entity": "Estado de ligação do carregador; obrigatório com a consulta adaptativa ativada.",
+          "charging_entity": "Sensor binário ou sensor opcional que indica carregamento ativo.",
+          "power_entity": "Sensor de potência opcional em W ou kW; o polling adaptativo requer um indicador de carregamento ou potência."
         }
       }
     },
     "error": {
       "ledger_calibration_required": "Defina a capacidade utilizável da bateria e a faixa de carga total antes de ativar o histórico.",
       "incomplete_cost_sources": "Defina todas as cinco fontes de custos registrados ou deixe-as vazias.",
-      "invalid_paint_for_model": "Escolha uma cor disponível para este modelo de carro."
+      "invalid_paint_for_model": "Escolha uma cor disponível para este modelo de carro.",
+      "invalid_polling_interval": "Intervalo inválido para esta ligação.",
+      "invalid_polling_sources": "O polling adaptativo requer uma entidade de ligação e pelo menos uma entidade de carregamento ou potência."
     }
   },
   "entity": {

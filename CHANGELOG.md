@@ -3,6 +3,23 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.7.0-dev.1
+
+- Add configurable normal polling and optional adaptive polling in the vehicle's
+  Home Assistant options. Existing entries retain the previous 15-second Direct
+  NIO or 30-second Companion interval until configured.
+- Allow any suitable HA charger integration to provide connection and charging
+  state or W/kW power. EVCC and the bundled dashboard are not required. Use a
+  slower interval only for known connected, idle readings; return to normal on
+  charging, unplugging or uncertain input. Keep periodic checks and source clocks.
+- Apply polling options without reloading vehicle telemetry. Preserve API pacing,
+  authentication, server retry delays, existing entry IDs and stored history.
+  Add polling mode/interval/fallback information to redacted diagnostics.
+- Distinguish Direct NIO request savings from Companion cache-read savings; this
+  feature does not alter Companion's upstream NIO collection. Add options/help
+  across the fourteen existing languages. Thanks to @CasperSK89 for raising the
+  polling-frequency question in #21.
+
 ## 0.6.0-dev.3
 
 - Fix Direct NIO polling getting stuck after a generic HTTP 404 from a change

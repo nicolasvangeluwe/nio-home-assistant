@@ -25,9 +25,11 @@ async def async_get_config_entry_diagnostics(
 ) -> dict[str, Any]:
     """Return a strictly redacted diagnostic snapshot."""
     coordinator = entry.runtime_data
+    polling = getattr(coordinator, "polling_controller", None)
     return {
         "entry": async_redact_data(dict(entry.data), TO_REDACT),
         "last_update_success": coordinator.last_update_success,
+        "polling": polling.diagnostic_status() if polling is not None else None,
         "data": async_redact_data(
             {
                 "fetched_at": coordinator.data.fetched_at.isoformat(),

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
@@ -25,6 +27,7 @@ from .const import (
     DOMAIN,
 )
 from .models import NioSocStatus, NioVehicleData
+from .polling import polling_settings_for_entry
 
 # Existing sensor keys keep their identity. Fields absent from this contract
 # remain unavailable instead of restoring a Direct-source reading as current.
@@ -220,7 +223,9 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=30),
+            update_interval=timedelta(
+                seconds=polling_settings_for_entry(entry)["interval_seconds"]
+            ),
             config_entry=entry,
         )
         self._client = client
@@ -229,14 +234,41 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
         self._issue_id = f"companion_source_{entry.entry_id}"
         self._last_good: NioVehicleData | None = None
         self._last_vehicle_key: str | None = None
+        self._polling_refresh_count = 0
+        self._polling_last_attempt_monotonic: float | None = None
+        self._retry_after_until: datetime | None = None
+        self._retry_after_reason: str | None = None
+        self._polling_request_lock = asyncio.Lock()
+        self._polling_auth_failed = False
+        self._polling_transport_recovering = False
 
     async def _async_update_data(self) -> NioVehicleData:
+        self._polling_refresh_count += 1
+        if (controller := getattr(self, "polling_controller", None)) is not None:
+            controller.refresh_mode()
         try:
-            snapshot = await self._client.async_fetch(
-                expected_vin=self._vin, expected_vehicle_key=self._vehicle_key
-            )
+            snapshot = await self._async_fetch_snapshot()
         except CompanionFetchError as err:
-            self.update_interval = timedelta(seconds=max(30, err.retry_after or 30))
+            self._polling_transport_recovering = True
+            if err.retry_after:
+                self._retry_after_until = datetime.now(UTC) + timedelta(
+                    seconds=err.retry_after
+                )
+                self._retry_after_reason = "server_retry_after"
+            elif err.kind == "retry_later":
+                self._retry_after_until = datetime.now(UTC) + timedelta(seconds=30)
+                self._retry_after_reason = "retry_later_fallback"
+            controller = getattr(self, "polling_controller", None)
+            if controller is not None:
+                controller.refresh_mode()
+                configured = controller.interval_seconds
+            else:
+                configured = polling_settings_for_entry(self.config_entry)[
+                    "interval_seconds"
+                ]
+            self.update_interval = timedelta(
+                seconds=max(30, configured, err.retry_after or 30)
+            )
             _LOGGER.warning(
                 "Companion cache read failed: kind=%s reason=%s status=%s "
                 "retry_after=%s duration_ms=%s",
@@ -250,6 +282,7 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
                 self._last_good = None
                 self._last_vehicle_key = None
             if err.kind == "consumer_reauthentication_required":
+                self._polling_auth_failed = True
                 ir.async_delete_issue(self.hass, DOMAIN, self._issue_id)
                 raise ConfigEntryAuthFailed("Companion HA access was revoked") from None
             if err.kind in {"upstream_reauthorization_required", "source_disconnected"}:
@@ -284,8 +317,50 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
                 return retained
             raise UpdateFailed(f"Companion: {err.kind}") from None
         ir.async_delete_issue(self.hass, DOMAIN, self._issue_id)
-        self.update_interval = timedelta(seconds=30)
+        self._polling_auth_failed = False
+        self._polling_transport_recovering = False
+        self._retry_after_until = None
+        self._retry_after_reason = None
+        if (controller := getattr(self, "polling_controller", None)) is not None:
+            controller.refresh_mode()
+        else:
+            self.update_interval = timedelta(
+                seconds=polling_settings_for_entry(self.config_entry)[
+                    "interval_seconds"
+                ]
+            )
         vehicle = snapshot_to_vehicle(snapshot, self.data)
         self._last_good = vehicle
         self._last_vehicle_key = snapshot.vehicle_key
         return vehicle
+
+    async def _async_fetch_snapshot(self):
+        """Enforce Companion's 30-second request floor for runtime controllers."""
+        async with self._polling_request_lock:
+            if getattr(self, "polling_controller", None) is not None:
+                while True:
+                    if self._polling_auth_failed:
+                        raise ConfigEntryAuthFailed("Companion HA access was revoked")
+                    last_attempt = self._polling_last_attempt_monotonic
+                    delay = (
+                        30 - (time.monotonic() - last_attempt)
+                        if last_attempt is not None
+                        else 0
+                    )
+                    if self._retry_after_until is not None:
+                        delay = max(
+                            delay,
+                            (
+                                self._retry_after_until - datetime.now(UTC)
+                            ).total_seconds(),
+                        )
+                    if delay <= 0:
+                        break
+                    await asyncio.sleep(delay)
+            self._retry_after_until = None
+            self._retry_after_reason = None
+            self._polling_last_attempt_monotonic = time.monotonic()
+            return await self._client.async_fetch(
+                expected_vin=self._vin,
+                expected_vehicle_key=self._vehicle_key,
+            )

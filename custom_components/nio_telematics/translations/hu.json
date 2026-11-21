@@ -83,8 +83,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "A jármű műszerfala",
-        "description": "Opcionális jármű- és háztartási források. Hagyja üresen a járműforrást a NIO entitás automatikus használatához; A csatlakozás és a tápellátás bármely HA töltőről származhat, és nincs szükség EVCC-re. Az előzmények munkamenet-importálása EVCC-kompatibilis formátumot igényel.",
+        "title": "Járműbeállítások",
+        "description": "Opcionális jármű- és háztartási források. Hagyja üresen a járműforrást a NIO entitás automatikus használatához; A csatlakozás és a tápellátás bármely HA töltőről származhat, és nincs szükség EVCC-re. Az előzmények munkamenet-importálása EVCC-kompatibilis formátumot igényel. Csak Companion esetén változik a Home Assistant gyorsítótár-lekérdezési ideje, az NIO-adatok gyűjtése nem.",
         "data": {
           "model": "Autómodell helyi műalkotásokhoz",
           "paint": "Autószín (automatikus megtartja a meglévő ET5 Touring képet)",
@@ -106,14 +106,30 @@
           "reimbursement_rate": "Visszatérítési ráta entitás",
           "battery_capacity_kwh": "Használható akkumulátorkapacitás (kWh)",
           "full_range_km": "Hatótáv teljes feltöltéssel (km; főkönyvi tartalék)",
-          "ledger_enabled": "Utazási és töltési előzmények engedélyezése"
+          "ledger_enabled": "Utazási és töltési előzmények engedélyezése",
+          "interval_seconds": "Lekérdezési időköz (másodperc)",
+          "idle_interval_seconds": "Tétlen lekérdezési időköz (másodperc)",
+          "adaptive": "Adaptív lekérdezés",
+          "connected_entity": "Töltőcsatlakozás entitása",
+          "charging_entity": "Aktív töltés entitása",
+          "power_entity": "Töltő teljesítmény entitása"
+        },
+        "data_description": {
+          "interval_seconds": "Normál lekérdezési időköz. Alapérték: 15 másodperc Direct NIO esetén és 30 másodperc Companion esetén.",
+          "idle_interval_seconds": "A jármű álló helyzetében használt időköz; nem lehet rövidebb a normál időköznél.",
+          "adaptive": "Bekapcsolva a töltő állapota választja ki a normál vagy tétlen időközt. A jármű-irányítópulttól és az EVCC-től független.",
+          "connected_entity": "A töltő csatlakozási állapota; adaptív lekérdezés esetén kötelező.",
+          "charging_entity": "Opcionális bináris érzékelő vagy érzékelő az aktív töltés jelzésére.",
+          "power_entity": "Opcionális teljesítményérzékelő W vagy kW egységben; adaptív módhoz töltési vagy teljesítményjelző szükséges."
         }
       }
     },
     "error": {
       "ledger_calibration_required": "Az előzmények engedélyezése előtt állítsa be az akkumulátor használható kapacitását és a teljes töltési tartományt.",
       "incomplete_cost_sources": "Állítsa be mind az öt rögzített költségforrást, vagy hagyja üresen.",
-      "invalid_paint_for_model": "Válasszon egy színt ehhez az autómodellhez."
+      "invalid_paint_for_model": "Válasszon egy színt ehhez az autómodellhez.",
+      "invalid_polling_interval": "Érvénytelen időköz ehhez a kapcsolathoz.",
+      "invalid_polling_sources": "Az adaptív módhoz csatlakozási entitás és legalább egy töltési vagy teljesítményentitás szükséges."
     }
   },
   "entity": {

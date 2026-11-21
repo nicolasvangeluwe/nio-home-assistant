@@ -83,8 +83,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Autodashboard",
-        "description": "Optionele bronnen voor auto en huishouden. Laat een autobron leeg om automatisch de NIO-entiteit te gebruiken; verbinding en vermogen mogen van elke HA-lader komen, EVCC is niet verplicht. Geschiedenis importeren vereist een EVCC-compatibel formaat.",
+        "title": "Voertuiginstellingen",
+        "description": "Optionele bronnen voor auto en huishouden. Laat een autobron leeg om automatisch de NIO-entiteit te gebruiken; verbinding en vermogen mogen van elke HA-lader komen, EVCC is niet verplicht. Geschiedenis importeren vereist een EVCC-compatibel formaat. Alleen bij Companion verandert dit hoe vaak Home Assistant de cache leest; het ophalen bij NIO blijft ongewijzigd.",
         "data": {
           "model": "Automodel voor lokale afbeelding",
           "language": "Dashboardtaal (automatisch volgt de Home Assistant-taal van elke kijker)",
@@ -106,14 +106,30 @@
           "battery_capacity_kwh": "Bruikbare batterijcapaciteit (kWh)",
           "full_range_km": "Bereik bij volle batterij (km; terugval voor rittenhistoriek)",
           "ledger_enabled": "Ritten- en laadhistoriek inschakelen",
-          "paint": "Autokleur (automatisch behoudt de bestaande ET5 Touring-afbeelding)"
+          "paint": "Autokleur (automatisch behoudt de bestaande ET5 Touring-afbeelding)",
+          "interval_seconds": "Pollingsinterval (seconden)",
+          "idle_interval_seconds": "Pollingsinterval bij stilstand (seconden)",
+          "adaptive": "Adaptief pollen",
+          "connected_entity": "Entiteit voor laderverbinding",
+          "charging_entity": "Entiteit voor actief laden",
+          "power_entity": "Vermogensentiteit van de lader"
+        },
+        "data_description": {
+          "interval_seconds": "Gebruik dit interval voor normaal pollen. Standaard is 15 seconden voor Direct NIO en 30 seconden voor Companion.",
+          "idle_interval_seconds": "Gebruik dit interval wanneer de auto stilstaat; het mag niet korter zijn dan het normale interval.",
+          "adaptive": "Gebruik bij inschakeling de laadstatus om het normale interval of het interval bij stilstand te kiezen. Dit werkt los van het voertuigdashboard en EVCC.",
+          "connected_entity": "Verbindingsstatus van de lader; vereist als adaptief pollen is ingeschakeld.",
+          "charging_entity": "Optionele binaire sensor of sensor die aangeeft of de auto actief laadt.",
+          "power_entity": "Optionele vermogenssensor van de lader in W of kW; adaptief pollen vereist minstens een laad- of vermogensindicator."
         }
       }
     },
     "error": {
       "ledger_calibration_required": "Stel de bruikbare batterijcapaciteit en het bereik bij volle batterij in voordat je historiek inschakelt.",
       "incomplete_cost_sources": "Stel alle vijf bronnen voor geregistreerde kosten in, of laat ze allemaal leeg.",
-      "invalid_paint_for_model": "Kies een kleur die beschikbaar is voor dit automodel."
+      "invalid_paint_for_model": "Kies een kleur die beschikbaar is voor dit automodel.",
+      "invalid_polling_interval": "Het pollingsinterval is ongeldig voor deze verbinding.",
+      "invalid_polling_sources": "Adaptief pollen vereist een entiteit voor aangesloten en minstens één laad- of vermogensentiteit."
     }
   },
   "entity": {

@@ -83,8 +83,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Instrumentpanel för fordon",
-        "description": "Valfria fordon och hushållskällor. Lämna en fordonskälla tom för att använda dess NIO-enhet automatiskt; anslutning och ström kan komma från vilken HA-laddare som helst, och EVCC krävs inte. Import av historiksession kräver det EVCC-kompatibla formatet.",
+        "title": "Fordonsinställningar",
+        "description": "Valfria fordon och hushållskällor. Lämna en fordonskälla tom för att använda dess NIO-enhet automatiskt; anslutning och ström kan komma från vilken HA-laddare som helst, och EVCC krävs inte. Import av historiksession kräver det EVCC-kompatibla formatet. Endast för Companion ändras hur ofta Home Assistant läser cachen, inte hämtningen från NIO.",
         "data": {
           "model": "Bilmodell för lokala konstverk",
           "paint": "Bilfärg (automatisk behåller den befintliga ET5 Touring-bilden)",
@@ -106,14 +106,30 @@
           "reimbursement_rate": "Entitet för ersättningsgrad",
           "battery_capacity_kwh": "Användbar batterikapacitet (kWh)",
           "full_range_km": "Räckvidd vid full laddning (km; reservbok)",
-          "ledger_enabled": "Aktivera tripp- och laddningshistorik"
+          "ledger_enabled": "Aktivera tripp- och laddningshistorik",
+          "interval_seconds": "Pollingintervall (sekunder)",
+          "idle_interval_seconds": "Vilointervall för polling (sekunder)",
+          "adaptive": "Adaptiv polling",
+          "connected_entity": "Entitet för laddaranslutning",
+          "charging_entity": "Entitet för aktiv laddning",
+          "power_entity": "Laddarens effektentitet"
+        },
+        "data_description": {
+          "interval_seconds": "Intervall för normal polling. Standard är 15 sekunder för Direct NIO och 30 sekunder för Companion.",
+          "idle_interval_seconds": "Intervall när bilen är inaktiv; får inte vara kortare än normalintervallet.",
+          "adaptive": "När det aktiveras väljer laddarstatus normal- eller vilointervall. Oberoende av fordonsöversikten och EVCC.",
+          "connected_entity": "Laddarens anslutningsstatus; krävs när adaptiv hämtning är aktiverad.",
+          "charging_entity": "Valfri binär sensor eller sensor som visar aktiv laddning.",
+          "power_entity": "Valfri effektsensor i W eller kW; adaptiv polling kräver en laddnings- eller effektindikator."
         }
       }
     },
     "error": {
       "ledger_calibration_required": "Ställ in användbar batterikapacitet och full laddningsområde innan historik aktiveras.",
       "incomplete_cost_sources": "Ställ in alla fem registrerade kostnadskällor eller lämna dem tomma.",
-      "invalid_paint_for_model": "Välj en färg tillgänglig för denna bilmodell."
+      "invalid_paint_for_model": "Välj en färg tillgänglig för denna bilmodell.",
+      "invalid_polling_interval": "Ogiltigt intervall för den här anslutningen.",
+      "invalid_polling_sources": "Adaptiv polling kräver en anslutningsentitet och minst en laddnings- eller effektentitet."
     }
   },
   "entity": {

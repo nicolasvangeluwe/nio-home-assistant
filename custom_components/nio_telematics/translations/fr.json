@@ -83,8 +83,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Tableau de bord du véhicule",
-        "description": "Sources facultatives pour les véhicules et les ménages. Laissez une source de véhicule vide pour utiliser automatiquement son entité NIO ; la connexion et l’alimentation peuvent provenir de n’importe quel chargeur HA, et EVCC n’est pas requis. L’importation de session d’historique nécessite le format compatible EVCC.",
+        "title": "Paramètres du véhicule",
+        "description": "Sources facultatives pour les véhicules et les ménages. Laissez une source de véhicule vide pour utiliser automatiquement son entité NIO ; la connexion et l’alimentation peuvent provenir de n’importe quel chargeur HA, et EVCC n’est pas requis. L’importation de session d’historique nécessite le format compatible EVCC. Pour Companion uniquement, cela modifie la fréquence de lecture du cache par Home Assistant, pas la collecte auprès de NIO.",
         "data": {
           "model": "Modèle de voiture pour œuvres d'art locales",
           "paint": "Couleur de la voiture (automatique conserve l'image ET5 Touring existante)",
@@ -106,14 +106,30 @@
           "reimbursement_rate": "Entité de taux de remboursement",
           "battery_capacity_kwh": "Capacité utile de la batterie (kWh)",
           "full_range_km": "Autonomie à pleine charge (km ; repli du grand livre)",
-          "ledger_enabled": "Activer l'historique des déplacements et des charges"
+          "ledger_enabled": "Activer l'historique des déplacements et des charges",
+          "interval_seconds": "Intervalle d’interrogation (secondes)",
+          "idle_interval_seconds": "Intervalle à l’arrêt (secondes)",
+          "adaptive": "Interrogation adaptative",
+          "connected_entity": "Entité de connexion de la borne",
+          "charging_entity": "Entité de charge active",
+          "power_entity": "Entité de puissance du chargeur"
+        },
+        "data_description": {
+          "interval_seconds": "Intervalle utilisé pour les interrogations normales. Valeurs par défaut : 15 s pour Direct NIO et 30 s pour Companion.",
+          "idle_interval_seconds": "Intervalle utilisé lorsque le véhicule est à l’arrêt ; il ne peut pas être inférieur à l’intervalle normal.",
+          "adaptive": "Si activée, l’état du chargeur choisit l’intervalle normal ou celui à l’arrêt. Fonctionne sans tableau de bord ni EVCC.",
+          "connected_entity": "État de connexion de la borne ; requis lorsque la lecture adaptative est activée.",
+          "charging_entity": "Capteur binaire ou capteur facultatif indiquant une charge active.",
+          "power_entity": "Capteur de puissance facultatif en W ou kW ; une entité de charge ou de puissance est requise en mode adaptatif."
         }
       }
     },
     "error": {
       "ledger_calibration_required": "Définissez la capacité utilisable de la batterie et la plage de charge complète avant d'activer l'historique.",
       "incomplete_cost_sources": "Définissez les cinq sources de coûts enregistrés ou laissez-les vides.",
-      "invalid_paint_for_model": "Choisissez une couleur disponible pour ce modèle de voiture."
+      "invalid_paint_for_model": "Choisissez une couleur disponible pour ce modèle de voiture.",
+      "invalid_polling_interval": "Intervalle invalide pour cette connexion.",
+      "invalid_polling_sources": "Le mode adaptatif nécessite une entité de connexion et au moins une entité de charge ou de puissance."
     }
   },
   "entity": {

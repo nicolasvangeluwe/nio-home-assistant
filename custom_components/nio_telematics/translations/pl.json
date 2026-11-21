@@ -83,8 +83,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Deska rozdzielcza pojazdu",
-        "description": "Opcjonalne źródła pojazdu i gospodarstwa domowego. Pozostaw źródło pojazdu puste, aby automatycznie użyć jego jednostki NIO; połączenie i zasilanie mogą pochodzić z dowolnej ładowarki HA, a EVCC nie jest wymagane. Import sesji historii wymaga formatu zgodnego z EVCC.",
+        "title": "Ustawienia pojazdu",
+        "description": "Opcjonalne źródła pojazdu i gospodarstwa domowego. Pozostaw źródło pojazdu puste, aby automatycznie użyć jego jednostki NIO; połączenie i zasilanie mogą pochodzić z dowolnej ładowarki HA, a EVCC nie jest wymagane. Import sesji historii wymaga formatu zgodnego z EVCC. Tylko w przypadku Companion zmienia to częstotliwość odczytu pamięci podręcznej przez Home Assistant, a nie pobieranie danych z NIO.",
         "data": {
           "model": "Model samochodu dla lokalnych dzieł sztuki",
           "paint": "Kolor samochodu (automatycznie zachowuje istniejący obraz ET5 Touring)",
@@ -106,14 +106,30 @@
           "reimbursement_rate": "Jednostka stawki zwrotu",
           "battery_capacity_kwh": "Użyteczna pojemność akumulatora (kWh)",
           "full_range_km": "Zasięg przy pełnym naładowaniu (km; rezerwa w rejestrze)",
-          "ledger_enabled": "Włącz historię podróży i ładowania"
+          "ledger_enabled": "Włącz historię podróży i ładowania",
+          "interval_seconds": "Interwał odpytywania (sekundy)",
+          "idle_interval_seconds": "Interwał bezczynności (sekundy)",
+          "adaptive": "Adaptacyjne odpytywanie",
+          "connected_entity": "Encja połączenia ładowarki",
+          "charging_entity": "Encja aktywnego ładowania",
+          "power_entity": "Encja mocy ładowarki"
+        },
+        "data_description": {
+          "interval_seconds": "Interwał normalnego odpytywania. Domyślnie 15 sekund dla Direct NIO i 30 sekund dla Companion.",
+          "idle_interval_seconds": "Interwał, gdy pojazd jest bezczynny; nie może być krótszy niż normalny.",
+          "adaptive": "Po włączeniu stan ładowarki wybiera interwał normalny lub bezczynności. Działa niezależnie od panelu pojazdu i EVCC.",
+          "connected_entity": "Stan połączenia ładowarki; wymagany przy włączonym odpytywaniu adaptacyjnym.",
+          "charging_entity": "Opcjonalny czujnik binarny lub czujnik aktywnego ładowania.",
+          "power_entity": "Opcjonalny czujnik mocy w W lub kW; adaptacyjne odpytywanie wymaga wskaźnika ładowania lub mocy."
         }
       }
     },
     "error": {
       "ledger_calibration_required": "Ustaw użyteczną pojemność baterii i zakres pełnego ładowania przed włączeniem historii.",
       "incomplete_cost_sources": "Ustaw wszystkie pięć źródeł kosztów rejestrowanych lub pozostaw je puste.",
-      "invalid_paint_for_model": "Wybierz kolor dostępny dla tego modelu samochodu."
+      "invalid_paint_for_model": "Wybierz kolor dostępny dla tego modelu samochodu.",
+      "invalid_polling_interval": "Nieprawidłowy interwał dla tego połączenia.",
+      "invalid_polling_sources": "Adaptacyjne odpytywanie wymaga encji połączenia i co najmniej jednej encji ładowania lub mocy."
     }
   },
   "entity": {

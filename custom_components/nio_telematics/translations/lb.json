@@ -83,8 +83,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Gefier Dashboard",
-        "description": "Fakultativ Gefier an Stot Quellen. Loosst e Gefierquell eidel fir seng NIO Entitéit automatesch ze benotzen; Verbindung a Kraaft kënnen aus all HA Ladegeräter kommen, an EVCC ass net erfuerderlech. Geschicht Sessioun Import erfuerdert den EVCC-kompatibele Format.",
+        "title": "Gefierastellungen",
+        "description": "Fakultativ Gefier an Stot Quellen. Loosst e Gefierquell eidel fir seng NIO Entitéit automatesch ze benotzen; Verbindung a Kraaft kënnen aus all HA Ladegeräter kommen, an EVCC ass net erfuerderlech. Geschicht Sessioun Import erfuerdert den EVCC-kompatibele Format. Nëmme bei Companion ännert sech wéi dacks Home Assistant de Cache liest, net d’Ofro bei NIO.",
         "data": {
           "model": "Automodell fir lokal Konschtwierker",
           "paint": "Auto Faarf (automatesch hält déi bestehend ET5 Touring Bild)",
@@ -106,14 +106,30 @@
           "reimbursement_rate": "Remboursement Taux Entitéit",
           "battery_capacity_kwh": "Benotzbar Batteriekapazitéit (kWh)",
           "full_range_km": "Range bei voller Ladung (km; Ledger Fallback)",
-          "ledger_enabled": "Rees- an Opluedgeschicht aktivéieren"
+          "ledger_enabled": "Rees- an Opluedgeschicht aktivéieren",
+          "interval_seconds": "Polling-Intervall (Sekonnen)",
+          "idle_interval_seconds": "Polling-Intervall am Roustand (Sekonnen)",
+          "adaptive": "Adaptivt Polling",
+          "connected_entity": "Entitéit fir d’Luederverbindung",
+          "charging_entity": "Entitéit fir aktivt Laden",
+          "power_entity": "Leeschtungsentitéit vum Ladegerät"
+        },
+        "data_description": {
+          "interval_seconds": "Intervall fir normal Polling. Standard: 15 Sekonne fir Direct NIO an 30 Sekonne fir Companion.",
+          "idle_interval_seconds": "Intervall wann de Gefier roueg ass; et däerf net méi kuerz si wéi dat normaalt Intervall.",
+          "adaptive": "Wann aktivéiert, wielt de Lade-Status dat normaalt oder Rou-Intervall. Onofhängeg vum Gefier-Dashboard an EVCC.",
+          "connected_entity": "Verbindungszoustand vum Lueder; obligatoresch wann adaptivt Ofruffen aktivéiert ass.",
+          "charging_entity": "Optionalen Binärsensor oder Sensor fir aktivt Laden.",
+          "power_entity": "Optionalen Leeschtungssensor a W oder kW; adaptivt Polling erfuerdert eng Lade- oder Leeschtungsentitéit."
         }
       }
     },
     "error": {
       "ledger_calibration_required": "Setzt benotzbar Batteriekapazitéit a Vollladungsbereich ier Dir d'Geschicht aktivéiert.",
       "incomplete_cost_sources": "Set all fënnef opgeholl-Käschte Quellen oder verloossen se eidel.",
-      "invalid_paint_for_model": "Wielt eng Faarf verfügbar fir dësen Autosmodell."
+      "invalid_paint_for_model": "Wielt eng Faarf verfügbar fir dësen Autosmodell.",
+      "invalid_polling_interval": "Ongëltegt Intervall fir dës Verbindung.",
+      "invalid_polling_sources": "Adaptivt Polling erfuerdert eng Verbindungsentitéit an op d’mannst eng Lade- oder Leeschtungsentitéit."
     }
   },
   "entity": {

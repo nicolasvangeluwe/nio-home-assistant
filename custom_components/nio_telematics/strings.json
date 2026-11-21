@@ -83,8 +83,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Vehicle dashboard",
-        "description": "Optional vehicle and household sources. Leave a vehicle source empty to use its NIO entity automatically; connection and power can come from any HA charger, and EVCC is not required. History session import requires the EVCC-compatible format.",
+        "title": "Vehicle settings",
+        "description": "Optional vehicle and household sources. Leave a vehicle source empty to use its NIO entity automatically; connection and power can come from any HA charger, and EVCC is not required. History session import requires the EVCC-compatible format. Only Companion polling changes Home Assistant cache-read timing; it does not change upstream NIO polling.",
         "data": {
           "model": "Car model for local artwork",
           "paint": "Car colour (automatic keeps the existing ET5 Touring image)",
@@ -106,14 +106,30 @@
           "reimbursement_rate": "Reimbursement rate entity",
           "battery_capacity_kwh": "Usable battery capacity (kWh)",
           "full_range_km": "Range at full charge (km; ledger fallback)",
-          "ledger_enabled": "Enable trip and charging history"
+          "ledger_enabled": "Enable trip and charging history",
+          "interval_seconds": "Polling interval (seconds)",
+          "idle_interval_seconds": "Idle polling interval (seconds)",
+          "adaptive": "Adaptive polling",
+          "connected_entity": "Charger connected entity",
+          "charging_entity": "Charger charging entity",
+          "power_entity": "Charger power entity"
+        },
+        "data_description": {
+          "interval_seconds": "Use this interval during normal polling. Defaults are 15 seconds for Direct NIO and 30 seconds for Companion.",
+          "idle_interval_seconds": "Use this interval when the vehicle is idle; it must be no shorter than the normal interval.",
+          "adaptive": "When enabled, use charger state to select normal or idle polling. This is optional and works independently of the vehicle dashboard and EVCC.",
+          "connected_entity": "Charger connection state; required when adaptive polling is enabled.",
+          "charging_entity": "Optional binary sensor or sensor that indicates active charging.",
+          "power_entity": "Optional charger power sensor in W or kW; one charging or power indicator is required when adaptive polling is enabled."
         }
       }
     },
     "error": {
       "ledger_calibration_required": "Set usable battery capacity and full-charge range before enabling history.",
       "incomplete_cost_sources": "Set all five recorded-cost sources or leave them empty.",
-      "invalid_paint_for_model": "Choose a colour available for this car model."
+      "invalid_paint_for_model": "Choose a colour available for this car model.",
+      "invalid_polling_interval": "Polling interval must be valid for this connection.",
+      "invalid_polling_sources": "Adaptive polling requires a connected entity and at least one charging or power entity."
     }
   },
   "entity": {

@@ -35,6 +35,11 @@ from .const import (
     OAUTH_SCOPE_REVISION,
 )
 from .models import normalize_vin
+from .polling import (
+    POLLING_OPTIONS_KEY,
+    polling_settings_for_entry,
+    validate_polling_settings,
+)
 from .source_switch import SourceSwitchError, async_switch_source
 from .vehicle_dashboard import (
     COST_PREFERENCES,
@@ -337,12 +342,44 @@ class NioOptionsFlow(config_entries.OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         errors: dict[str, str] = {}
+        polling_input = {
+            key: user_input[key]
+            for key in (
+                "interval_seconds",
+                "idle_interval_seconds",
+                "adaptive",
+                "connected_entity",
+                "charging_entity",
+                "power_entity",
+            )
+            if user_input is not None and key in user_input
+        }
+        current_polling = polling_settings_for_entry(self.config_entry)
+        polling_errors: dict[str, str] = {}
         if user_input is not None:
             current = preferences_for_entry(self.hass, self.config_entry)
+            dashboard_input = {
+                key: value
+                for key, value in user_input.items()
+                if key not in polling_input
+            }
             preferences = pin_model_for_paint(
-                PREFERENCES_SCHEMA({**current, **user_input}), self.config_entry.title
+                PREFERENCES_SCHEMA({**current, **dashboard_input}),
+                self.config_entry.title,
             )
-            if not valid_paint(
+            try:
+                polling = validate_polling_settings(
+                    self.hass,
+                    self.config_entry,
+                    {**current_polling, **polling_input},
+                )
+            except ValueError as err:
+                polling_errors["base"] = str(err)
+            else:
+                current_polling = polling
+            if polling_errors:
+                errors.update(polling_errors)
+            elif not valid_paint(
                 preferences["model"], preferences["paint"], self.config_entry.title
             ):
                 errors["base"] = "invalid_paint_for_model"
@@ -355,7 +392,11 @@ class NioOptionsFlow(config_entries.OptionsFlow):
             ):
                 errors["base"] = "incomplete_cost_sources"
             else:
-                options = {**self.config_entry.options, OPTIONS_KEY: preferences}
+                options = {
+                    **self.config_entry.options,
+                    OPTIONS_KEY: preferences,
+                    POLLING_OPTIONS_KEY: current_polling,
+                }
                 # The setup-time update listener was removed because OAuth reauth
                 # uses async_update_reload_and_abort. Persist here, then apply the
                 # dashboard-only settings without reloading telemetry.
@@ -363,16 +404,19 @@ class NioOptionsFlow(config_entries.OptionsFlow):
                     self.config_entry, options=options
                 )
                 if self.config_entry.state is ConfigEntryState.LOADED:
+                    runtime_data = self.config_entry.runtime_data
+                    controller = getattr(runtime_data, "polling_controller", None)
+                    if controller is not None:
+                        await controller.async_update_options()
                     from . import _async_dashboard_options_updated
 
-                    await _async_dashboard_options_updated(
-                        self.hass, self.config_entry
-                    )
+                    await _async_dashboard_options_updated(self.hass, self.config_entry)
                 return self.async_create_entry(
                     title="",
                     data=options,
                 )
         current = preferences_for_entry(self.hass, self.config_entry)
+        shown_polling = {**current_polling, **polling_input}
         shown_model = (user_input or {}).get("model", current["model"])
         shown_paint = (user_input or {}).get("paint", current["paint"])
         selected_family = effective_model(shown_model, self.config_entry.title)
@@ -380,6 +424,44 @@ class NioOptionsFlow(config_entries.OptionsFlow):
             shown_paint = "auto"
         entity = selector.EntitySelector(selector.EntitySelectorConfig())
         fields: dict[Any, Any] = {
+            vol.Optional(
+                "interval_seconds", default=shown_polling["interval_seconds"]
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=(
+                        30
+                        if self.config_entry.data.get(CONF_CONNECTION_METHOD)
+                        == CONNECTION_COMPANION
+                        else 15
+                    ),
+                    max=120,
+                    step=1,
+                    mode=selector.NumberSelectorMode.BOX,
+                )
+            ),
+            vol.Optional(
+                "idle_interval_seconds",
+                default=shown_polling["idle_interval_seconds"],
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=shown_polling["interval_seconds"],
+                    max=240,
+                    step=1,
+                    mode=selector.NumberSelectorMode.BOX,
+                )
+            ),
+            vol.Optional("adaptive", default=shown_polling["adaptive"]): (
+                selector.BooleanSelector()
+            ),
+            vol.Optional(
+                "connected_entity", default=shown_polling["connected_entity"]
+            ): vol.Any("", entity),
+            vol.Optional(
+                "charging_entity", default=shown_polling["charging_entity"]
+            ): vol.Any("", entity),
+            vol.Optional("power_entity", default=shown_polling["power_entity"]): (
+                vol.Any("", entity)
+            ),
             vol.Required("model", default=shown_model): selector.SelectSelector(
                 selector.SelectSelectorConfig(options=list(MODELS))
             ),
