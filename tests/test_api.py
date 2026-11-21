@@ -320,6 +320,48 @@ async def test_http_errors_are_mapped(status, headers, error) -> None:
         await client.async_get_soc_status("LJNABC12345678901")
 
 
+async def test_generic_empty_http_404_is_not_found_only_for_change_feeds() -> None:
+    oauth_session = MagicMock()
+    missing_change = response(404, {})
+    missing_change.json = AsyncMock(side_effect=ValueError("empty body"))
+    oauth_session.async_request = AsyncMock(return_value=missing_change)
+    client = NioApiClient(oauth_session, API_BASE_URL)
+
+    with pytest.raises(NioResourceNotFoundError):
+        await client.async_get_change_record("LJNABC12345678901", "cell_status")
+
+    with pytest.raises(NioApiError, match="HTTP 404"):
+        await client.async_get_latest_vehicle_record("LJNABC12345678901")
+
+
+async def test_structured_http_404_keeps_resource_not_found_mapping() -> None:
+    oauth_session = MagicMock()
+    oauth_session.async_request = AsyncMock(
+        return_value=response(404, {"result_code": "resource_not_found"})
+    )
+    client = NioApiClient(oauth_session, API_BASE_URL)
+
+    with pytest.raises(NioResourceNotFoundError):
+        await client.async_get_change_record("LJNABC12345678901", "cell_status")
+
+
+@pytest.mark.parametrize("status", [401, 429, 500])
+async def test_change_feed_http_failures_keep_auth_rate_limit_and_server_semantics(
+    status: int,
+) -> None:
+    oauth_session = MagicMock()
+    oauth_session.async_request = AsyncMock(return_value=response(status, {}))
+    client = NioApiClient(oauth_session, API_BASE_URL)
+    error = {
+        401: NioAuthenticationError,
+        429: NioRateLimitError,
+        500: NioApiError,
+    }[status]
+
+    with pytest.raises(error):
+        await client.async_get_change_record("LJNABC12345678901", "cell_status")
+
+
 @pytest.mark.parametrize("status", [200, 403])
 async def test_rate_limit_envelope_is_retryable(status: int) -> None:
     """NIO can report throttling in a successful HTTP response or HTTP 403."""

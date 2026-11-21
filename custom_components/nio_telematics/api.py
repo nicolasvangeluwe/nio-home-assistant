@@ -191,6 +191,7 @@ class NioApiClient:
         # current API rejects the equivalent explicit millisecond timestamps.
         payload = await self._async_get(
             f"{TELEMATICS_PATH}/vehicles/{vin}/{resource}/changes",
+            http_404_is_not_found=True,
         )
         data = payload.get("data")
         if not isinstance(data, list) or not data:
@@ -249,7 +250,11 @@ class NioApiClient:
         return NioSocStatus.from_payload(data)
 
     async def _async_get(
-        self, path: str, *, params: dict[str, int] | None = None
+        self,
+        path: str,
+        *,
+        params: dict[str, int] | None = None,
+        http_404_is_not_found: bool = False,
     ) -> dict[str, Any]:
         request_kwargs: dict[str, Any] = {"headers": {"Accept": "application/json"}}
         if params is not None:
@@ -302,7 +307,9 @@ class NioApiClient:
         )
 
         try:
-            await self._raise_for_status(response, payload)
+            await self._raise_for_status(
+                response, payload, http_404_is_not_found=http_404_is_not_found
+            )
         except NioRateLimitError as err:
             if self._pacer is not None:
                 await self._pacer.rate_limited(err.retry_after)
@@ -332,7 +339,12 @@ class NioApiClient:
         return payload
 
     @staticmethod
-    async def _raise_for_status(response: ClientResponse, payload: Any = None) -> None:
+    async def _raise_for_status(
+        response: ClientResponse,
+        payload: Any = None,
+        *,
+        http_404_is_not_found: bool = False,
+    ) -> None:
         if response.status == 401:
             raise NioAuthenticationError("NIO access token is invalid or expired")
         if response.status == 429 or (
@@ -349,6 +361,8 @@ class NioApiClient:
                 raise NioResourceNotFoundError("NIO resource was not found")
             if result_code == "access_denied":
                 raise NioPermissionError("NIO denied access to this telemetry resource")
+        if response.status == 404 and http_404_is_not_found:
+            raise NioResourceNotFoundError("NIO change resource was not found")
         if response.status >= 400:
             raise NioApiError(f"NIO API returned HTTP {response.status}")
 

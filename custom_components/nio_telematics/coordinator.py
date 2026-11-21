@@ -117,6 +117,11 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
         except NioAuthenticationError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except NioApiError as err:
+            # Keep optional-feed failures from pinning Direct to one endpoint.
+            # Preserve the failed-update signal so HA still retries the update.
+            self._request_count += 1
+            if resource != "soc_status":
+                self._background_index += 1
             raise UpdateFailed(str(err)) from err
         self._request_count += 1
         if resource != "soc_status":

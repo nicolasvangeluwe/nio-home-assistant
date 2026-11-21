@@ -8,10 +8,12 @@ from typing import Any, override
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import AbortFlow
 from homeassistant.helpers import config_entry_oauth2_flow, selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
+from .artwork import PAINTS_BY_MODEL, effective_model, pin_model_for_paint, valid_paint
 from .companion_transport import (
     CompanionFetchError,
     CompanionVehicleClient,
@@ -33,7 +35,6 @@ from .const import (
     OAUTH_SCOPE_REVISION,
 )
 from .models import normalize_vin
-from .artwork import PAINTS_BY_MODEL, effective_model, pin_model_for_paint, valid_paint
 from .source_switch import SourceSwitchError, async_switch_source
 from .vehicle_dashboard import (
     COST_PREFERENCES,
@@ -354,9 +355,22 @@ class NioOptionsFlow(config_entries.OptionsFlow):
             ):
                 errors["base"] = "incomplete_cost_sources"
             else:
+                options = {**self.config_entry.options, OPTIONS_KEY: preferences}
+                # The setup-time update listener was removed because OAuth reauth
+                # uses async_update_reload_and_abort. Persist here, then apply the
+                # dashboard-only settings without reloading telemetry.
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, options=options
+                )
+                if self.config_entry.state is ConfigEntryState.LOADED:
+                    from . import _async_dashboard_options_updated
+
+                    await _async_dashboard_options_updated(
+                        self.hass, self.config_entry
+                    )
                 return self.async_create_entry(
                     title="",
-                    data={**self.config_entry.options, OPTIONS_KEY: preferences},
+                    data=options,
                 )
         current = preferences_for_entry(self.hass, self.config_entry)
         shown_model = (user_input or {}).get("model", current["model"])

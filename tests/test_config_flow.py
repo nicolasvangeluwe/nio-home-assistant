@@ -73,9 +73,7 @@ async def test_reauth_offers_replacement_oauth_implementation(
             AsyncMock(return_value=expected_result),
         ) as pick_implementation,
     ):
-        result = await handler.async_step_reauth(
-            {"auth_implementation": "nio-local"}
-        )
+        result = await handler.async_step_reauth({"auth_implementation": "nio-local"})
 
     pick_implementation.assert_awaited_once_with()
     assert result == expected_result
@@ -112,14 +110,21 @@ async def test_reconfigure_success_preserves_vehicle_data(hass: HomeAssistant) -
         CONF_VEHICLE_NAME: "ET5 Touring",
         "other_setting": "retain",
     }
-    entry = SimpleNamespace(data=old_data, options={"vehicle_dashboard": {"model": "auto"}})
-    update = Mock(return_value={"type": FlowResultType.ABORT, "reason": "reconfigure_successful"})
+    entry = SimpleNamespace(
+        data=old_data, options={"vehicle_dashboard": {"model": "auto"}}
+    )
+    update = Mock(
+        return_value={"type": FlowResultType.ABORT, "reason": "reconfigure_successful"}
+    )
     with (
         patch.object(handler, "_get_reconfigure_entry", return_value=entry),
         patch.object(handler, "async_update_reload_and_abort", update),
     ):
         result = await handler.async_oauth_create_entry(
-            {"auth_implementation": "new-client", "token": {"access_token": "new-fixture"}}
+            {
+                "auth_implementation": "new-client",
+                "token": {"access_token": "new-fixture"},
+            }
         )
     saved = update.call_args.kwargs["data"]
     assert saved[CONF_VIN] == old_data[CONF_VIN]
@@ -146,14 +151,21 @@ async def test_reauth_success_uses_replacement_credentials(hass: HomeAssistant) 
             CONF_VEHICLE_NAME: "ET5 Touring",
         }
     )
-    update = Mock(return_value={"type": FlowResultType.ABORT, "reason": "reauth_successful"})
+    update = Mock(
+        return_value={"type": FlowResultType.ABORT, "reason": "reauth_successful"}
+    )
     with (
         patch.object(handler, "_get_reauth_entry", return_value=entry),
         patch.object(handler, "async_update_reload_and_abort", update),
     ):
-        await handler.async_oauth_create_entry(
-            {"auth_implementation": "new-client", "token": {"access_token": "new-fixture"}}
+        result = await handler.async_oauth_create_entry(
+            {
+                "auth_implementation": "new-client",
+                "token": {"access_token": "new-fixture"},
+            }
         )
+    update.assert_called_once()
+    assert result["reason"] == "reauth_successful"
     saved = update.call_args.kwargs["data"]
     assert saved[CONF_VIN] == entry.data[CONF_VIN]
     assert saved[CONF_VEHICLE_NAME] == entry.data[CONF_VEHICLE_NAME]
