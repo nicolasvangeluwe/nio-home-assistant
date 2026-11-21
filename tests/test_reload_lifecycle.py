@@ -7,8 +7,8 @@ from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import config_validation as cv
+from probatio import to_field_list
 from pytest_homeassistant_custom_component.common import MockConfigEntry
-from voluptuous_serialize import convert
 
 from custom_components.nio_telematics import async_setup_entry
 from custom_components.nio_telematics.config_flow import NioConfigFlow
@@ -84,7 +84,7 @@ async def test_options_manager_persists_and_applies_without_reload(hass, history
         } <= fields
         serialized = {
             field["name"]: field
-            for field in convert(
+            for field in to_field_list(
                 form["data_schema"], custom_serializer=cv.custom_serializer
             )
         }
