@@ -6,6 +6,8 @@ Bring your NIO into Home Assistant using NIO's official EU Open Telematics API. 
 
 On my EU ET5 Touring, it receives live **battery SoC, remaining range, odometer and vehicle state**, plus the user-set charge limit and battery-pack voltage/current. Pack, cell and temperature-probe counts are available as diagnostics. Other optional sensors cover charging, trips, location, body and cabin data; what NIO supplies may differ by car.
 
+**Battery SoC:** the integration reads `soc_status/changes`. The zero in `vehicle_status/latest` can be a placeholder and is ignored; a real 0% reading from `soc_status` is still valid. This has been the source since [v0.1.1-dev.7](CHANGELOG.md#011-dev7).
+
 **Charge limit:** the entity labelled *Maximum state of charge* comes from NIO's `max_soc` field—the limit set in the car (90% on my test car). *Charging target* is a different API field and has reported 0% while parked; do not use that value as your saved charge limit.
 
 SoC, range and odometer keep their last valid readings when NIO sends sparse updates or Home Assistant restarts. Check each sensor's sample time before relying on it for an automation. See the [changelog](CHANGELOG.md) for technical details and release history.
