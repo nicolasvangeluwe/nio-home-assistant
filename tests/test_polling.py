@@ -12,11 +12,20 @@ from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
 )
+from test_companion_transport import _snapshot as _base_companion_payload
 
 from custom_components.nio_telematics.companion_coordinator import (
     CompanionDataUpdateCoordinator,
 )
-from custom_components.nio_telematics.const import CONF_VIN, DOMAIN
+from custom_components.nio_telematics.companion_snapshot import (
+    parse_companion_snapshot,
+)
+from custom_components.nio_telematics.companion_transport import CompanionFetchError
+from custom_components.nio_telematics.const import (
+    CONF_COMPANION_VEHICLE_KEY,
+    CONF_VIN,
+    DOMAIN,
+)
 from custom_components.nio_telematics.coordinator import NioDataUpdateCoordinator
 from custom_components.nio_telematics.polling import (
     POLLING_OPTIONS_KEY,
@@ -221,8 +230,10 @@ async def test_event_burst_wakes_once_on_idle_to_charging(hass):
 
 async def test_disabled_config_entry_does_not_wake_on_source_event(hass):
     entry = _entry({POLLING_OPTIONS_KEY: _options()})
+    entry.add_to_hass(hass)
     _sources(hass)
-    entry.pref_disable_polling = True
+    hass.config_entries.async_update_entry(entry, pref_disable_polling=True)
+    assert entry.pref_disable_polling
     coordinator = MagicMock(hass=hass, last_update_success=True)
     coordinator.async_request_refresh = AsyncMock()
     controller = AdaptivePollingController(hass, coordinator, entry)
@@ -418,8 +429,50 @@ class _CountedNioClient:
         return {}
 
 
+def _companion_snapshot(origin, vin, *, value=None):
+    """Build the same verified cache contract at the fake clock's current time."""
+    now = dt_util.utcnow()
+
+    def stamp(value):
+        return (
+            value.astimezone(UTC)
+            .isoformat(timespec="milliseconds")
+            .replace("+00:00", "Z")
+        )
+
+    payload = _base_companion_payload()
+    payload["identity"]["vin"] = vin
+    payload["snapshotAt"] = stamp(now)
+    for field in payload["fields"].values():
+        if field["sourceEndpoint"] is not None:
+            field["sourceTimestamp"] = stamp(now - timedelta(seconds=4))
+            field["receivedAt"] = stamp(now - timedelta(seconds=2))
+    payload["fields"]["socPercent"]["value"] = (
+        50 + (now - origin).total_seconds() / 10_000 if value is None else value
+    )
+    return parse_companion_snapshot(payload)
+
+
+class _CountedCompanionCache:
+    """Count logical Companion cache reads and return fake-time source clocks."""
+
+    def __init__(self, origin, vin, outcomes=None):
+        self.origin = origin
+        self.vin = vin
+        self.outcomes = list(outcomes or [])
+        self.reads = 0
+
+    async def async_fetch(self, *, expected_vin, expected_vehicle_key):
+        self.reads += 1
+        if self.outcomes:
+            outcome = self.outcomes.pop(0)
+            if outcome == "retry_later":
+                raise CompanionFetchError("retry_later", reason="fixture")
+        return _companion_snapshot(self.origin, expected_vin)
+
+
 async def test_actual_ha_scheduler_reduces_idle_calls_and_wakes_for_soc(
-    hass, freezer, record_property
+    hass, freezer, record_property, monkeypatch
 ):
     """Compare Direct polling over one fake 30-minute clock and charging event."""
     start = datetime(2026, 11, 21, 12, 0, tzinfo=UTC)
@@ -450,12 +503,15 @@ async def test_actual_ha_scheduler_reduces_idle_calls_and_wakes_for_soc(
     await controller.async_start()
     await baseline.async_config_entry_first_refresh()
     await adaptive.async_config_entry_first_refresh()
+    loop_clock = [hass.loop.time()]
+    monkeypatch.setattr(hass.loop, "time", lambda: loop_clock[0])
     baseline_unsub = baseline.async_add_listener(lambda: None)
     adaptive_unsub = adaptive.async_add_listener(lambda: None)
 
     current = start
     for _ in range(100):
         current += timedelta(seconds=15)
+        loop_clock[0] += 15
         freezer.move_to(current)
         async_fire_time_changed(hass, current)
         await hass.async_block_till_done()
@@ -469,6 +525,7 @@ async def test_actual_ha_scheduler_reduces_idle_calls_and_wakes_for_soc(
     hass.states.async_set("binary_sensor.charger_charging", "on")
     await hass.async_block_till_done()
     current += timedelta(seconds=3)
+    loop_clock[0] += 3
     freezer.move_to(current)
     async_fire_time_changed(hass, current)
     await hass.async_block_till_done()
@@ -479,10 +536,12 @@ async def test_actual_ha_scheduler_reduces_idle_calls_and_wakes_for_soc(
 
     for _ in range(19):
         current += timedelta(seconds=15)
+        loop_clock[0] += 15
         freezer.move_to(current)
         async_fire_time_changed(hass, current)
         await hass.async_block_till_done()
     current += timedelta(seconds=12)
+    loop_clock[0] += 12
     freezer.move_to(current)
     async_fire_time_changed(hass, current)
     await hass.async_block_till_done()
@@ -494,4 +553,199 @@ async def test_actual_ha_scheduler_reduces_idle_calls_and_wakes_for_soc(
 
     baseline_unsub()
     adaptive_unsub()
+    await controller.async_stop()
+
+
+async def test_companion_ha_scheduler_reduces_cache_reads_only(
+    hass, freezer, record_property, monkeypatch
+):
+    """Compare cache reads (no upstream NIO calls) over the same 1800s input."""
+    start = datetime(2026, 11, 21, 12, 0, tzinfo=UTC)
+    current = start
+    freezer.move_to(start)
+    _sources(hass)
+    baseline_entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Baseline Companion",
+        unique_id="C" * 17,
+        data={
+            CONF_VIN: "C" * 17,
+            "connection_method": "companion",
+            CONF_COMPANION_VEHICLE_KEY: "a" * 64,
+        },
+        options={POLLING_OPTIONS_KEY: {"adaptive": False}},
+    )
+    adaptive_entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Adaptive Companion",
+        unique_id="D" * 17,
+        data={
+            CONF_VIN: "D" * 17,
+            "connection_method": "companion",
+            CONF_COMPANION_VEHICLE_KEY: "a" * 64,
+        },
+        options={POLLING_OPTIONS_KEY: _options()},
+    )
+    baseline_entry.add_to_hass(hass)
+    adaptive_entry.add_to_hass(hass)
+    baseline_client = _CountedCompanionCache(start, "C" * 17)
+    adaptive_client = _CountedCompanionCache(start, "D" * 17)
+    baseline = CompanionDataUpdateCoordinator(hass, baseline_entry, baseline_client)
+    adaptive = CompanionDataUpdateCoordinator(hass, adaptive_entry, adaptive_client)
+    controller = AdaptivePollingController(hass, adaptive, adaptive_entry)
+    adaptive.polling_controller = controller
+    fake_monotonic = [10_000.0]
+    loop_clock = [hass.loop.time()]
+    monkeypatch.setattr(hass.loop, "time", lambda: loop_clock[0])
+
+    with patch(
+        "custom_components.nio_telematics.companion_coordinator.time.monotonic",
+        side_effect=lambda: fake_monotonic[0],
+    ):
+        await controller.async_start()
+        await baseline.async_config_entry_first_refresh()
+        await adaptive.async_config_entry_first_refresh()
+        baseline_unsub = baseline.async_add_listener(lambda: None)
+        adaptive_unsub = adaptive.async_add_listener(lambda: None)
+
+        for _ in range(100):
+            current += timedelta(seconds=15)
+            fake_monotonic[0] += 15
+            loop_clock[0] += 15
+            freezer.move_to(current)
+            async_fire_time_changed(hass, current)
+            await hass.async_block_till_done()
+        idle_reads = adaptive_client.reads
+        record_property("companion_idle_cache_reads", idle_reads)
+        record_property(
+            "companion_baseline_cache_reads_at_1500s", baseline_client.reads
+        )
+        record_property("companion_measurement", "cache_only")
+        assert controller.mode == "idle"
+        assert (current - start).total_seconds() == 1_500
+
+        previous_soc = adaptive.data.soc_status.soc
+        hass.states.async_set("binary_sensor.charger_charging", "on")
+        await hass.async_block_till_done()
+        current += timedelta(seconds=3)
+        fake_monotonic[0] += 3
+        loop_clock[0] += 3
+        freezer.move_to(current)
+        async_fire_time_changed(hass, current)
+        await hass.async_block_till_done()
+        assert adaptive_client.reads > idle_reads
+        assert adaptive.data.soc_status.soc != previous_soc
+        assert controller.mode == "normal"
+        after_wake = adaptive_client.reads
+
+        for _ in range(19):
+            current += timedelta(seconds=15)
+            fake_monotonic[0] += 15
+            loop_clock[0] += 15
+            freezer.move_to(current)
+            async_fire_time_changed(hass, current)
+            await hass.async_block_till_done()
+        current += timedelta(seconds=12)
+        fake_monotonic[0] += 12
+        loop_clock[0] += 12
+        freezer.move_to(current)
+        async_fire_time_changed(hass, current)
+        await hass.async_block_till_done()
+
+    assert (current - start).total_seconds() == 1_800
+    assert adaptive_client.reads < baseline_client.reads
+    assert adaptive_client.reads - after_wake >= 8
+    record_property("companion_baseline_cache_reads_at_1800s", baseline_client.reads)
+    record_property("companion_adaptive_cache_reads_at_1800s", adaptive_client.reads)
+    baseline_unsub()
+    adaptive_unsub()
+    await controller.async_stop()
+
+
+async def test_companion_retry_later_uses_normal_recovery_interval_and_keeps_clocks(
+    hass, freezer, monkeypatch
+):
+    start = datetime(2026, 11, 21, 12, 0, tzinfo=UTC)
+    current = start
+    freezer.move_to(start)
+    _sources(hass)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Recovering Companion",
+        unique_id="E" * 17,
+        data={
+            CONF_VIN: "E" * 17,
+            "connection_method": "companion",
+            CONF_COMPANION_VEHICLE_KEY: "a" * 64,
+        },
+        options={POLLING_OPTIONS_KEY: _options()},
+    )
+    entry.add_to_hass(hass)
+    client = _CountedCompanionCache(
+        start, "E" * 17, outcomes=["healthy", "retry_later", "healthy"]
+    )
+    coordinator = CompanionDataUpdateCoordinator(hass, entry, client)
+    controller = AdaptivePollingController(hass, coordinator, entry)
+    coordinator.polling_controller = controller
+    fake_monotonic = [20_000.0]
+    loop_clock = [hass.loop.time()]
+    monkeypatch.setattr(hass.loop, "time", lambda: loop_clock[0])
+
+    with patch(
+        "custom_components.nio_telematics.companion_coordinator.time.monotonic",
+        side_effect=lambda: fake_monotonic[0],
+    ):
+        await controller.async_start()
+        await coordinator.async_config_entry_first_refresh()
+        original = coordinator.data
+        original_clock = original.field_metadata["socPercent"]["source_timestamp"]
+        unsubscribe = coordinator.async_add_listener(lambda: None)
+
+        current += timedelta(seconds=120)
+        fake_monotonic[0] += 120
+        loop_clock[0] += 120
+        freezer.move_to(current)
+        async_fire_time_changed(hass, current)
+        await hass.async_block_till_done()
+        retained = coordinator.data
+        assert client.reads == 2
+        assert coordinator._polling_transport_recovering is True
+        assert controller.mode == "normal"
+        assert coordinator.update_interval == timedelta(seconds=30)
+        assert retained.fetched_at == original.fetched_at
+        assert retained.soc_last_valid_at == original.soc_last_valid_at
+        assert (
+            retained.field_metadata["socPercent"]["source_timestamp"] == original_clock
+        )
+
+        # Activity while the cache is failing keeps the configured normal retry.
+        current += timedelta(seconds=1)
+        fake_monotonic[0] += 1
+        loop_clock[0] += 1
+        freezer.move_to(current)
+        hass.states.async_set("binary_sensor.charger_charging", "on")
+        await hass.async_block_till_done()
+        current += timedelta(seconds=3)
+        fake_monotonic[0] += 3
+        loop_clock[0] += 3
+        freezer.move_to(current)
+        async_fire_time_changed(hass, current)
+        await hass.async_block_till_done()
+        assert client.reads == 2
+        assert coordinator.update_interval == timedelta(seconds=30)
+
+        current += timedelta(seconds=26)
+        fake_monotonic[0] += 26
+        loop_clock[0] += 26
+        freezer.move_to(current)
+        async_fire_time_changed(hass, current)
+        await hass.async_block_till_done()
+
+    assert current == start + timedelta(seconds=150)
+    assert client.reads == 3
+    assert coordinator._polling_transport_recovering is False
+    assert coordinator.data.soc_last_valid_at > original_clock
+    assert coordinator.data.soc_status.soc != original.soc_status.soc
+    assert controller.mode == "normal"
+    unsubscribe()
     await controller.async_stop()

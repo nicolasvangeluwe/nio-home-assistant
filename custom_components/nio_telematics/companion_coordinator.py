@@ -240,6 +240,7 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
         self._retry_after_reason: str | None = None
         self._polling_request_lock = asyncio.Lock()
         self._polling_auth_failed = False
+        self._polling_transport_recovering = False
 
     async def _async_update_data(self) -> NioVehicleData:
         self._polling_refresh_count += 1
@@ -248,6 +249,7 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
         try:
             snapshot = await self._async_fetch_snapshot()
         except CompanionFetchError as err:
+            self._polling_transport_recovering = True
             if err.retry_after:
                 self._retry_after_until = datetime.now(UTC) + timedelta(
                     seconds=err.retry_after
@@ -257,7 +259,13 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
                 self._retry_after_until = datetime.now(UTC) + timedelta(seconds=30)
                 self._retry_after_reason = "retry_later_fallback"
             controller = getattr(self, "polling_controller", None)
-            configured = controller.interval_seconds if controller is not None else 30
+            if controller is not None:
+                controller.refresh_mode()
+                configured = controller.interval_seconds
+            else:
+                configured = polling_settings_for_entry(self.config_entry)[
+                    "interval_seconds"
+                ]
             self.update_interval = timedelta(
                 seconds=max(30, configured, err.retry_after or 30)
             )
@@ -310,6 +318,7 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
             raise UpdateFailed(f"Companion: {err.kind}") from None
         ir.async_delete_issue(self.hass, DOMAIN, self._issue_id)
         self._polling_auth_failed = False
+        self._polling_transport_recovering = False
         self._retry_after_until = None
         self._retry_after_reason = None
         if (controller := getattr(self, "polling_controller", None)) is not None:
@@ -330,6 +339,8 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
         async with self._polling_request_lock:
             if getattr(self, "polling_controller", None) is not None:
                 while True:
+                    if self._polling_auth_failed:
+                        raise ConfigEntryAuthFailed("Companion HA access was revoked")
                     last_attempt = self._polling_last_attempt_monotonic
                     delay = (
                         30 - (time.monotonic() - last_attempt)
@@ -346,6 +357,8 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
                     if delay <= 0:
                         break
                     await asyncio.sleep(delay)
+            self._retry_after_until = None
+            self._retry_after_reason = None
             self._polling_last_attempt_monotonic = time.monotonic()
             return await self._client.async_fetch(
                 expected_vin=self._vin,

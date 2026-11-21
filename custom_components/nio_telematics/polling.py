@@ -284,7 +284,7 @@ class AdaptivePollingController:
         if (
             not self._started
             or getattr(self.entry, "pref_disable_polling", False)
-            or getattr(self.coordinator, "_polling_auth_failed", False)
+            or getattr(self.coordinator, "_polling_auth_failed", False) is True
         ):
             return
         if self._wake_task is not None and not self._wake_task.done():
@@ -346,6 +346,10 @@ class AdaptivePollingController:
 
     def _apply_interval(self) -> None:
         seconds = self.interval_seconds
+        pacer = getattr(getattr(self.coordinator, "_client", None), "_pacer", None)
+        pacer_deadline = getattr(pacer, "_next_at", None)
+        if isinstance(pacer_deadline, (int, float)):
+            seconds = max(seconds, math.ceil(pacer_deadline - time.monotonic()))
         retry_until = getattr(self.coordinator, "_retry_after_until", None)
         if isinstance(retry_until, datetime):
             seconds = max(
@@ -354,6 +358,9 @@ class AdaptivePollingController:
         self.coordinator.update_interval = timedelta(seconds=max(1, seconds))
 
     def _refresh_mode(self) -> None:
+        if getattr(self.coordinator, "_polling_transport_recovering", False) is True:
+            self.mode, self.last_reason = "normal", "transport_recovery"
+            return
         if not self.settings["adaptive"]:
             self.mode = "normal"
             self.last_reason = "adaptive_disabled"

@@ -55,6 +55,7 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
         self._polling_refresh_count = 0
         self._polling_last_attempt_monotonic: float | None = None
         self._polling_auth_failed = False
+        self._polling_transport_recovering = False
         self._background_index = 0
 
     _CHANGE_ENDPOINTS = (
@@ -132,11 +133,17 @@ class NioDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
         except NioApiError as err:
             # Keep optional-feed failures from pinning Direct to one endpoint.
             # Preserve the failed-update signal so HA still retries the update.
+            self._polling_transport_recovering = True
+            if (controller := getattr(self, "polling_controller", None)) is not None:
+                controller.refresh_mode()
             self._request_count += 1
             if resource != "soc_status":
                 self._background_index += 1
             raise UpdateFailed(str(err)) from err
         self._polling_auth_failed = False
+        self._polling_transport_recovering = False
+        if (controller := getattr(self, "polling_controller", None)) is not None:
+            controller.refresh_mode()
         self._request_count += 1
         if resource != "soc_status":
             self._background_index += 1
