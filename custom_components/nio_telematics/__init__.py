@@ -86,7 +86,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: NioConfigEntry) -> bool:
         ir.async_delete_issue(hass, DOMAIN, f"companion_source_{entry.entry_id}")
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    entry.async_on_unload(entry.add_update_listener(_async_dashboard_options_updated))
+    # Dashboard preferences are applied explicitly by the options flow. A config-entry
+    # update listener cannot coexist with the OAuth flow's reload helper on HA 2026.12.
     await _async_dashboard_options_updated(hass, entry)
     return True
 

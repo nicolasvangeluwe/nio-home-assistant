@@ -3,6 +3,23 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.6.0-dev.3
+
+- Fix Direct NIO polling getting stuck after a generic HTTP 404 from a change
+  feed such as `cell_status/changes`. Treat that missing resource as no recent
+  data, retain valid readings and their original sample times, and continue
+  polling the other feeds. Retry the resource on its next normal turn rather
+  than permanently marking it unsupported. Thanks to @CasperSK89 for the
+  detailed EL6 report and sanitized logs in #21.
+- Advance the Direct polling rotation after other retryable API failures while
+  continuing to report the failed update. Authentication still requests native
+  reauthentication; permission, rate-limit and server errors retain their
+  existing classifications.
+- Remove the config-entry listener conflict deprecated for Home Assistant
+  2026.12. Native reauthentication keeps its reload path; dashboard-only options
+  apply without reloading vehicle telemetry. Preserve the existing vehicle
+  entry, saved preferences and optional history.
+
 ## 0.6.0-dev.2
 
 - Fix startup on Home Assistant 2026.11 by importing OAuth token exceptions

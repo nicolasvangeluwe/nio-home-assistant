@@ -12,12 +12,14 @@ from homeassistant.exceptions import (
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from custom_components.nio_telematics.api import (
+    NioApiClient,
     NioApiError,
+    NioAuthenticationError,
     NioPermissionError,
     NioResourceNotFoundError,
 )
 from custom_components.nio_telematics.availability import overall_availability
-from custom_components.nio_telematics.const import CONF_VIN
+from custom_components.nio_telematics.const import API_BASE_URL, CONF_VIN
 from custom_components.nio_telematics.coordinator import (
     NioDataUpdateCoordinator,
     _retain_vehicle_odometer,
@@ -55,6 +57,158 @@ async def test_temporary_refresh_failure_remains_retryable(hass: HomeAssistant) 
 
     with pytest.raises(UpdateFailed, match="temporarily unavailable"):
         await coordinator._async_update_data()
+
+
+async def test_generic_cell_404_does_not_lock_direct_polling(
+    hass: HomeAssistant,
+) -> None:
+    """A missing optional resource must not block the next energy read."""
+    entry = MagicMock()
+    entry.data = {CONF_VIN: "LJNABC12345678901"}
+    oauth = MagicMock()
+    cell_calls = 0
+
+    def response(status: int, payload: dict | None = None) -> MagicMock:
+        result = MagicMock(status=status, headers={})
+        if payload is None:
+            result.json = AsyncMock(side_effect=ValueError("empty body"))
+        else:
+            result.json = AsyncMock(return_value=payload)
+        return result
+
+    async def async_request(_method: str, url: str, **_kwargs: object) -> MagicMock:
+        nonlocal cell_calls
+        if url.endswith("/cell_status/changes"):
+            cell_calls += 1
+            if cell_calls == 1:
+                return response(404)
+            return response(
+                200,
+                {
+                    "result_code": "success",
+                    "data": [{"sample_timestamp": 1_760_000_100_000}],
+                },
+            )
+        if url.endswith("/vehicle_status/latest"):
+            return response(
+                200,
+                {"result_code": "success", "data": {"soc": 0, "mileage": 6266}},
+            )
+        return response(
+            200,
+            {
+                "result_code": "success",
+                "data": [
+                    {
+                        "soc": 54 + cell_calls,
+                        "remaining_range": 280,
+                        "sample_timestamp": 1_760_000_000_000 + cell_calls * 1_000,
+                    }
+                ],
+            },
+        )
+
+    oauth.async_request = AsyncMock(side_effect=async_request)
+    coordinator = NioDataUpdateCoordinator(
+        hass, entry, NioApiClient(oauth, API_BASE_URL)
+    )
+
+    # Reach the exact cell_status slot: background_index 15 at request_count 63.
+    for expected_count in range(1, 64):
+        await coordinator.async_refresh()
+        assert coordinator._request_count == expected_count
+    prior = coordinator.data
+    assert prior.soc_status.soc == 54
+    assert prior.soc_last_valid_at == datetime.fromtimestamp(1_760_000_000, UTC)
+    await coordinator.async_refresh()
+    cell_state = coordinator.data
+    assert cell_calls == 1
+    assert cell_state.endpoint_status["cell_status"] == "no_recent_data"
+    assert cell_state.soc_status.soc == 54
+    assert cell_state.soc_last_valid_at == prior.soc_last_valid_at
+    assert coordinator.last_update_success
+
+    soc_description = next(
+        sensor for sensor in SENSORS if sensor.key == "battery_state_of_charge"
+    )
+    assert NioSocSensor(coordinator, soc_description).available
+
+    await coordinator.async_refresh()
+    energy_state = coordinator.data
+    assert energy_state.soc_status.soc == 55
+    assert energy_state.soc_last_valid_at == datetime.fromtimestamp(
+        1_760_000_001, UTC
+    )
+    assert energy_state.endpoint_status["cell_status"] == "no_recent_data"
+    assert cell_calls == 1
+
+    # The feed is retried on the next full background rotation and can recover.
+    for _ in range(111):
+        await coordinator.async_refresh()
+    assert cell_calls == 2
+    assert coordinator.data.endpoint_status["cell_status"] == "success"
+    assert coordinator.last_update_success
+
+
+async def test_optional_transient_failure_advances_but_stays_failed(
+    hass: HomeAssistant,
+) -> None:
+    """A transient background error fails this update but releases the next slot."""
+    entry = MagicMock()
+    entry.data = {CONF_VIN: "LJNABC12345678901"}
+    client = MagicMock()
+    resources: list[str] = []
+    fail_cell = True
+
+    async def get_change_record(_vin: str, resource: str) -> dict:
+        nonlocal fail_cell
+        resources.append(resource)
+        if resource == "cell_status" and fail_cell:
+            fail_cell = False
+            raise NioApiError("NIO API returned HTTP 503")
+        return {"soc": 55} if resource == "soc_status" else {}
+
+    client.async_get_change_record = AsyncMock(side_effect=get_change_record)
+    client.async_get_latest_vehicle_record = AsyncMock(return_value={})
+    coordinator = NioDataUpdateCoordinator(hass, entry, client)
+    for _ in range(63):
+        coordinator.async_set_updated_data(await coordinator._async_update_data())
+
+    assert coordinator._request_count == 63
+    assert coordinator._background_index == 15
+    with pytest.raises(UpdateFailed, match="HTTP 503"):
+        await coordinator._async_update_data()
+    assert coordinator._request_count == 64
+    assert coordinator._background_index == 16
+
+    recovered = await coordinator._async_update_data()
+    assert resources[-1] == "soc_status"
+    assert recovered.soc_status.soc == 55
+
+
+async def test_auth_failure_does_not_advance_direct_rotation(
+    hass: HomeAssistant,
+) -> None:
+    """Auth failures preserve the failed resource slot for reauth recovery."""
+    entry = MagicMock()
+    entry.data = {CONF_VIN: "LJNABC12345678901"}
+    client = MagicMock()
+
+    async def get_change_record(_vin: str, resource: str) -> dict:
+        if resource == "cell_status":
+            raise NioAuthenticationError("NIO access token is invalid or expired")
+        return {"soc": 55} if resource == "soc_status" else {}
+
+    client.async_get_change_record = AsyncMock(side_effect=get_change_record)
+    client.async_get_latest_vehicle_record = AsyncMock(return_value={})
+    coordinator = NioDataUpdateCoordinator(hass, entry, client)
+    for _ in range(63):
+        coordinator.async_set_updated_data(await coordinator._async_update_data())
+
+    with pytest.raises(ConfigEntryAuthFailed):
+        await coordinator._async_update_data()
+    assert coordinator._request_count == 63
+    assert coordinator._background_index == 15
 
 
 def test_sparse_vehicle_snapshot_retains_only_valid_odometer() -> None:
