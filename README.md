@@ -10,7 +10,7 @@ On my EU ET5 Touring, it receives live **battery SoC, remaining range, odometer 
 
 SoC, range and odometer keep their last valid readings when NIO sends sparse updates or Home Assistant restarts. Check each sensor's sample time before relying on it for an automation. See the [changelog](CHANGELOG.md) for technical details and release history.
 
-NIO may deny individual telemetry feeds for some vehicles or accounts. The integration keeps any permitted vehicle data available and identifies denied feeds in its API availability diagnostics; it cannot override NIO's access decision. An actual expired OAuth grant still requests reauthentication.
+NIO may deny individual telemetry feeds for some vehicles or accounts. The integration keeps any permitted vehicle data available and identifies denied feeds in its API availability diagnostics; it cannot override NIO's access decision. A missing optional change feed does not stop polling the other feeds. An actual expired OAuth grant still requests reauthentication.
 
 ## Optional car app
 
@@ -67,4 +67,4 @@ A Direct NIO upgrade that changes requested permissions may prompt **Reauthentic
 
 If you own an EU NIO, please give it a try. A quick note with your **model, country and which readings work** is genuinely useful—especially from a car other than my ET5 Touring. Share your results in the [EU owner discussion](https://github.com/nicolasvangeluwe/nio-home-assistant/discussions/6), or [report a bug](https://github.com/nicolasvangeluwe/nio-home-assistant/issues). Do not share credentials, tokens, a full VIN or precise location.
 
-This is a personal project built with substantial AI assistance and shared for other owners to use and improve. It is not affiliated with or endorsed by NIO or Home Assistant. Thanks to [@Laddvin](https://github.com/Laddvin) for spotting the first real data and finding the working SoC feed, and [@lubbyhst](https://github.com/lubbyhst) for independent testing and early improvements. Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
+This is a personal project built with substantial AI assistance and shared for other owners to use and improve. It is not affiliated with or endorsed by NIO or Home Assistant. Thanks to [@Laddvin](https://github.com/Laddvin) for spotting the first real data and finding the working SoC feed, and [@lubbyhst](https://github.com/lubbyhst) for independent testing and early improvements. Thanks also to [@CasperSK89](https://github.com/CasperSK89) for the EL6 report and logs that helped fix polling recovery and the HA 2026.12 update-listener warning. Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
