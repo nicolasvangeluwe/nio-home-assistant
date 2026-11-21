@@ -6,6 +6,8 @@ import pytest
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import config_validation as cv
+from probatio import to_field_list
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.nio_telematics import async_setup_entry
@@ -80,6 +82,27 @@ async def test_options_manager_persists_and_applies_without_reload(hass, history
             "charging_entity",
             "power_entity",
         } <= fields
+        serialized = {
+            field["name"]: field
+            for field in to_field_list(
+                form["data_schema"], custom_serializer=cv.custom_serializer
+            )
+        }
+        for field_name in (
+            "connected_entity",
+            "charging_entity",
+            "power_entity",
+            "soc_entity",
+        ):
+            assert serialized[field_name].get("type") != "constant"
+            assert "entity" in serialized[field_name]["selector"]
+        # Keep the optional selector's blank branch usable for clearing a value.
+        connected_field = next(
+            key
+            for key in form["data_schema"].schema
+            if getattr(key, "schema", None) == "connected_entity"
+        )
+        assert form["data_schema"].schema[connected_field]("") == ""
         result = await hass.config_entries.options.async_configure(
             form["flow_id"],
             {
@@ -121,6 +144,108 @@ async def test_native_options_reject_adaptive_without_independent_sources(hass):
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_polling_sources"}
     assert entry.options == {"unrelated": {"keep": True}}
+
+
+async def test_native_options_clear_optional_power_and_reopen(hass):
+    """Selected sources save, optional power clears, and the form reopens cleanly."""
+    hass.states.async_set("binary_sensor.charger_connected", "on")
+    hass.states.async_set("binary_sensor.charger_charging", "off")
+    hass.states.async_set("sensor.charger_power", "0", {"unit_of_measurement": "kW"})
+    entry, coordinator = await loaded_entry(hass)
+
+    first = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        first["flow_id"],
+        {
+            "model": "ET7",
+            "language": "en",
+            "interval_seconds": 15,
+            "idle_interval_seconds": 120,
+            "adaptive": True,
+            "connected_entity": "binary_sensor.charger_connected",
+            "charging_entity": "binary_sensor.charger_charging",
+            "power_entity": "sensor.charger_power",
+        },
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.options["polling"]["power_entity"] == "sensor.charger_power"
+
+    second = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        second["flow_id"],
+        {
+            "model": "ET7",
+            "language": "en",
+            "interval_seconds": 15,
+            "idle_interval_seconds": 120,
+            "adaptive": True,
+            "connected_entity": "binary_sensor.charger_connected",
+            "charging_entity": "binary_sensor.charger_charging",
+            "power_entity": "",
+        },
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.options["polling"]["power_entity"] == ""
+    assert entry.options["polling"]["connected_entity"] == (
+        "binary_sensor.charger_connected"
+    )
+    assert entry.options["polling"]["charging_entity"] == (
+        "binary_sensor.charger_charging"
+    )
+    assert entry.options[OPTIONS_KEY]["model"] == "ET7"
+    assert entry.options["unrelated"] == {"keep": True}
+
+    reopened = await hass.config_entries.options.async_init(entry.entry_id)
+    defaults = {
+        key.schema: key.default
+        for key in reopened["data_schema"].schema
+        if hasattr(key, "schema")
+    }
+    assert defaults["power_entity"]() == ""
+    assert defaults["connected_entity"]() == "binary_sensor.charger_connected"
+    assert defaults["charging_entity"]() == "binary_sensor.charger_charging"
+    assert coordinator.polling_controller.async_update_options.await_count == 2
+
+
+@pytest.mark.parametrize("cleared_key", ["connected_entity", "charging_entity"])
+async def test_native_options_reject_clearing_required_adaptive_source(
+    hass, cleared_key
+):
+    """Invalid optional-source clears leave persisted options intact."""
+    hass.states.async_set("binary_sensor.charger_connected", "on")
+    hass.states.async_set("binary_sensor.charger_charging", "off")
+    entry, _ = await loaded_entry(hass)
+    saved_options = {
+        **entry.options,
+        "polling": {
+            "interval_seconds": 15,
+            "idle_interval_seconds": 120,
+            "adaptive": True,
+            "connected_entity": "binary_sensor.charger_connected",
+            "charging_entity": "binary_sensor.charger_charging",
+            "power_entity": "",
+        },
+        OPTIONS_KEY: {"model": "ET7", "language": "en"},
+    }
+    hass.config_entries.async_update_entry(entry, options=saved_options)
+    form = await hass.config_entries.options.async_init(entry.entry_id)
+    submission = {
+        "model": "ET7",
+        "language": "en",
+        "interval_seconds": 15,
+        "idle_interval_seconds": 120,
+        "adaptive": True,
+        "connected_entity": "binary_sensor.charger_connected",
+        "charging_entity": "binary_sensor.charger_charging",
+        "power_entity": "",
+    }
+    submission[cleared_key] = ""
+    result = await hass.config_entries.options.async_configure(
+        form["flow_id"], submission
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "invalid_polling_sources"}
+    assert entry.options == saved_options
 
 
 async def test_dashboard_edit_retains_existing_polling_settings(hass):

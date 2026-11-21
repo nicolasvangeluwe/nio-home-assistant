@@ -3,6 +3,14 @@
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 
+## 0.7.0-dev.2
+
+- Fix the native vehicle options form showing entity-source labels without a
+  picker. Preserve optional clearing and existing vehicle/household sources.
+  This affects adaptive polling inputs and the existing dashboard source fields.
+- Verify the serialized form used by Home Assistant's frontend, in addition to
+  options-manager saves. Adaptive polling behavior is unchanged from dev.1.
+
 ## 0.7.0-dev.1
 
 - Add configurable normal polling and optional adaptive polling in the vehicle's
