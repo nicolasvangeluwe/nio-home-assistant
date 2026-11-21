@@ -455,12 +455,12 @@ class NioOptionsFlow(config_entries.OptionsFlow):
             ),
             vol.Optional(
                 "connected_entity", default=shown_polling["connected_entity"]
-            ): vol.Any("", entity),
+            ): vol.Any(entity, ""),
             vol.Optional(
                 "charging_entity", default=shown_polling["charging_entity"]
-            ): vol.Any("", entity),
+            ): vol.Any(entity, ""),
             vol.Optional("power_entity", default=shown_polling["power_entity"]): (
-                vol.Any("", entity)
+                vol.Any(entity, "")
             ),
             vol.Required("model", default=shown_model): selector.SelectSelector(
                 selector.SelectSelectorConfig(options=list(MODELS))
@@ -486,7 +486,7 @@ class NioOptionsFlow(config_entries.OptionsFlow):
             "electricity_price",
             "reimbursement_rate",
         ):
-            fields[vol.Optional(key, default=current[key])] = vol.Any("", entity)
+            fields[vol.Optional(key, default=current[key])] = vol.Any(entity, "")
         fields[
             vol.Optional(
                 "battery_capacity_kwh",
