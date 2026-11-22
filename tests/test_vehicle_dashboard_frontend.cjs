@@ -46,7 +46,7 @@ function display(chargingState, connection, power, powerUnit = 'kW') {
   const card = {
     vehicle: { entities: { battery_state_of_charge: 'soc', remaining_range: 'range', odometer: 'odo', maximum_soc: 'limit', charging_state: 'charging' }, preferences: { evcc_connected: 'connected', evcc_power: 'power' } },
     shadowRoot: { querySelector: selector => selector === '.dashboard[data-entry-id]' ? root : null },
-    words: { charging: 'Laden', connectedStatus: 'Verbonden', idle: 'Laadt niet', unavailable: 'Niet beschikbaar', power: 'Vermogen', limit: 'Laadlimiet' },
+    words: { charging: 'Laden', chargingUnknown: 'Laadstatus onbekend', connectedStatus: 'Verbonden', idle: 'Laadt niet', unavailable: 'Niet beschikbaar', power: 'Vermogen', limit: 'Laadlimiet' },
     state: id => states[id],
     number(id, digits = 0) { const value = Number(states[id]?.state); return Number.isFinite(value) ? value.toFixed(digits) : null; },
     powerKw: Dashboard.prototype.powerKw,
@@ -57,6 +57,8 @@ function display(chargingState, connection, power, powerUnit = 'kW') {
     _hass: {},
   };
   Dashboard.prototype.updateDisplay.call(card);
+  nodes.states=states;
+  nodes.card=card;
   return nodes;
 }
 
@@ -75,6 +77,65 @@ test('a non-EVCC charger with watts and textual connection is accepted', () => {
   const nodes = display('unknown', 'connected', '4200', 'W');
   assert.equal(nodes.get('[data-value="status"]').textContent, 'Laden · Verbonden');
   assert.equal(nodes.get('[data-value="third"]').textContent, '4.2 kW');
+});
+
+test('connected alone does not imply idle; unknown state stays explicit', () => {
+  assert.equal(display('unknown', 'on', 'unknown').get('[data-value="status"]').textContent,
+    'Laadstatus onbekend · Verbonden');
+  assert.equal(display('unknown', 'off', 'unknown').get('[data-value="status"]').textContent,
+    'Laadstatus onbekend');
+  assert.equal(display('unknown', 'on', '-0.2').get('[data-value="status"]').textContent,
+    'Laadstatus onbekend · Verbonden');
+});
+
+test('charger power threshold and explicit native states retain their meanings', () => {
+  assert.equal(display('unknown', 'on', '0.1').get('[data-value="status"]').textContent,
+    'Laadt niet · Verbonden');
+  assert.equal(display('unknown', 'on', '0.1001').get('[data-value="status"]').textContent,
+    'Laden · Verbonden');
+  assert.equal(display('off', 'on', 'unknown').get('[data-value="status"]').textContent,
+    'Laadt niet · Verbonden');
+  assert.equal(display('on', 'off', 'unknown').get('[data-value="status"]').textContent,
+    'Laden');
+  assert.equal(display('3', 'on', 'unknown').get('[data-value="status"]').textContent,
+    'Laadstatus onbekend · Verbonden');
+});
+
+test('simple NIO card also distinguishes unknown status from idle', () => {
+  const card = Object.create(Vehicle.prototype);
+  const states = {
+    soc: {state:'75'}, range:{state:'416'}, odo:{state:'6266'}, limit:{state:'90'},
+    charging:{state:'unknown'}, connected:{state:'on'}, power:{state:'unknown',attributes:{unit_of_measurement:'kW'}},
+  };
+  card._hass={language:'en',states};
+  card.vehicles=[{entry_id:'example',name:'ET5 Touring',entities:{battery_state_of_charge:'soc',remaining_range:'range',odometer:'odo',maximum_soc:'limit',charging_state:'charging'},preferences:{language:'en',model:'ET5 Touring',evcc_connected:'connected',evcc_power:'power',ledger_enabled:false},ledger_available:false}];card.config={entry_id:'example'};
+  card.shadowRoot={innerHTML:'',querySelector:()=>null};card.view='overview';card.openDetails=false;
+  card.state=Vehicle.prototype.state;card.number=Vehicle.prototype.number;card.powerKw=Vehicle.prototype.powerKw;card.formatNumber=Vehicle.prototype.formatNumber;card.esc=Vehicle.prototype.esc;
+  card.stamp=Vehicle.prototype.stamp;card.effectiveModel=Vehicle.prototype.effectiveModel;card.artwork=()=>'';
+  card.render();
+  assert.match(card.shadowRoot.innerHTML,/Charging status unknown · Connected/);
+});
+
+test('charging status unknown is localized in all fourteen dashboard languages', () => {
+  const languages=['en','nl','de','fr','nb','sv','da','cs','el','hu','lb','pl','pt','ro'];
+  const card=Object.create(Vehicle.prototype);card._hass={language:'en'};
+  const words=languages.map(language=>{
+    card.vehicles=[{entry_id:'lang',preferences:{language}}];card.config={entry_id:'lang'};
+    return card.words;
+  });
+  assert.equal(words.length,14);
+  assert.ok(words.every(word=>typeof word.chargingUnknown==='string'&&word.chargingUnknown.length>0));
+  assert.equal(words[0].chargingUnknown,'Charging status unknown');
+  assert.equal(words[1].chargingUnknown,'Laadstatus onbekend');
+  assert.ok(words.every(word=>typeof word.connectedStatus==='string'&&word.connectedStatus.length>0));
+});
+
+test('a selected external binary state updates the displayed NIO status', () => {
+  const nodes=display('unknown','on','unknown');
+  assert.equal(nodes.get('[data-value="status"]').textContent,'Laadstatus onbekend · Verbonden');
+  nodes.states.charging.state='on';
+  Dashboard.prototype.updateDisplay.call(nodes.card);
+  assert.equal(nodes.get('[data-value="status"]').textContent,'Laden · Verbonden');
 });
 
 test('no configured EVCC source falls back to native charge limit', () => {

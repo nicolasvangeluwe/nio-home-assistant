@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Show unknown charging status instead of inferring idle from charger connection
+  alone; retain explicit native state and charger power evidence. Improve the
+  dashboard guidance for cars whose native NIO charging state is unavailable.
+- Add privacy-safe charging-field diagnostics for Direct NIO retained payloads;
+  identify that the raw NIO payload is unavailable from Companion.
+
 The changelog is the authoritative release history for this integration.
 Use this before releases and when opening PRs.
 

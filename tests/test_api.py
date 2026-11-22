@@ -120,6 +120,21 @@ async def test_sparse_soc_changes_keep_each_fields_newest_value() -> None:
     assert "params" not in request.kwargs
 
 
+async def test_soc_retained_view_does_not_distinguish_null_from_absent_field() -> None:
+    records = [
+        {"soc": 50, "sample_timestamp": 1000},
+        {"soc": 50, "chrg_state": None, "sample_timestamp": 2000},
+    ]
+    oauth_session = MagicMock()
+    oauth_session.async_request = AsyncMock(
+        return_value=response(200, {"result_code": "success", "data": records})
+    )
+    record = await NioApiClient(oauth_session, API_BASE_URL).async_get_change_record(
+        "LJNABC12345678901", "soc_status"
+    )
+    assert "chrg_state" not in record
+
+
 async def test_invalid_newer_energy_event_does_not_erase_valid_older_event() -> None:
     oauth_session = MagicMock()
     oauth_session.async_request = AsyncMock(
