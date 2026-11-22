@@ -373,7 +373,7 @@ async def test_companion_diagnostics_redact_credentials_and_vehicle_identity(has
         ({"chrg_state": False}, None, "rejected_type"),
         ({"chrg_state": {"state": "charging"}}, None, "rejected_type"),
         ({"chrg_state": 0}, "0", "accepted_by_parser"),
-        ({"chrg_state": "vendor_enum"}, "vendor_enum", "accepted_by_parser"),
+        ({"chrg_state": "raw_value_123"}, "raw_value_123", "accepted_by_parser"),
     ],
 )
 def test_charging_state_diagnostic_reports_retained_field_shape_without_value(
@@ -388,7 +388,13 @@ def test_charging_state_diagnostic_reports_retained_field_shape_without_value(
     assert result["payload_state"] == expected
     assert result["payload_view"] == "retained_sparse_merge"
     assert result["merged_value_available"] is (merged is not None)
-    assert str(payload.get("chrg_state")) not in str(result)
+    assert set(result) == {
+        "source",
+        "payload_view",
+        "payload_state",
+        "merged_value_available",
+    }
+    assert "raw_value_123" not in str(result)
 
 
 def test_charging_state_diagnostic_does_not_treat_companion_as_raw_nio_payload():
