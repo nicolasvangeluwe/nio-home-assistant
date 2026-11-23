@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),test=require('node:test');
 const component=path.join(__dirname,'../custom_components/nio_telematics');
-const root={querySelector(){return null;},querySelectorAll(){return [];}};
+const root={querySelector(){return null;},querySelectorAll(){return [];},addEventListener(){}};
 const context={URL,console,Intl,Date,CustomEvent:class{constructor(type,init){this.type=type;Object.assign(this,init);}},HTMLElement:class{attachShadow(){this.shadowRoot=root;}dispatchEvent(event){this.event=event;}},window:{customCards:[]},document:{hidden:false},customElements:{get(){},define(){}}};
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(component,'car_dashboard/car-ledger-card.js'),'utf8').replaceAll('import.meta.url',JSON.stringify('https://ha.test/car-dashboard.js?nio_owned=1')).replace('export { CarLedgerCard };','')+'\nglobalThis.__Base=CarLedgerCard;',context);
@@ -9,6 +9,7 @@ source=source.replace(/const baseVersion=.*?\nconst \{CarLedgerCard\}=await impo
 vm.runInContext(source+'\nglobalThis.__History=NioDashboardHistory;globalThis.__label=periodLabel;',context);
 const History=context.__History;
 function instance(){const h=new History();h.config={entry_id:'one',language:'en'};h.render=()=>{};h.refreshState=()=>{};return h;}
+test('history categories and calendar scopes remain visible while loading or failed',()=>{const h=instance();for(const error of ['', 'History is temporarily unavailable']){h.error=error;History.prototype.render.call(h);assert.equal((root.innerHTML.match(/data-tab=/g)||[]).length,4);assert.equal((root.innerHTML.match(/data-scope=/g)||[]).length,4);for(const label of ['Charging','Trips','Energy','Parked','Day','Week','Month','Year'])assert.ok(root.innerHTML.includes('>'+label+'</button>'),label);}});
 function snapshot(){return {selected_period:{scope:'day',date:'2026-11-23',start_date:'2026-11-23',end_date:'2026-11-24',start:100,end:200,effective_end:180},statistics:{selected:{distance_km:10},month:{projected_range_km:172}},charges:[{id:'previous',end:99},{id:'first',end:100},{id:'now',end:180},{id:'future',end:181},{id:'next',end:200}],trips:[],parked_periods:[],charging_daily:[]};}
 test('calendar filters use half-open HA window and preserve the complete current snapshot',()=>{const h=instance();h.fullSnapshot=snapshot();const before=JSON.stringify(h.fullSnapshot);h.applyView();assert.deepEqual(Array.from(h.snapshot.charges,x=>x.id),['first','now']);assert.equal(JSON.stringify(h.fullSnapshot),before);assert.equal(h.fullSnapshot.statistics.month.projected_range_km,172);assert.equal(h.snapshot.statistics.month.distance_km,10);});
 test('calendar shift uses local dates without month overflow',()=>{const h=instance();h.scope='month';h._calendar={start_date:'2026-01-01'};h.shift(1);assert.equal(h.anchor,'2026-02-01');h.scope='week';h._calendar.start_date='2025-12-29';h.shift(1);assert.equal(h.anchor,'2026-01-05');});

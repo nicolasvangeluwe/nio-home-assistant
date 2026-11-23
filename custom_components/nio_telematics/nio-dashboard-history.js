@@ -78,8 +78,9 @@ export class NioDashboardHistory extends CarLedgerCard{
  render(){
   if(!this.config)return;
   if(!this.snapshot){
-   this.shadowRoot.innerHTML=`<style>${CarLedgerCard.styles}${HISTORY_STYLE}</style><ha-card><p class="empty" role="status">${this.esc(this.error||this.ui.loading)}</p><button data-action="refresh" class="text">${this.esc(this.ui.refresh)}</button></ha-card>`;
-   this.shadowRoot.querySelector('button').onclick=()=>this.refresh();return;
+   const u=this.ui;
+   this.shadowRoot.innerHTML=`<style>${CarLedgerCard.styles}${HISTORY_STYLE}</style><ha-card><div class="history-context"><div class="top"><nav class="main-tabs" aria-label="${this.esc(this.translate('Autohistoriek'))}">${[['charging',u.charging],['trips',u.trips],['insight',u.energy],['parked',u.parked]].map(([key,label])=>`<button type="button" data-tab="${key}" class="${this.tab===key?'selected':''}" aria-pressed="${this.tab===key}">${this.esc(label)}</button>`).join('')}</nav></div><nav class="history-scopes periods" style="--period-count:4" aria-label="${this.esc(this.translate('Periode'))}">${['day','week','month','year'].map(key=>`<button type="button" data-scope="${key}" class="${this.scope===key?'selected':''}" aria-pressed="${this.scope===key}">${this.esc(u[key])}</button>`).join('')}</nav></div><p class="empty" role="status">${this.esc(this.error||u.loading)}</p><button type="button" data-action="refresh" class="text">${this.esc(u.refresh)}</button></ha-card>`;
+   this.shadowRoot.addEventListener('click',this._clickHandler ||= e=>this.click(e));this.refreshState();return;
   }
   this.applyView();this.full=true;super.render();
   const r=this.shadowRoot,u=this.ui;
