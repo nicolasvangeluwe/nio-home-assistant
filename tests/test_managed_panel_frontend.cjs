@@ -159,6 +159,16 @@ test('explicit retry uses a fresh module URL after an import failure', async () 
   assert.match(state.imported[1], /nio_retry=1/);
 });
 
+test('ordinary HA state updates preserve the vehicle selector options', async () => {
+  const state = setup({ vehicles: [{ entry_id: 'car-1', name: 'NIO' }] });
+  await tick();
+  const option = state.select.children[0];
+  state.panel.hass = { ...state.hass, states: { updated: true } };
+  assert.equal(state.select.children[0], option);
+  state.panel.hass = { ...state.hass, language: 'nl' };
+  assert.equal(state.select.attributes['aria-label'], 'Auto');
+});
+
 test('loads only opted-in vehicles and forwards HA context and history URLs', async () => {
   const state = setup({ vehicles: [
     { entry_id: 'other', name: 'Not opted in' },

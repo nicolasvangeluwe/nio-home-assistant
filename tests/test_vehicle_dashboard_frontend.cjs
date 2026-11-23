@@ -14,8 +14,13 @@ vm.runInNewContext(source, {
 const Dashboard = elements.get('nio-vehicle-dashboard');
 const Vehicle = elements.get('nio-vehicle-card');
 const ledgerElements = new Map();
-vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../custom_components/nio_telematics/car_dashboard/car-ledger-card.js'), 'utf8'), {
+const ledgerPath = path.join(__dirname, '../custom_components/nio_telematics/car_dashboard/car-ledger-card.js');
+const ledgerSource = fs.readFileSync(ledgerPath, 'utf8')
+  .replaceAll('new URL(import.meta.url)', `new URL("file:///${ledgerPath.replaceAll('\\', '/')}")`)
+  .replace(/\bexport\s*\{\s*CarLedgerCard\s*\};?/g, '');
+vm.runInNewContext(ledgerSource, {
   HTMLElement: class {},
+  URL,
   customElements: { get: name => ledgerElements.get(name), define: (name, cls) => ledgerElements.set(name, cls) },
   window: { customCards: [] },
 });
@@ -32,13 +37,20 @@ test('dashboard setup provides keyboard-accessible help and restore controls', (
 
 function display(chargingState, connection, power, powerUnit = 'kW') {
   const nodes = new Map();
+  const makeNode = () => {
+    const node = {textContent:'',style:{},setAttribute(name,value){this[name]=value;}};
+    Object.defineProperty(node,'innerHTML',{get(){return this._html||'';},set(value){this._html=String(value);this.textContent=String(value).replace(/<[^>]*>/g,'');}});
+    return node;
+  };
   const root = {
     querySelector(selector) {
       if (selector === 'car-ledger-card') return null;
-      if (!nodes.has(selector)) nodes.set(selector, { textContent: '', style: {}, setAttribute(name, value) { this[name] = value; } });
+      if (selector === '[data-value="third-label"],[data-label="third"]') return nodes.get('[data-label="third"]');
+      if (!nodes.has(selector)) nodes.set(selector, makeNode());
       return nodes.get(selector);
     },
   };
+  nodes.set('[data-label="third"]', makeNode());
   const states = {
     soc: { state: '75' }, range: { state: '416' }, odo: { state: '6266' }, limit: { state: '90' },
     charging: { state: chargingState }, connected: { state: connection }, power: { state: power, attributes: {unit_of_measurement: powerUnit} },
@@ -52,6 +64,7 @@ function display(chargingState, connection, power, powerUnit = 'kW') {
     powerKw: Dashboard.prototype.powerKw,
     connectedState: Dashboard.prototype.connectedState,
     formatNumber: Dashboard.prototype.formatNumber,
+    esc: Vehicle.prototype.esc,
     locale: () => 'en',
     stamp: () => '',
     _hass: {},
@@ -292,6 +305,66 @@ test('all offered dashboard languages translate the history tabs and empty state
     assert.notEqual(card.words.vehicleHistory, 'Vehicle history', language);
     assert.notEqual(card.words.historyTabs[0], 'Charging', language);
     assert.notEqual(card.words.noData, 'Vehicle data unavailable', language);
+  }
+});
+
+test('the dashboard has three persistent primary destinations and a module-owned history entry point', () => {
+  assert.match(source, /data-screen-target="\$\{key\}"/);
+  assert.match(source, /data-panel="history"/);
+  assert.match(source, /data-panel="settings"/);
+  assert.match(source, /this\.config\?\.history_url\|\|['"]\/nio_telematics\/nio-dashboard-history\.js['"]/);
+  assert.match(source, /addEventListener\('nio-history-updated'/);
+  assert.doesNotMatch(source.slice(source.lastIndexOf('const NIO_DASHBOARD_ICONS')), /car-ledger-card/);
+});
+
+test('primary navigation switches panels and retains its selected screen', () => {
+  const panels = ['car','history','settings'].map(name => ({dataset:{panel:name},hidden:true}));
+  const buttons = ['car','history','settings'].map(name => ({dataset:{screenTarget:name},setAttribute(key,value){this[key]=value;},removeAttribute(key){delete this[key];}}));
+  const root = {dataset:{},querySelectorAll(selector){
+    return selector === '[data-panel]' ? panels : buttons;
+  }};
+  const card = Object.create(Dashboard.prototype);
+  card.shadowRoot = {querySelector:()=>root};
+  card.selectScreen('history');
+  assert.equal(card.screen,'history');
+  assert.deepEqual(panels.map(panel=>panel.hidden),[true,false,true]);
+  assert.deepEqual(buttons.map(button=>button['aria-current']||null),[null,'page',null]);
+  card.selectScreen('settings');
+  assert.equal(root.dataset.screen,'settings');
+  card.selectScreen('history');
+  assert.equal(root.dataset.screen,'history');
+});
+
+test('calculated range and current charging summary use only current snapshot fields', () => {
+  const summary={hidden:true,innerHTML:'',replaceChildren(){this.innerHTML='';}};
+  const calculated={innerHTML:'',textContent:'',setAttribute(name,value){this[name]=value;},set innerHTML(value){this._html=value;this.textContent=String(value).replace(/<[^>]*>/g,'');},get innerHTML(){return this._html||'';}};
+  const note={textContent:''};
+  const details={innerHTML:''};
+  const root={querySelector(selector){return ({'[data-details]':details,'[data-charge-summary]':summary,'[data-value="calculated-range"]':calculated,'[data-range-note]':note})[selector]||null;}};
+  const card={shadowRoot:{querySelector:()=>root},vehicle:{preferences:{}},words:{unavailable:'Unavailable',dashboardUI:Array(12).fill('').concat(['Based on recorded driving consumption','Not available','Ongoing charge','Energy']),dashboardSolarShare:'Solar share'},
+    _historySnapshot:{active_home_charge:{kwh:12.3,solar_pct:42,time:'must not be fabricated'},statistics:{month:{projected_range_km:320}}},
+    state:()=>null,formatNumber:value=>String(value),esc:Vehicle.prototype.esc};
+  Dashboard.prototype.updateDashboardDetails.call(card);
+  assert.equal(summary.hidden,false);
+  assert.match(summary.innerHTML,/12\.3 kWh/);
+  assert.match(summary.innerHTML,/Solar share/);
+  assert.match(summary.innerHTML,/42%/);
+  assert.doesNotMatch(summary.innerHTML,/must not be fabricated|Duration/);
+  assert.match(calculated.innerHTML,/320<small> km<\/small>/);
+  assert.match(note.textContent,/recorded driving consumption/i);
+});
+
+test('all fourteen dashboard locales include the grouped menu and missing-range explanation', () => {
+  const card=Object.create(Dashboard.prototype);card._hass={language:'en'};
+  for(const language of ['en','nl','de','fr','nb','sv','da','cs','el','hu','lb','pl','pt','ro']){
+    card.config={language};card.vehicles=[{entry_id:'lang',preferences:{language:'auto'}}];
+    const words=card.words.dashboardUI;
+    assert.equal(words.length,21,language);
+    assert.ok(words[3]&&words[4]&&words[5]&&words[6],language);
+    assert.ok(words[13].length>20,language);
+    assert.ok(card.words.dashboardSolarShare.length>3,language);
+    assert.ok(card.words.dashboardSettingsIntro.length>12,language);
+    assert.ok(card.words.dashboardHistoryIntro.length>12,language);
   }
 });
 

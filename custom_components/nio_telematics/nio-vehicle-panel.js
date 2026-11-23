@@ -41,13 +41,14 @@ class NioVehiclePanel extends HTMLElement {
 
   set hass(value) {
     const firstHass = !this._hass && Boolean(value);
+    const languageChanged = value?.language !== this._hass?.language;
     this._hass = value;
     const menu = this.shadowRoot?.querySelector("ha-menu-button");
     if (menu) {
       menu.hass = value;
       menu.setAttribute("aria-label", this._words().openMenu);
     }
-    if (this._vehicles.length) this._renderSelector();
+    if (languageChanged && this._vehicles.length) this._renderSelector();
     if (this._card) this._forwardContext();
     if (firstHass) this._scheduleLoad();
   }

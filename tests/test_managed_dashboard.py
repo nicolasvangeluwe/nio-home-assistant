@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, Mock
 from homeassistant.components import frontend
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.nio_telematics import managed_dashboard as managed
@@ -27,7 +28,11 @@ def _install_panel_api(hass: HomeAssistant, monkeypatch, entries):
     """Install small frontend API fakes while retaining HA's registry semantics."""
     registry = hass.data.setdefault(frontend.DATA_PANELS, {})
     calls = hass.data.setdefault("test_managed_panel_calls", [])
-    monkeypatch.setattr(hass.config_entries, "async_entries", lambda _domain: entries)
+    monkeypatch.setattr(
+        hass.config_entries,
+        "async_entries",
+        lambda domain=None: entries if domain == managed.DOMAIN else [],
+    )
     monkeypatch.setattr(
         managed, "_async_register_static_assets", AsyncMock(return_value=True)
     )
@@ -82,6 +87,43 @@ async def test_two_opted_in_vehicles_share_one_idempotent_panel(
     assert call["embed_iframe"] is False
     assert call["require_admin"] is False
     assert "handle_safe_area" not in call
+
+
+async def test_native_panel_registration_uses_real_ha_api(hass: HomeAssistant) -> None:
+    """Register/serve the module with HA's real frontend and panel_custom APIs."""
+    from custom_components.nio_telematics.car_dashboard import async_setup_dashboard
+    from custom_components.nio_telematics.vehicle_dashboard import (
+        async_setup_vehicle_dashboard,
+    )
+
+    assert await async_setup_component(hass, "frontend", {})
+    await async_setup_dashboard(hass)
+    await async_setup_vehicle_dashboard(hass)
+    entry = MockConfigEntry(
+        domain=managed.DOMAIN,
+        title="ET5 Touring",
+        data={"vin": "fixture"},
+        options={"nio_dashboard_enabled": True, "nio_dashboard_path": "nio"},
+    )
+    entry.add_to_hass(hass)
+    entry._async_set_state(hass, ConfigEntryState.LOADED, None)
+    try:
+        await managed.async_reconcile_dashboard(hass)
+        panel = hass.data[frontend.DATA_PANELS]["nio"]
+        assert panel.component_name == "custom"
+        assert panel.config["entry_ids"] == [entry.entry_id]
+        assert panel.config["_panel_custom"]["name"] == "nio-vehicle-panel"
+        assert panel.config["_panel_custom"]["module_url"].startswith(
+            "/nio_telematics/nio-vehicle-panel.js?v="
+        )
+        assert panel.config["history_url"].startswith(
+            "/nio_telematics/nio-dashboard-history.js?v="
+        )
+        await managed.async_reconcile_dashboard(hass)
+        assert hass.data[frontend.DATA_PANELS]["nio"] is panel
+    finally:
+        entry._async_set_state(hass, ConfigEntryState.NOT_LOADED, None)
+        await managed.async_reconcile_dashboard(hass)
 
 
 async def test_foreign_route_collision_is_not_modified(
@@ -149,7 +191,9 @@ async def test_panel_api_unavailable_does_not_break_entry_setup(
 ) -> None:
     """A headless or incomplete frontend leaves telemetry setup unaffected."""
     monkeypatch.setattr(
-        hass.config_entries, "async_entries", lambda _domain: [_entry("car-1")]
+        hass.config_entries,
+        "async_entries",
+        lambda domain=None: [_entry("car-1")] if domain == managed.DOMAIN else [],
     )
     monkeypatch.setattr(managed, "_panel_registry", lambda _hass: None)
 
@@ -213,8 +257,9 @@ async def test_real_entry_state_callback_reconciles_after_startup_load(
 
     monkeypatch.setattr(managed, "async_reconcile_dashboard", reconcile)
     managed.async_track_config_entry(hass, entry)
-    entry.state = ConfigEntryState.LOADED
-    entry._async_process_on_state_change()
+    entry._async_set_state(hass, ConfigEntryState.LOADED, None)
     await hass.async_block_till_done()
 
     assert seen == [entry]
+    entry._async_set_state(hass, ConfigEntryState.NOT_LOADED, None)
+    await hass.async_block_till_done()
