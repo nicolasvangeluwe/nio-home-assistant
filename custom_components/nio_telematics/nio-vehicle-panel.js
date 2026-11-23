@@ -116,7 +116,7 @@ class NioVehiclePanel extends HTMLElement {
       <style>
         :host{display:block;min-height:100%;color:var(--primary-text-color);background:var(--primary-background-color);font-family:"Segoe UI",system-ui,Roboto,sans-serif}
         .page{min-height:100vh;min-height:100dvh}
-        .toolbar{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:12px;min-height:56px;padding:0 max(16px,calc((100vw - 820px)/2));background:var(--app-header-background-color,var(--primary-background-color));border-bottom:1px solid var(--divider-color);box-sizing:border-box}
+        .toolbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;min-height:56px;padding:0 max(16px,calc((100% - 820px)/2));background:var(--app-header-background-color,var(--primary-background-color));border-bottom:1px solid var(--divider-color);box-sizing:border-box}
         ha-menu-button{flex:none}
         .title{margin:0;font-size:20px;font-weight:400;line-height:1.35}
         main{max-width:820px;margin:0 auto;padding:16px 16px 32px;box-sizing:border-box}

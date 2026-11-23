@@ -4,7 +4,7 @@ const root={querySelector(){return null;},querySelectorAll(){return [];}};
 const context={URL,console,Intl,Date,CustomEvent:class{constructor(type,init){this.type=type;Object.assign(this,init);}},HTMLElement:class{attachShadow(){this.shadowRoot=root;}dispatchEvent(event){this.event=event;}},window:{customCards:[]},document:{hidden:false},customElements:{get(){},define(){}}};
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(component,'car_dashboard/car-ledger-card.js'),'utf8').replaceAll('import.meta.url',JSON.stringify('https://ha.test/car-dashboard.js?nio_owned=1')).replace('export { CarLedgerCard };','')+'\nglobalThis.__Base=CarLedgerCard;',context);
-let source=fs.readFileSync(path.join(component,'nio-dashboard-history.js'),'utf8');
+let source=fs.readFileSync(path.join(component,'nio-dashboard-history.js'),'utf8').replaceAll('\r\n','\n');
 source=source.replace(/const baseVersion=.*?\nconst \{CarLedgerCard\}=await import\([^\n]+\);/,'').replace('export function periodLabel','function periodLabel').replace('export class NioDashboardHistory','class NioDashboardHistory');
 vm.runInContext(source+'\nglobalThis.__History=NioDashboardHistory;globalThis.__label=periodLabel;',context);
 const History=context.__History;

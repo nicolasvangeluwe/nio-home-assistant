@@ -336,20 +336,17 @@ test('primary navigation switches panels and retains its selected screen', () =>
 });
 
 test('calculated range and current charging summary use only current snapshot fields', () => {
-  const summary={hidden:true,innerHTML:'',replaceChildren(){this.innerHTML='';}};
+  const received={textContent:''},solar={textContent:''};
   const calculated={innerHTML:'',textContent:'',setAttribute(name,value){this[name]=value;},set innerHTML(value){this._html=value;this.textContent=String(value).replace(/<[^>]*>/g,'');},get innerHTML(){return this._html||'';}};
   const note={textContent:''};
   const details={innerHTML:''};
-  const root={querySelector(selector){return ({'[data-details]':details,'[data-charge-summary]':summary,'[data-value="calculated-range"]':calculated,'[data-range-note]':note})[selector]||null;}};
+  const root={querySelector(selector){return ({'[data-details]':details,'[data-value="received"]':received,'[data-value="solar"]':solar,'[data-value="calculated-range"]':calculated,'[data-range-note]':note})[selector]||null;}};
   const card={shadowRoot:{querySelector:()=>root},vehicle:{preferences:{}},words:{unavailable:'Unavailable',dashboardUI:Array(12).fill('').concat(['Based on recorded driving consumption','Not available','Ongoing charge','Energy']),dashboardSolarShare:'Solar share'},
     _historySnapshot:{active_home_charge:{kwh:12.3,solar_pct:42,time:'must not be fabricated'},statistics:{month:{projected_range_km:320}}},
     state:()=>null,formatNumber:value=>String(value),esc:Vehicle.prototype.esc};
   Dashboard.prototype.updateDashboardDetails.call(card);
-  assert.equal(summary.hidden,false);
-  assert.match(summary.innerHTML,/12\.3 kWh/);
-  assert.match(summary.innerHTML,/Solar share/);
-  assert.match(summary.innerHTML,/42%/);
-  assert.doesNotMatch(summary.innerHTML,/must not be fabricated|Duration/);
+  assert.equal(received.textContent,'12.3 kWh');
+  assert.equal(solar.textContent,'42%');
   assert.match(calculated.innerHTML,/320<small> km<\/small>/);
   assert.match(note.textContent,/recorded driving consumption/i);
 });
