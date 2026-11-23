@@ -1,1 +1,3 @@
 pytest-homeassistant-custom-component==0.13.367
+# Matches the frontend manifest of HA 2026.9.4 pinned by the test plugin.
+home-assistant-frontend==20260826.7
