@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, Mock, patch
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.nio_telematics.config_flow import NioConfigFlow
 from custom_components.nio_telematics.const import (
@@ -136,6 +137,46 @@ async def test_reconfigure_success_preserves_vehicle_data(hass: HomeAssistant) -
     assert entry.data == old_data
     assert entry.options == {"vehicle_dashboard": {"model": "auto"}}
     assert result["reason"] == "reconfigure_successful"
+
+
+async def test_native_dashboard_option_is_explicit_and_keeps_oauth_data(
+    hass: HomeAssistant,
+) -> None:
+    """Dashboard opt-in is saved as UI metadata without changing vehicle identity."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Test car",
+        data={CONF_VIN: "HJNNBDLH3SB701418", "token": {"fixture": "unchanged"}},
+        options={"unrelated": {"keep": True}},
+    )
+    entry.add_to_hass(hass)
+    form = await hass.config_entries.options.async_init(entry.entry_id)
+    fields = form["data_schema"].schema
+    dashboard_toggle = next(
+        key for key in fields if key.schema == "nio_dashboard_enabled"
+    )
+    dashboard_path = next(
+        key for key in fields if key.schema == "nio_dashboard_path"
+    )
+    assert dashboard_toggle.default() is False
+    assert dashboard_path.default() == "nio"
+
+    result = await hass.config_entries.options.async_configure(
+        form["flow_id"],
+        {
+            "model": "auto",
+            "language": "auto",
+            "nio_dashboard_enabled": True,
+            "nio_dashboard_path": "nio-preview",
+        },
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.options["nio_dashboard_enabled"] is True
+    assert entry.options["nio_dashboard_path"] == "nio-preview"
+    assert entry.options["unrelated"] == {"keep": True}
+    assert entry.data[CONF_VIN] == "HJNNBDLH3SB701418"
+    assert entry.data["token"] == {"fixture": "unchanged"}
 
 
 async def test_reauth_success_uses_replacement_credentials(hass: HomeAssistant) -> None:

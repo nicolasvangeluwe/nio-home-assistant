@@ -34,6 +34,7 @@ from .const import (
     DOMAIN,
     OAUTH_SCOPE_REVISION,
 )
+from .managed_dashboard import dashboard_path_for_entry, validate_dashboard_path
 from .models import normalize_vin
 from .polling import (
     POLLING_OPTIONS_KEY,
@@ -354,6 +355,15 @@ class NioOptionsFlow(config_entries.OptionsFlow):
             )
             if user_input is not None and key in user_input
         }
+        dashboard_enabled = bool(
+            (user_input or {}).get(
+                "nio_dashboard_enabled",
+                self.config_entry.options.get("nio_dashboard_enabled", False),
+            )
+        )
+        dashboard_path = (user_input or {}).get(
+            "nio_dashboard_path", dashboard_path_for_entry(self.hass, self.config_entry)
+        )
         current_polling = polling_settings_for_entry(self.config_entry)
         polling_errors: dict[str, str] = {}
         if user_input is not None:
@@ -362,6 +372,7 @@ class NioOptionsFlow(config_entries.OptionsFlow):
                 key: value
                 for key, value in user_input.items()
                 if key not in polling_input
+                and key not in ("nio_dashboard_enabled", "nio_dashboard_path")
             }
             preferences = pin_model_for_paint(
                 PREFERENCES_SCHEMA({**current, **dashboard_input}),
@@ -379,6 +390,8 @@ class NioOptionsFlow(config_entries.OptionsFlow):
                 current_polling = polling
             if polling_errors:
                 errors.update(polling_errors)
+            elif not validate_dashboard_path(dashboard_path):
+                errors["base"] = "invalid_dashboard_path"
             elif not valid_paint(
                 preferences["model"], preferences["paint"], self.config_entry.title
             ):
@@ -396,6 +409,8 @@ class NioOptionsFlow(config_entries.OptionsFlow):
                     **self.config_entry.options,
                     OPTIONS_KEY: preferences,
                     POLLING_OPTIONS_KEY: current_polling,
+                    "nio_dashboard_enabled": dashboard_enabled,
+                    "nio_dashboard_path": dashboard_path,
                 }
                 # The setup-time update listener was removed because OAuth reauth
                 # uses async_update_reload_and_abort. Persist here, then apply the
@@ -411,6 +426,9 @@ class NioOptionsFlow(config_entries.OptionsFlow):
                     from . import _async_dashboard_options_updated
 
                     await _async_dashboard_options_updated(self.hass, self.config_entry)
+                from .managed_dashboard import async_reconcile_dashboard
+
+                await async_reconcile_dashboard(self.hass)
                 return self.async_create_entry(
                     title="",
                     data=options,
@@ -424,6 +442,11 @@ class NioOptionsFlow(config_entries.OptionsFlow):
             shown_paint = "auto"
         entity = selector.EntitySelector(selector.EntitySelectorConfig())
         fields: dict[Any, Any] = {
+            vol.Optional(
+                "nio_dashboard_enabled",
+                default=self.config_entry.options.get("nio_dashboard_enabled", False),
+            ): selector.BooleanSelector(),
+            vol.Optional("nio_dashboard_path", default=dashboard_path): str,
             vol.Optional(
                 "interval_seconds", default=shown_polling["interval_seconds"]
             ): selector.NumberSelector(

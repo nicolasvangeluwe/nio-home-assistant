@@ -18,12 +18,14 @@ NIO may deny individual telemetry feeds for some vehicles or accounts. The integ
 
 ## Optional car app
 
-The **NIO Vehicle Dashboard** is an opt-in, mobile-friendly car view with SoC, range, odometer, charge limit and four history tabs. It does not replace any existing dashboard or control the car. It includes locally bundled images for **ET5, ET5 Touring, ET7, EL6, EL7, EL8 and legacy ES8**, with 51 model/colour choices. The existing ET5 Touring image remains the automatic default for current users. Other models use a neutral range metric icon until their own is available. Images are served by Home Assistant, without an external image service. Light and dark themes are supported.
+The **NIO Vehicle Dashboard** is an optional sidebar page created and maintained by the integration. It has **Car / History / Settings** navigation, a persistent mobile bottom bar, and light and dark themes. The car appears above the content on desktop. Native and calculated ranges use equal typography; calculated range needs sufficient recorded energy and distance readings. History retains charging, trips, energy and parked records, with shared day, week, month and year controls using Home Assistant's timezone.
+
+Images for **ET5, ET5 Touring, ET7, EL6, EL7, EL8 and legacy ES8** are bundled locally, including model/colour choices. Other models use a neutral range metric icon until their own is available. No external image service is required. The dashboard does not control the car or change charging rules.
 
 After installing the integration:
 
-1. In **Settings → Dashboards → Resources**, add `/nio_telematics/nio-vehicle-card.js` as a **JavaScript module**, then reload Home Assistant in your browser.
-2. Edit a dashboard, choose **Add card → NIO Vehicle Dashboard**, and select your NIO. The simpler **NIO Vehicle** card remains available too.
+1. In **Settings → Devices & services → Open Telematics for NIO → Configure**, enable the NIO dashboard for your vehicle. The integration adds one **NIO** sidebar page. You do not need to create or maintain a separate dashboard, YAML or JavaScript resource.
+2. Enable it for additional NIO vehicles to use the same page with a vehicle selector. The advanced dashboard path defaults to `nio`; enabled vehicles should use the same path. An occupied path is reported without overwriting the existing dashboard or creating a duplicate with a different name.
 3. The overview works with NIO alone. In **Settings**, choose the model, colour and language. SoC, range, odometer, charging state and charge limit use their NIO entities by default; you can select a different Home Assistant entity for any of them. EVCC users can choose a detected charger to fill connection and power in one step. Any HA charger can supply those two readings manually, and EVCC is not required.
 4. To record trips and charging history, enable **Trip and charging history** and enter usable battery capacity and the range at 100% charge. Odometer and range sources must be available. History starts from actual recorded readings; it cannot reconstruct missing journeys. For home charging imports, the optional session entity must expose EVCC-compatible session data.
 
@@ -31,7 +33,9 @@ Setup, options, the dashboard and history follow Home Assistant's language by de
 
 History is stored by Home Assistant outside HACS-managed integration files, so updates preserve it. Changing its energy inputs starts a new baseline without rewriting old trips. Five optional, advanced cost-source entities can split completed sessions when dated evidence is available. Missing history and the initial battery-stock price stay unknown, never €0 by assumption. Electricity-price and reimbursement entities are references, not a way to backprice old trips. Charging rules remain in Home Assistant.
 
-Settings now has short help beside optional inputs and a **Backup & restore** section. An HA administrator can download a JSON copy of this car's dashboard settings and trip/charging history, then preview and explicitly confirm a restore to the same car. Export your current copy before replacing history. OAuth credentials and the full VIN are not exported, but the file contains private trip and cost details: store it securely. This is a dashboard/ledger backup, not a whole-Home-Assistant backup.
+Settings groups the existing controls into **Appearance & language**, **Vehicle readings**, **Charger & cost sources**, and **History & backup**, with help beside optional inputs. An HA administrator can download a JSON copy of this car's dashboard settings and trip/charging history, then preview and explicitly confirm a restore to the same car. Export your current copy before replacing history. OAuth credentials and the full VIN are not exported, but the file contains private trip and cost details: store it securely. This is a dashboard/ledger backup, not a whole-Home-Assistant backup.
+
+Disabling the managed page preserves recorded history, entities and other dashboards. Existing embedded `NIO Vehicle Dashboard` and compact `NIO Vehicle` cards remain supported; their manual resource setup is only needed when embedding a card yourself. To reuse an existing dashboard URL, first back up and explicitly remove that old dashboard through HA, then choose its free path in NIO options. The integration never silently adopts or deletes a foreign dashboard.
 
 ## Polling
 

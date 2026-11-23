@@ -75,6 +75,14 @@
     "companion_source_reconnect": {
       "title": "Gentilslut NIO i Companion",
       "description": "Din upstream NIO-forbindelse har brug for opmærksomhed. Åbn siden [Companion connections]({connections_url}), og tilslut NIO igen. Behold det eksisterende Home Assistant-link: dets legitimationsoplysninger forbliver gyldige. Home Assistant genoptager automatisk cachelæsning, når kilden genoprettes."
+    },
+    "managed_dashboard_route_collision": {
+      "title": "NIO-dashboardstien er optaget",
+      "description": "Stien /{path} tilhører et andet Home Assistant-panel. Vælg en ledig sti i NIO-køretøjsindstillingerne. Intet eksisterende panel blev ændret."
+    },
+    "managed_dashboard_route_conflict": {
+      "title": "NIO-køretøjer bruger forskellige dashboardstier",
+      "description": "Aktiverede køretøjer har valgt forskellige stier: {paths}. De skal dele én sti. Dashboardet forbliver på /{path}, indtil indstillingerne stemmer overens."
     }
   },
   "application_credentials": {
@@ -112,7 +120,9 @@
           "adaptive": "Adaptiv polling",
           "connected_entity": "Entitet for ladertilslutning",
           "charging_entity": "Entitet for aktiv opladning",
-          "power_entity": "Opladerens effektentitet"
+          "power_entity": "Opladerens effektentitet",
+          "nio_dashboard_enabled": "Vis NIO-dashboard",
+          "nio_dashboard_path": "Dashboard-URL-sti"
         },
         "data_description": {
           "interval_seconds": "Interval til normal polling. Standard er 15 sekunder for Direct NIO og 30 sekunder for Companion.",
@@ -120,7 +130,9 @@
           "adaptive": "Når aktiveret bruger opladerstatus normal- eller idle-interval. Uafhængigt af køretøjsdashboard og EVCC.",
           "connected_entity": "Laderens forbindelsesstatus; påkrævet når adaptiv polling er aktiveret.",
           "charging_entity": "Valgfri binær sensor eller sensor for aktiv opladning.",
-          "power_entity": "Valgfri effektsensor i W eller kW; adaptiv polling kræver en opladnings- eller effektenhed."
+          "power_entity": "Valgfri effektsensor i W eller kW; adaptiv polling kræver en opladnings- eller effektenhed.",
+          "nio_dashboard_enabled": "Føjer ét delt NIO-dashboard til sidepanelet i Home Assistant. Det omfatter alle aktiverede NIO-biler, hvor dette er valgt.",
+          "nio_dashboard_path": "Kun en URL-sti, f.eks. nio. Biler, der deler dashboardet, skal bruge samme sti."
         }
       }
     },
@@ -129,7 +141,8 @@
       "incomplete_cost_sources": "Indstil alle fem registrerede omkostningskilder, eller lad dem være tomme.",
       "invalid_paint_for_model": "Vælg en tilgængelig farve til denne bilmodel.",
       "invalid_polling_interval": "Ugyldigt interval for denne forbindelse.",
-      "invalid_polling_sources": "Adaptiv polling kræver en tilslutningsentitet og mindst én opladnings- eller effektenhed."
+      "invalid_polling_sources": "Adaptiv polling kræver en tilslutningsentitet og mindst én opladnings- eller effektenhed.",
+      "invalid_dashboard_path": "Angiv en URL-sti med små bogstaver, tal, bindestreger eller understregningstegn."
     }
   },
   "entity": {

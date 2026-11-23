@@ -28,6 +28,11 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import NioDataUpdateCoordinator
+from .managed_dashboard import (
+    async_setup_managed_dashboard,
+    async_track_config_entry,
+    async_unload_managed_dashboard,
+)
 from .pacing import NioRequestPacer
 from .polling import AdaptivePollingController
 from .vehicle_dashboard import async_reconcile_ledger, async_setup_vehicle_dashboard
@@ -63,6 +68,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     if getattr(hass, "http", None) is not None:
         await async_setup_dashboard(hass)
         await async_setup_vehicle_dashboard(hass)
+    await async_setup_managed_dashboard(hass)
     return True
 
 
@@ -93,6 +99,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: NioConfigEntry) -> bool:
         # Dashboard preferences are applied explicitly by the options flow.
         # A config-entry update listener conflicts with OAuth reload on HA 2026.12.
         await _async_dashboard_options_updated(hass, entry)
+        async_track_config_entry(hass, entry)
     except BaseException:
         await coordinator.polling_controller.async_stop()
         raise
@@ -130,4 +137,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: NioConfigEntry) -> bool
         controller = getattr(entry.runtime_data, "polling_controller", None)
         if controller is not None:
             await controller.async_stop()
+        await async_unload_managed_dashboard(hass, entry.entry_id)
     return unloaded

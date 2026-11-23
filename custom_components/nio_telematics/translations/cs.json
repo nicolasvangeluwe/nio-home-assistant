@@ -75,6 +75,14 @@
     "companion_source_reconnect": {
       "title": "Znovu připojte NIO v doprovodu",
       "description": "Vaše upstream připojení NIO vyžaduje pozornost. Otevřete stránku [Companion connections] ({connections_url}) a znovu připojte NIO. Ponechat stávající odkaz Home Assistant: jeho přihlašovací údaje zůstávají platné. Home Assistant automaticky obnoví čtení z mezipaměti, jakmile se zdroj obnoví."
+    },
+    "managed_dashboard_route_collision": {
+      "title": "Cesta panelu NIO je obsazená",
+      "description": "Cesta /{path} patří jinému panelu Home Assistant. V nastavení vozidla NIO zvolte volnou cestu. Stávající panel nebyl změněn."
+    },
+    "managed_dashboard_route_conflict": {
+      "title": "Vozidla NIO používají různé cesty panelu",
+      "description": "Povolená vozidla zvolila různé cesty: {paths}. Musí sdílet jednu cestu. Panel zůstane na /{path}, dokud se nastavení neshodují."
     }
   },
   "application_credentials": {
@@ -112,7 +120,9 @@
           "adaptive": "Adaptivní dotazování",
           "connected_entity": "Entita připojení nabíječky",
           "charging_entity": "Entita nabíjení",
-          "power_entity": "Entita výkonu nabíječky"
+          "power_entity": "Entita výkonu nabíječky",
+          "nio_dashboard_enabled": "Zobrazit panel NIO",
+          "nio_dashboard_path": "Cesta URL panelu"
         },
         "data_description": {
           "interval_seconds": "Interval pro běžné dotazování. Výchozí je 15 sekund pro Direct NIO a 30 sekund pro Companion.",
@@ -120,7 +130,9 @@
           "adaptive": "Při zapnutí vybírá stav nabíječky běžný interval nebo interval při nečinnosti. Nezávislé na panelu vozidla a EVCC.",
           "connected_entity": "Stav připojení nabíječky; povinný při zapnutém adaptivním dotazování.",
           "charging_entity": "Volitelný binární senzor nebo senzor aktivního nabíjení.",
-          "power_entity": "Volitelný senzor výkonu ve W nebo kW; adaptivní režim vyžaduje indikátor nabíjení nebo výkonu."
+          "power_entity": "Volitelný senzor výkonu ve W nebo kW; adaptivní režim vyžaduje indikátor nabíjení nebo výkonu.",
+          "nio_dashboard_enabled": "Přidá jeden sdílený panel NIO do postranního panelu Home Assistant. Zahrnuje všechna povolená vozidla NIO, u kterých je tato možnost zapnutá.",
+          "nio_dashboard_path": "Pouze část URL, například nio. Vozidla sdílející panel musí používat stejnou cestu."
         }
       }
     },
@@ -129,7 +141,8 @@
       "incomplete_cost_sources": "Nastavte všech pět zdrojů zaznamenaných nákladů nebo je nechte prázdné.",
       "invalid_paint_for_model": "Vyberte si barvu dostupnou pro tento model vozu.",
       "invalid_polling_interval": "Neplatný interval pro toto připojení.",
-      "invalid_polling_sources": "Adaptivní režim vyžaduje entitu připojení a alespoň jednu entitu nabíjení nebo výkonu."
+      "invalid_polling_sources": "Adaptivní režim vyžaduje entitu připojení a alespoň jednu entitu nabíjení nebo výkonu.",
+      "invalid_dashboard_path": "Zadejte část URL pomocí malých písmen, číslic, pomlček nebo podtržítek."
     }
   },
   "entity": {

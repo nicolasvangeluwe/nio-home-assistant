@@ -75,6 +75,14 @@
     "companion_source_reconnect": {
       "title": "Podłącz ponownie NIO w urządzeniu towarzyszącym",
       "description": "Twoje nadrzędne połączenie NIO wymaga uwagi. Otwórz [stronę połączeń towarzyszących] ({connections_url}) i podłącz ponownie NIO. Zachowaj istniejące łącze Home Assistant: jego dane uwierzytelniające pozostają ważne. Home Assistant automatycznie wznowi odczyty z pamięci podręcznej, gdy źródło zostanie odzyskane."
+    },
+    "managed_dashboard_route_collision": {
+      "title": "Ścieżka pulpitu NIO jest zajęta",
+      "description": "Ścieżka /{path} należy do innego panelu Home Assistant. Wybierz wolną ścieżkę w ustawieniach pojazdu NIO. Żaden istniejący panel nie został zmieniony."
+    },
+    "managed_dashboard_route_conflict": {
+      "title": "Pojazdy NIO używają różnych ścieżek pulpitu",
+      "description": "Włączone pojazdy wybrały różne ścieżki: {paths}. Muszą współdzielić jedną ścieżkę. Pulpit pozostaje pod /{path}, dopóki ustawienia nie będą zgodne."
     }
   },
   "application_credentials": {
@@ -112,7 +120,9 @@
           "adaptive": "Adaptacyjne odpytywanie",
           "connected_entity": "Encja połączenia ładowarki",
           "charging_entity": "Encja aktywnego ładowania",
-          "power_entity": "Encja mocy ładowarki"
+          "power_entity": "Encja mocy ładowarki",
+          "nio_dashboard_enabled": "Pokaż pulpit NIO",
+          "nio_dashboard_path": "Ścieżka URL pulpitu"
         },
         "data_description": {
           "interval_seconds": "Interwał normalnego odpytywania. Domyślnie 15 sekund dla Direct NIO i 30 sekund dla Companion.",
@@ -120,7 +130,9 @@
           "adaptive": "Po włączeniu stan ładowarki wybiera interwał normalny lub bezczynności. Działa niezależnie od panelu pojazdu i EVCC.",
           "connected_entity": "Stan połączenia ładowarki; wymagany przy włączonym odpytywaniu adaptacyjnym.",
           "charging_entity": "Opcjonalny czujnik binarny lub czujnik aktywnego ładowania.",
-          "power_entity": "Opcjonalny czujnik mocy w W lub kW; adaptacyjne odpytywanie wymaga wskaźnika ładowania lub mocy."
+          "power_entity": "Opcjonalny czujnik mocy w W lub kW; adaptacyjne odpytywanie wymaga wskaźnika ładowania lub mocy.",
+          "nio_dashboard_enabled": "Dodaje jeden wspólny pulpit NIO do paska bocznego Home Assistant. Obejmuje wszystkie włączone pojazdy NIO, dla których wybrano tę opcję.",
+          "nio_dashboard_path": "Tylko ścieżka URL, np. nio. Pojazdy korzystające ze wspólnego pulpitu muszą używać tej samej ścieżki."
         }
       }
     },
@@ -129,7 +141,8 @@
       "incomplete_cost_sources": "Ustaw wszystkie pięć źródeł kosztów rejestrowanych lub pozostaw je puste.",
       "invalid_paint_for_model": "Wybierz kolor dostępny dla tego modelu samochodu.",
       "invalid_polling_interval": "Nieprawidłowy interwał dla tego połączenia.",
-      "invalid_polling_sources": "Adaptacyjne odpytywanie wymaga encji połączenia i co najmniej jednej encji ładowania lub mocy."
+      "invalid_polling_sources": "Adaptacyjne odpytywanie wymaga encji połączenia i co najmniej jednej encji ładowania lub mocy.",
+      "invalid_dashboard_path": "Wpisz ścieżkę URL zawierającą małe litery, cyfry, łączniki lub podkreślenia."
     }
   },
   "entity": {

@@ -75,6 +75,14 @@
     "companion_source_reconnect": {
       "title": "Reconnect NIO in Companion",
       "description": "Your upstream NIO connection needs attention. Open the [Companion connections page]({connections_url}) and reconnect NIO. Keep the existing Home Assistant link: its credential remains valid. Home Assistant will resume cached reads automatically when the source recovers."
+    },
+    "managed_dashboard_route_collision": {
+      "title": "NIO dashboard path is occupied",
+      "description": "The path /{path} belongs to another Home Assistant panel. Choose a free path in NIO vehicle settings. No existing panel was changed."
+    },
+    "managed_dashboard_route_conflict": {
+      "title": "NIO vehicles use different dashboard paths",
+      "description": "Opted-in vehicles selected different paths: {paths}. They must share one path. The dashboard remains at /{path} until the settings agree."
     }
   },
   "application_credentials": {
@@ -112,7 +120,9 @@
           "adaptive": "Adaptive polling",
           "connected_entity": "Charger connected entity",
           "charging_entity": "Charger charging entity",
-          "power_entity": "Charger power entity"
+          "power_entity": "Charger power entity",
+          "nio_dashboard_enabled": "Show the NIO dashboard",
+          "nio_dashboard_path": "Dashboard URL path"
         },
         "data_description": {
           "interval_seconds": "Use this interval during normal polling. Defaults are 15 seconds for Direct NIO and 30 seconds for Companion.",
@@ -120,7 +130,9 @@
           "adaptive": "When enabled, use charger state to select normal or idle polling. This is optional and works independently of the vehicle dashboard and EVCC.",
           "connected_entity": "Charger connection state; required when adaptive polling is enabled.",
           "charging_entity": "Optional binary sensor or sensor that indicates active charging.",
-          "power_entity": "Optional charger power sensor in W or kW; one charging or power indicator is required when adaptive polling is enabled."
+          "power_entity": "Optional charger power sensor in W or kW; one charging or power indicator is required when adaptive polling is enabled.",
+          "nio_dashboard_enabled": "Add one shared NIO dashboard to the Home Assistant sidebar. It includes every opted-in, enabled NIO vehicle.",
+          "nio_dashboard_path": "A URL slug only, such as nio. Vehicles using the shared dashboard should use the same path."
         }
       }
     },
@@ -129,7 +141,8 @@
       "incomplete_cost_sources": "Set all five recorded-cost sources or leave them empty.",
       "invalid_paint_for_model": "Choose a colour available for this car model.",
       "invalid_polling_interval": "Polling interval must be valid for this connection.",
-      "invalid_polling_sources": "Adaptive polling requires a connected entity and at least one charging or power entity."
+      "invalid_polling_sources": "Adaptive polling requires a connected entity and at least one charging or power entity.",
+      "invalid_dashboard_path": "Enter a lowercase URL slug using letters, numbers, hyphens or underscores."
     }
   },
   "entity": {

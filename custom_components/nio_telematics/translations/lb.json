@@ -75,6 +75,14 @@
     "companion_source_reconnect": {
       "title": "Reconnect NIO in Companion",
       "description": "Är Upstream NIO Verbindung brauch Opmierksamkeet. Öffnen d'Säit [Companion Connections]({connections_url}) a verbënnt den NIO erëm. Halt déi existent Home Assistant Link: seng Umeldungsinformatioun bleift valabel. Home Assistant wäert d'Cache-Liesen automatesch erëmfannen wann d'Quell sech erholl."
+    },
+    "managed_dashboard_route_collision": {
+      "title": "Den NIO-Dashboard-Pfad ass besat",
+      "description": "De Pfad /{path} gehéiert engem aneren Home-Assistant-Panel. Wielt e fräie Pfad an den NIO-Gefierastellungen. Kee bestoend Panel gouf geännert."
+    },
+    "managed_dashboard_route_conflict": {
+      "title": "NIO-Gefierer benotze verschidden Dashboard-Pfader",
+      "description": "Aktivéiert Gefierer hu verschidde Pfader gewielt: {paths}. Si mussen ee gemeinsame Pfad benotzen. Den Dashboard bleift op /{path}, bis d’Astellungen iwwereneestëmmen."
     }
   },
   "application_credentials": {
@@ -112,7 +120,9 @@
           "adaptive": "Adaptivt Polling",
           "connected_entity": "Entitéit fir d’Luederverbindung",
           "charging_entity": "Entitéit fir aktivt Laden",
-          "power_entity": "Leeschtungsentitéit vum Ladegerät"
+          "power_entity": "Leeschtungsentitéit vum Ladegerät",
+          "nio_dashboard_enabled": "NIO-Dashboard weisen",
+          "nio_dashboard_path": "Dashboard-URL-Pfad"
         },
         "data_description": {
           "interval_seconds": "Intervall fir normal Polling. Standard: 15 Sekonne fir Direct NIO an 30 Sekonne fir Companion.",
@@ -120,7 +130,9 @@
           "adaptive": "Wann aktivéiert, wielt de Lade-Status dat normaalt oder Rou-Intervall. Onofhängeg vum Gefier-Dashboard an EVCC.",
           "connected_entity": "Verbindungszoustand vum Lueder; obligatoresch wann adaptivt Ofruffen aktivéiert ass.",
           "charging_entity": "Optionalen Binärsensor oder Sensor fir aktivt Laden.",
-          "power_entity": "Optionalen Leeschtungssensor a W oder kW; adaptivt Polling erfuerdert eng Lade- oder Leeschtungsentitéit."
+          "power_entity": "Optionalen Leeschtungssensor a W oder kW; adaptivt Polling erfuerdert eng Lade- oder Leeschtungsentitéit.",
+          "nio_dashboard_enabled": "Füügt ee gemeinsamen NIO-Dashboard an d’Sidebar vun Home Assistant. Et enthält all aktivéiert NIO-Gefierer, déi dës Optioun ausgewielt hunn.",
+          "nio_dashboard_path": "Nëmmen en URL-Pfad, z. B. nio. Gefierer am gemeinsame Dashboard mussen dee selwechte Pfad benotzen."
         }
       }
     },
@@ -129,7 +141,8 @@
       "incomplete_cost_sources": "Set all fënnef opgeholl-Käschte Quellen oder verloossen se eidel.",
       "invalid_paint_for_model": "Wielt eng Faarf verfügbar fir dësen Autosmodell.",
       "invalid_polling_interval": "Ongëltegt Intervall fir dës Verbindung.",
-      "invalid_polling_sources": "Adaptivt Polling erfuerdert eng Verbindungsentitéit an op d’mannst eng Lade- oder Leeschtungsentitéit."
+      "invalid_polling_sources": "Adaptivt Polling erfuerdert eng Verbindungsentitéit an op d’mannst eng Lade- oder Leeschtungsentitéit.",
+      "invalid_dashboard_path": "Gitt en URL-Pfad mat klenge Buschtawen, Zuelen, Bindestrécher oder Ënnerstrécher an."
     }
   },
   "entity": {

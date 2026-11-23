@@ -75,6 +75,14 @@
     "companion_source_reconnect": {
       "title": "Reconecte NIO no Companion",
       "description": "Sua conexão NIO upstream precisa de atenção. Abra a [página de conexões complementares]({connections_url}) e reconecte o NIO. Mantenha o link existente do Home Assistant: sua credencial permanece válida. O Home Assistant retomará as leituras em cache automaticamente quando a fonte se recuperar."
+    },
+    "managed_dashboard_route_collision": {
+      "title": "O caminho do painel NIO está ocupado",
+      "description": "O caminho /{path} pertence a outro painel do Home Assistant. Escolha um caminho livre nas definições do veículo NIO. Nenhum painel existente foi alterado."
+    },
+    "managed_dashboard_route_conflict": {
+      "title": "Os veículos NIO usam caminhos diferentes",
+      "description": "Os veículos ativos escolheram caminhos diferentes: {paths}. Têm de partilhar um caminho. O painel mantém-se em /{path} até as definições coincidirem."
     }
   },
   "application_credentials": {
@@ -112,7 +120,9 @@
           "adaptive": "Polling adaptativo",
           "connected_entity": "Entidade de ligação do carregador",
           "charging_entity": "Entidade de carregamento ativo",
-          "power_entity": "Entidade de potência do carregador"
+          "power_entity": "Entidade de potência do carregador",
+          "nio_dashboard_enabled": "Mostrar painel NIO",
+          "nio_dashboard_path": "Caminho URL do painel"
         },
         "data_description": {
           "interval_seconds": "Intervalo de polling normal. Predefinição: 15 segundos para Direct NIO e 30 segundos para Companion.",
@@ -120,7 +130,9 @@
           "adaptive": "Quando ativado, o estado do carregador seleciona o intervalo normal ou de inatividade. Independente do painel do veículo e do EVCC.",
           "connected_entity": "Estado de ligação do carregador; obrigatório com a consulta adaptativa ativada.",
           "charging_entity": "Sensor binário ou sensor opcional que indica carregamento ativo.",
-          "power_entity": "Sensor de potência opcional em W ou kW; o polling adaptativo requer um indicador de carregamento ou potência."
+          "power_entity": "Sensor de potência opcional em W ou kW; o polling adaptativo requer um indicador de carregamento ou potência.",
+          "nio_dashboard_enabled": "Adiciona um painel NIO partilhado à barra lateral do Home Assistant. Inclui todos os veículos NIO ativos para os quais esta opção foi selecionada.",
+          "nio_dashboard_path": "Apenas um caminho URL, como nio. Os veículos que partilham o painel devem usar o mesmo caminho."
         }
       }
     },
@@ -129,7 +141,8 @@
       "incomplete_cost_sources": "Defina todas as cinco fontes de custos registrados ou deixe-as vazias.",
       "invalid_paint_for_model": "Escolha uma cor disponível para este modelo de carro.",
       "invalid_polling_interval": "Intervalo inválido para esta ligação.",
-      "invalid_polling_sources": "O polling adaptativo requer uma entidade de ligação e pelo menos uma entidade de carregamento ou potência."
+      "invalid_polling_sources": "O polling adaptativo requer uma entidade de ligação e pelo menos uma entidade de carregamento ou potência.",
+      "invalid_dashboard_path": "Introduza um caminho URL com letras minúsculas, números, hífenes ou sublinhados."
     }
   },
   "entity": {

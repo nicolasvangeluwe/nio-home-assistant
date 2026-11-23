@@ -1749,12 +1749,16 @@ class CarLedgerCard extends HTMLElement {
     .main-tabs{background:transparent;border-radius:0;padding:0;gap:0;border-bottom:1px solid #8882}.main-tabs button{min-width:0;border-radius:0;padding:13px 2px;font-size:13px;border-bottom:2px solid transparent;white-space:nowrap}.main-tabs button.selected{background:transparent;box-shadow:none;border-bottom-color:var(--car-accent);color:var(--car-text)}.top{gap:6px;margin-bottom:19px}.refresh{flex:none;width:30px;height:30px;padding:5px}.insight .panel{background:transparent;border:0;border-bottom:1px solid #8882;border-radius:0;padding:20px 3px;margin:0}.insight .hero .metric strong{font-size:38px}.insight .hero .metric small{display:inline;margin-left:6px;font-size:12px}.insight .metrics.two.hero .metric strong{font-size:30px}.parked-summary{width:100%;background:transparent;border:0;border-bottom:1px solid #8882;padding:18px 3px;font-size:13px;text-align:left}.parked-summary strong{font-size:13px;font-weight:500}.parked-month{border-top:1px solid #8882;padding-top:16px;margin:14px 3px}.parked-month p{font-size:15px;color:var(--car-text)}
   `;
 }
-// HA also preloads this module: let the versioned resource refresh an already registered class.
-const registeredCarLedger=customElements.get('car-ledger-card');
-if(registeredCarLedger){
-  for(const key of Object.getOwnPropertyNames(CarLedgerCard.prototype)){
-    if(key!=='constructor')Object.defineProperty(registeredCarLedger.prototype,key,Object.getOwnPropertyDescriptor(CarLedgerCard.prototype,key));
-  }
-  registeredCarLedger.styles=CarLedgerCard.styles;
-}else customElements.define('car-ledger-card',CarLedgerCard);
-window.customCards=window.customCards||[];window.customCards.push({type:'car-ledger-card',name:'Car Ledger',description:'Charging, trips and consumption in one snapshot dashboard'});
+// Keep the legacy registration/hot-refresh behavior only for legacy consumers.
+// The managed NIO view imports the same base privately; it never mutates Car.
+if(!new URL(import.meta.url).searchParams.has('nio_owned')){
+  const registeredCarLedger=customElements.get('car-ledger-card');
+  if(registeredCarLedger){
+    for(const key of Object.getOwnPropertyNames(CarLedgerCard.prototype)){
+      if(key!=='constructor')Object.defineProperty(registeredCarLedger.prototype,key,Object.getOwnPropertyDescriptor(CarLedgerCard.prototype,key));
+    }
+    registeredCarLedger.styles=CarLedgerCard.styles;
+  }else customElements.define('car-ledger-card',CarLedgerCard);
+  window.customCards=window.customCards||[];window.customCards.push({type:'car-ledger-card',name:'Car Ledger',description:'Charging, trips and consumption in one snapshot dashboard'});
+}
+export { CarLedgerCard };

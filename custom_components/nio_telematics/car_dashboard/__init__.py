@@ -2,6 +2,7 @@
 
 import asyncio
 from copy import deepcopy
+from datetime import UTC
 from hashlib import sha256
 from pathlib import Path
 from types import SimpleNamespace
@@ -12,11 +13,13 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN as LEDGER_DOMAIN
 from .coordinator import CarLedgerCoordinator
 from .cost_split import SOURCE_KEYS
 from .ledger import Ledger
+from .periods import SCOPES, calendar_window, period_statistics
 
 NIO_DOMAIN = "nio_telematics"
 DATA_KEY = "nio_telematics_car_dashboard"
@@ -58,14 +61,35 @@ def resolve(hass, entry_id):
     {
         vol.Required("type"): "nio_telematics/car_dashboard/get",
         vol.Optional("entry_id"): str,
+        vol.Optional("period"): vol.In(SCOPES),
+        vol.Optional("date"): str,
     }
 )
 @websocket_api.async_response
 async def websocket_get(hass, connection, msg):
     try:
-        connection.send_result(msg["id"], resolve(hass, msg.get("entry_id")).snapshot())
+        recorder = resolve(hass, msg.get("entry_id"))
     except ValueError as err:
         connection.send_error(msg["id"], "not_configured", str(err))
+        return
+    try:
+        result = recorder.snapshot()
+        if "period" in msg:
+            window = calendar_window(
+                msg["period"],
+                msg.get("date"),
+                dt_util.get_time_zone(hass.config.time_zone) or UTC,
+                dt_util.utcnow().timestamp(),
+            )
+            result["selected_period"] = window
+            result["statistics"]["selected"] = period_statistics(
+                recorder.ledger, window
+            )
+        elif "date" in msg:
+            raise ValueError("A date requires a calendar period")
+        connection.send_result(msg["id"], result)
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_period", str(err))
 
 
 @websocket_api.websocket_command(

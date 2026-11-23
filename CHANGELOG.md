@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Add an optional integration-managed NIO sidebar dashboard, shared by opted-in
+  vehicles, without manual Lovelace resources or a separately maintained board.
+  Preserve foreign dashboards, existing entities and recorded history.
+- Apply consistent Car / History / Settings navigation, mobile bottom navigation,
+  equal-width divided selectors, grouped settings and equal range typography.
+  Keep the richer HA readings, source controls, backup and unknown-data semantics.
+- Add read-only calendar selection for day, week, month and year using HA's
+  timezone and the existing ledger formulas. Isolate the module history styling
+  from existing household ledger cards.
 - Show unknown charging status instead of inferring idle from charger connection
   alone; retain explicit native state and charger power evidence. Improve the
   dashboard guidance for cars whose native NIO charging state is unavailable.

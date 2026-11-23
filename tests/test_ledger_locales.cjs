@@ -4,8 +4,10 @@ const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, '../custom_components/nio_telematics/car_dashboard/car-ledger-card.js'), 'utf8');
+const rawSource = fs.readFileSync(path.join(__dirname, '../custom_components/nio_telematics/car_dashboard/car-ledger-card.js'), 'utf8');
+const source = rawSource.replaceAll('import.meta.url', JSON.stringify('https://ha.test/nio_telematics/car-dashboard.js')).replace('export { CarLedgerCard };', '');
 const sandbox = {
+  URL,
   HTMLElement: class { attachShadow() {} },
   customElements: { get() { return undefined; }, define() {} },
   window: { customCards: [] },
@@ -14,6 +16,20 @@ vm.runInNewContext(source + '\nglobalThis.__CarLedgerCard = CarLedgerCard; globa
 const CarLedgerCard = sandbox.__CarLedgerCard;
 const translations = sandbox.__LEDGER_TRANSLATIONS;
 const dynamic = sandbox.__LEDGER_DYNAMIC;
+test('owned history import cannot patch an existing household card', () => {
+  class ExistingCard {}
+  ExistingCard.styles = 'household styles';
+  const original = Object.getOwnPropertyDescriptors(ExistingCard.prototype);
+  const cards = [];
+  let registered = false;
+  vm.runInNewContext(rawSource.replaceAll('import.meta.url', JSON.stringify('https://ha.test/nio_telematics/car-dashboard.js?nio_owned=1')).replace('export { CarLedgerCard };', ''), {
+    URL, HTMLElement: class {}, customElements: { get: () => ExistingCard, define: () => { registered = true; } }, window: { customCards: cards },
+  });
+  assert.deepEqual(Object.getOwnPropertyDescriptors(ExistingCard.prototype), original);
+  assert.equal(ExistingCard.styles, 'household styles');
+  assert.equal(registered, false);
+  assert.equal(cards.length, 0);
+});
 const locales = ['en', 'nl', 'fr', 'de', 'nb', 'sv', 'da', 'cs', 'el', 'hu', 'lb', 'pl', 'pt', 'ro'];
 function card(language) { const instance = new CarLedgerCard(); instance.config = { language }; return instance; }
 

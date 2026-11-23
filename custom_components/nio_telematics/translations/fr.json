@@ -75,6 +75,14 @@
     "companion_source_reconnect": {
       "title": "Reconnectez NIO dans le compagnon",
       "description": "Votre connexion NIO en amont a besoin d'attention. Ouvrez la [Page Connexions compagnon]({connections_url}) et reconnectez NIO. Conservez le lien Home Assistant existant : son identifiant reste valide. Home Assistant reprendra automatiquement les lectures mises en cache lorsque la source sera récupérée."
+    },
+    "managed_dashboard_route_collision": {
+      "title": "Le chemin du tableau de bord NIO est occupé",
+      "description": "Le chemin /{path} appartient à un autre panneau Home Assistant. Choisissez un chemin libre dans les paramètres du véhicule NIO. Aucun panneau existant n’a été modifié."
+    },
+    "managed_dashboard_route_conflict": {
+      "title": "Les véhicules NIO utilisent des chemins différents",
+      "description": "Les véhicules activés ont choisi des chemins différents : {paths}. Ils doivent partager un seul chemin. Le tableau de bord reste sur /{path} jusqu’à harmonisation des paramètres."
     }
   },
   "application_credentials": {
@@ -112,7 +120,9 @@
           "adaptive": "Interrogation adaptative",
           "connected_entity": "Entité de connexion de la borne",
           "charging_entity": "Entité de charge active",
-          "power_entity": "Entité de puissance du chargeur"
+          "power_entity": "Entité de puissance du chargeur",
+          "nio_dashboard_enabled": "Afficher le tableau de bord NIO",
+          "nio_dashboard_path": "Chemin URL du tableau de bord"
         },
         "data_description": {
           "interval_seconds": "Intervalle utilisé pour les interrogations normales. Valeurs par défaut : 15 s pour Direct NIO et 30 s pour Companion.",
@@ -120,7 +130,9 @@
           "adaptive": "Si activée, l’état du chargeur choisit l’intervalle normal ou celui à l’arrêt. Fonctionne sans tableau de bord ni EVCC.",
           "connected_entity": "État de connexion de la borne ; requis lorsque la lecture adaptative est activée.",
           "charging_entity": "Capteur binaire ou capteur facultatif indiquant une charge active.",
-          "power_entity": "Capteur de puissance facultatif en W ou kW ; une entité de charge ou de puissance est requise en mode adaptatif."
+          "power_entity": "Capteur de puissance facultatif en W ou kW ; une entité de charge ou de puissance est requise en mode adaptatif.",
+          "nio_dashboard_enabled": "Ajoute un tableau de bord NIO partagé à la barre latérale Home Assistant. Il inclut chaque véhicule NIO activé pour cette option.",
+          "nio_dashboard_path": "Un simple segment d’URL, par exemple nio. Les véhicules qui partagent le tableau de bord doivent utiliser le même chemin."
         }
       }
     },
@@ -129,7 +141,8 @@
       "incomplete_cost_sources": "Définissez les cinq sources de coûts enregistrés ou laissez-les vides.",
       "invalid_paint_for_model": "Choisissez une couleur disponible pour ce modèle de voiture.",
       "invalid_polling_interval": "Intervalle invalide pour cette connexion.",
-      "invalid_polling_sources": "Le mode adaptatif nécessite une entité de connexion et au moins une entité de charge ou de puissance."
+      "invalid_polling_sources": "Le mode adaptatif nécessite une entité de connexion et au moins une entité de charge ou de puissance.",
+      "invalid_dashboard_path": "Saisissez un segment d’URL en minuscules, chiffres, tirets ou traits de soulignement."
     }
   },
   "entity": {
