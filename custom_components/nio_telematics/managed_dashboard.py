@@ -326,9 +326,9 @@ async def async_reconcile_dashboard(
         if registry is None:
             return
         panel = registry.get(selected_path)
-        if (panel is not None or frontend.async_panel_exists(hass, selected_path)) and not (
-            panel is prior_panel and _is_owned(panel)
-        ):
+        if (
+            panel is not None or frontend.async_panel_exists(hass, selected_path)
+        ) and not (panel is prior_panel and _is_owned(panel)):
             _set_dashboard_issue(
                 hass,
                 "managed_dashboard_route_collision",
