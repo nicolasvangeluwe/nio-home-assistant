@@ -31,6 +31,7 @@ from custom_components.nio_telematics.const import (
     DOMAIN,
 )
 from custom_components.nio_telematics.diagnostics import (
+    _charging_state_observation,
     async_get_config_entry_diagnostics,
 )
 from custom_components.nio_telematics.sensor import (
@@ -361,6 +362,50 @@ async def test_companion_diagnostics_redact_credentials_and_vehicle_identity(has
     assert TOKEN not in str(diagnostics)
     assert VIN not in str(diagnostics)
     assert "a" * 64 not in str(diagnostics)
+
+
+@pytest.mark.parametrize(
+    ("payload", "merged", "expected"),
+    [
+        ({}, None, "not_in_retained_view"),
+        ({"chrg_state": None}, None, "not_in_retained_view"),
+        ({"chrg_state": ""}, None, "empty"),
+        ({"chrg_state": False}, None, "rejected_type"),
+        ({"chrg_state": {"state": "charging"}}, None, "rejected_type"),
+        ({"chrg_state": 0}, "0", "accepted_by_parser"),
+        ({"chrg_state": "raw_value_123"}, "raw_value_123", "accepted_by_parser"),
+    ],
+)
+def test_charging_state_diagnostic_reports_retained_field_shape_without_value(
+    payload, merged, expected
+):
+    data = SimpleNamespace(
+        connection_method="direct",
+        telemetry={"soc_status": payload},
+        soc_status=SimpleNamespace(charging_state=merged),
+    )
+    result = _charging_state_observation(data)
+    assert result["payload_state"] == expected
+    assert result["payload_view"] == "retained_sparse_merge"
+    assert result["merged_value_available"] is (merged is not None)
+    assert set(result) == {
+        "source",
+        "payload_view",
+        "payload_state",
+        "merged_value_available",
+    }
+    assert "raw_value_123" not in str(result)
+
+
+def test_charging_state_diagnostic_does_not_treat_companion_as_raw_nio_payload():
+    data = SimpleNamespace(
+        connection_method="companion",
+        telemetry={"soc_status": {}},
+        soc_status=SimpleNamespace(charging_state=None),
+    )
+    result = _charging_state_observation(data)
+    assert result["payload_state"] == "raw_nio_payload_unavailable"
+    assert result["merged_value_available"] is False
 
 
 @pytest.mark.parametrize("soc_value", [48.5, 0])

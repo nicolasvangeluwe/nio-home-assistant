@@ -47,10 +47,39 @@ async def async_get_config_entry_diagnostics(
                         "charging_target": coordinator.data.soc_status.charging_target,
                     }.items()
                 },
+                "charging_state_observation": _charging_state_observation(
+                    coordinator.data
+                ),
                 "endpoint_status": coordinator.data.endpoint_status,
                 "connection_method": coordinator.data.connection_method,
                 "source_generation": coordinator.data.source_generation,
             },
             TO_REDACT,
         ),
+    }
+
+
+def _charging_state_observation(data) -> dict[str, str | bool]:
+    """Summarize the retained raw-field shape without disclosing its value."""
+    if data.connection_method == "companion":
+        payload_state = "raw_nio_payload_unavailable"
+    else:
+        payload = data.telemetry.get("soc_status")
+        if not isinstance(payload, dict):
+            payload_state = "no_payload_available"
+        elif "chrg_state" not in payload or payload["chrg_state"] is None:
+            payload_state = "not_in_retained_view"
+        else:
+            value = payload["chrg_state"]
+            if isinstance(value, str) and not value:
+                payload_state = "empty"
+            elif isinstance(value, (str, int, float)) and not isinstance(value, bool):
+                payload_state = "accepted_by_parser"
+            else:
+                payload_state = "rejected_type"
+    return {
+        "source": data.connection_method,
+        "payload_view": "retained_sparse_merge",
+        "payload_state": payload_state,
+        "merged_value_available": data.soc_status.charging_state is not None,
     }
