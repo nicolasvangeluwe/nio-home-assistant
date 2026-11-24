@@ -361,6 +361,14 @@ test('explicit navigation reveals its destination without changing background re
   assert.deepEqual(seen,[['history','start'],['car','start']]);
 });
 
+test('calculated-range details use the same current-month basis as the car reading', async () => {
+  let refreshed=false;
+  const history={scope:'year',period:'last_trip',anchor:'2025-01-01',refresh:async()=>{refreshed=true;}};
+  const card={navigate:screen=>assert.equal(screen,'history'),shadowRoot:{querySelector:()=>history}};
+  await Dashboard.prototype.openCalculatedRange.call(card);
+  assert.equal(history.tab,'insight');assert.equal(history.scope,'month');assert.equal(history.period,'month');assert.equal(history.anchor,null);assert.equal(refreshed,true);
+});
+
 test('all fourteen dashboard locales include the grouped menu and missing-range explanation', () => {
   const card=Object.create(Dashboard.prototype);card._hass={language:'en'};
   for(const language of ['en','nl','de','fr','nb','sv','da','cs','el','hu','lb','pl','pt','ro']){
