@@ -22,6 +22,7 @@ const UI_ROWS={
 };
 
 const EMPTY_PERIOD={en:'No records in this period.',nl:'Geen registraties in deze periode.',de:'Keine Aufzeichnungen in diesem Zeitraum.',fr:'Aucun relevé pour cette période.',nb:'Ingen registreringer i denne perioden.',sv:'Inga registreringar under denna period.',da:'Ingen registreringer i denne periode.',cs:'V tomto období nejsou žádné záznamy.',el:'Δεν υπάρχουν εγγραφές για αυτή την περίοδο.',hu:'Ebben az időszakban nincs bejegyzés.',lb:'Keng Opzeechnungen an dëser Period.',pl:'Brak zapisów w tym okresie.',pt:'Sem registos neste período.',ro:'Nu există înregistrări în această perioadă.'};
+const EMPTY_FILTERS={en:'No records match these filters in this period.',nl:'Geen registraties voldoen aan deze filters in deze periode.',de:'Keine Aufzeichnungen entsprechen diesen Filtern in diesem Zeitraum.',fr:'Aucun relevé ne correspond à ces filtres pour cette période.',nb:'Ingen registreringer samsvarer med disse filtrene i denne perioden.',sv:'Inga registreringar matchar dessa filter under denna period.',da:'Ingen registreringer matcher disse filtre i denne periode.',cs:'Žádné záznamy v tomto období neodpovídají těmto filtrům.',el:'Δεν υπάρχουν εγγραφές που να ταιριάζουν με αυτά τα φίλτρα σε αυτή την περίοδο.',hu:'Ebben az időszakban egyetlen bejegyzés sem felel meg ezeknek a szűrőknek.',lb:'Keng Opzeechnungen entspriechen dëse Filteren an dëser Period.',pl:'Żadne zapisy w tym okresie nie pasują do tych filtrów.',pt:'Nenhum registo corresponde a estes filtros neste período.',ro:'Nicio înregistrare din această perioadă nu corespunde acestor filtre.'};
 
 export function periodLabel(meta,locale='en'){
  if(!meta)return '';
@@ -41,7 +42,7 @@ export class NioDashboardHistory extends CarLedgerCard{
  date(ts,options={day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}){return ts?new Date(ts*1000).toLocaleString(this.displayLocale,{hour12:false,...options,timeZone:this._hass?.config?.time_zone||'UTC'}):'—';}
  monthKey(ts){return new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',timeZone:this._hass?.config?.time_zone||'UTC'}).format(new Date(ts*1000));}
  get ui(){const code=this.displayLocale.toLowerCase().split(/[-_]/)[0];return Object.fromEntries(UI_KEYS.map((key,i)=>[key,(UI_ROWS[code]||UI_ROWS.en)[i]]));}
- get emptyPeriodLabel(){return EMPTY_PERIOD[this.displayLocale.toLowerCase().split(/[-_]/)[0]]||EMPTY_PERIOD.en;}
+ get emptyPeriodLabel(){const filtered=this.tab==='charging'&&(this.filters.location!=='all'||this.filters.price)||this.tab==='trips'&&this.filters.basis!=='all';const labels=filtered?EMPTY_FILTERS:EMPTY_PERIOD;return labels[this.displayLocale.toLowerCase().split(/[-_]/)[0]]||labels.en;}
  setConfig(config){
   const changed=this.config?.entry_id!==config.entry_id;this.config={...config};
   if(changed){this._requestId++;this.snapshot=null;this.fullSnapshot=null;this.anchor=null;this.scope='month';this.filters={location:'all',basis:'all',price:false};}
