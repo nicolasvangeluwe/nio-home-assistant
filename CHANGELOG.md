@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.7.0-dev.3
+
+Development release — experimental.
 
 - Add an optional integration-managed NIO sidebar dashboard, shared by opted-in
   vehicles, without manual Lovelace resources or a separately maintained board.
@@ -11,6 +13,11 @@
 - Add read-only calendar selection for day, week, month and year using HA's
   timezone and the existing ledger formulas. Isolate the module history styling
   from existing household ledger cards.
+- Reveal desktop destinations when selected, retain the last valid vehicle sample
+  time, and use 24-hour history times. Keep focused settings help with its field
+  and distinguish empty selected periods from an archive with no trips.
+- Frame the selected ET5 Touring paint consistently while preserving the saved
+  colour, original compact card and existing ledger calculations.
 - Show unknown charging status instead of inferring idle from charger connection
   alone; retain explicit native state and charger power evidence. Improve the
   dashboard guidance for cars whose native NIO charging state is unavailable.

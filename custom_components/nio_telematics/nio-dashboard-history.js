@@ -21,6 +21,8 @@ const UI_ROWS={
  ro:['Încărcare','Călătorii','Energie','Staționare','Zi','Săptămână','Lună','An','Astăzi','Alege data','Aplică','Filtre','Toate înregistrările','Energie măsurată','Citiri lipsă','Preț lipsă','Se încarcă istoricul…','Reîmprospătează','Perioada anterioară','Perioada următoare','Data','Închide','Contoare de călătorie'],
 };
 
+const EMPTY_PERIOD={en:'No records in this period.',nl:'Geen registraties in deze periode.',de:'Keine Aufzeichnungen in diesem Zeitraum.',fr:'Aucun relevé pour cette période.',nb:'Ingen registreringer i denne perioden.',sv:'Inga registreringar under denna period.',da:'Ingen registreringer i denne periode.',cs:'V tomto období nejsou žádné záznamy.',el:'Δεν υπάρχουν εγγραφές για αυτή την περίοδο.',hu:'Ebben az időszakban nincs bejegyzés.',lb:'Keng Opzeechnungen an dëser Period.',pl:'Brak zapisów w tym okresie.',pt:'Sem registos neste período.',ro:'Nu există înregistrări în această perioadă.'};
+
 export function periodLabel(meta,locale='en'){
  if(!meta)return '';
  const date=s=>new Date(`${s}T12:00:00Z`),format=(s,options)=>date(s).toLocaleDateString(locale,{...options,timeZone:'UTC'});
@@ -36,9 +38,10 @@ export function periodLabel(meta,locale='en'){
 export class NioDashboardHistory extends CarLedgerCard{
  constructor(){super();this.scope='month';this.anchor=null;this.full=true;this.pageSize=36;this._requestId=0;this.filters={location:'all',basis:'all',price:false};}
  get displayLocale(){return this.config?.language||this._hass?.language||'en';}
- date(ts,options={day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}){return ts?new Date(ts*1000).toLocaleString(this.displayLocale,{...options,timeZone:this._hass?.config?.time_zone||'UTC'}):'—';}
+ date(ts,options={day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}){return ts?new Date(ts*1000).toLocaleString(this.displayLocale,{hour12:false,...options,timeZone:this._hass?.config?.time_zone||'UTC'}):'—';}
  monthKey(ts){return new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',timeZone:this._hass?.config?.time_zone||'UTC'}).format(new Date(ts*1000));}
  get ui(){const code=this.displayLocale.toLowerCase().split(/[-_]/)[0];return Object.fromEntries(UI_KEYS.map((key,i)=>[key,(UI_ROWS[code]||UI_ROWS.en)[i]]));}
+ get emptyPeriodLabel(){return EMPTY_PERIOD[this.displayLocale.toLowerCase().split(/[-_]/)[0]]||EMPTY_PERIOD.en;}
  setConfig(config){
   const changed=this.config?.entry_id!==config.entry_id;this.config={...config};
   if(changed){this._requestId++;this.snapshot=null;this.fullSnapshot=null;this.anchor=null;this.scope='month';this.filters={location:'all',basis:'all',price:false};}
@@ -79,7 +82,7 @@ export class NioDashboardHistory extends CarLedgerCard{
   if(!this.config)return;
   if(!this.snapshot){
    const u=this.ui;
-   this.shadowRoot.innerHTML=`<style>${CarLedgerCard.styles}${HISTORY_STYLE}</style><ha-card><div class="history-context"><div class="top"><nav class="main-tabs" aria-label="${this.esc(this.translate('Autohistoriek'))}">${[['charging',u.charging],['trips',u.trips],['insight',u.energy],['parked',u.parked]].map(([key,label])=>`<button type="button" data-tab="${key}" class="${this.tab===key?'selected':''}" aria-pressed="${this.tab===key}">${this.esc(label)}</button>`).join('')}</nav></div><nav class="history-scopes periods" style="--period-count:4" aria-label="${this.esc(this.translate('Periode'))}">${['day','week','month','year'].map(key=>`<button type="button" data-scope="${key}" class="${this.scope===key?'selected':''}" aria-pressed="${this.scope===key}">${this.esc(u[key])}</button>`).join('')}</nav></div><p class="empty" role="status">${this.esc(this.error||u.loading)}</p><button type="button" data-action="refresh" class="text">${this.esc(u.refresh)}</button></ha-card>`;
+   this.shadowRoot.innerHTML=`<style>${CarLedgerCard.styles}${HISTORY_STYLE}</style><ha-card><div class="history-context"><div class="top"><nav class="main-tabs" aria-label="${this.esc(this.translate('Autohistoriek'))}">${[['charging',u.charging],['trips',u.trips],['insight',u.energy],['parked',u.parked]].map(([key,label])=>`<button type="button" data-tab="${key}" class="${this.tab===key?'selected':''}" aria-pressed="${this.tab===key}">${this.esc(label)}</button>`).join('')}</nav></div><nav class="history-scopes periods" style="--period-count:4" aria-label="${this.esc(this.ui.date)}">${['day','week','month','year'].map(key=>`<button type="button" data-scope="${key}" class="${this.scope===key?'selected':''}" aria-pressed="${this.scope===key}">${this.esc(u[key])}</button>`).join('')}</nav></div><p class="empty" role="status">${this.esc(this.error||u.loading)}</p><button type="button" data-action="refresh" class="text">${this.esc(u.refresh)}</button></ha-card>`;
    this.shadowRoot.addEventListener('click',this._clickHandler ||= e=>this.click(e));this.refreshState();return;
   }
   this.applyView();this.full=true;super.render();
@@ -89,7 +92,7 @@ export class NioDashboardHistory extends CarLedgerCard{
   for(const b of r.querySelectorAll('[data-action=full]'))b.remove();
   for(const p of r.querySelectorAll('.periods'))if(p.querySelector('[data-period=day]'))p.remove();
   const top=r.querySelector('.top'),context=document.createElement('div');context.className='history-context';top.before(context);context.append(top);
-  const scope=document.createElement('nav');scope.className='history-scopes periods';scope.style.setProperty('--period-count','4');scope.setAttribute('aria-label',this.translate('Periode'));
+  const scope=document.createElement('nav');scope.className='history-scopes periods';scope.style.setProperty('--period-count','4');scope.setAttribute('aria-label',this.ui.date);
   scope.innerHTML=['day','week','month','year'].map(key=>`<button type="button" data-scope="${key}" class="${this.scope===key?'selected':''}" aria-pressed="${this.scope===key}">${this.esc(u[key])}</button>`).join('');context.append(scope);
   const calendar=document.createElement('div');calendar.className='calendar-row';
   calendar.innerHTML=`<div class="date-group"><button class="arrow" data-shift="-1" aria-label="${this.esc(u.previous)}">${HISTORY_ICONS.left}</button><button class="date" data-calendar>${HISTORY_ICONS.calendar}<span>${this.esc(periodLabel(this._calendar,this.displayLocale))}</span></button><button class="arrow" data-shift="1" aria-label="${this.esc(u.next)}">${HISTORY_ICONS.right}</button></div><div class="date-tools"><button data-today>${this.esc(u.today)}</button>${['charging','trips'].includes(this.tab)?`<button class="arrow" data-filter aria-label="${this.esc(u.filters)}" aria-pressed="${this.filters.location!=='all'||this.filters.price||this.filters.basis!=='all'}">${HISTORY_ICONS.sliders}</button>`:''}</div>`;
@@ -101,6 +104,7 @@ export class NioDashboardHistory extends CarLedgerCard{
    for(const c of this.snapshot.counters.slice(0,2)){const b=document.createElement('button');b.type='button';b.dataset.showCounter=c.id;b.textContent=`${c.name} · ${this.n(c.statistics.distance_km,0)} km`;counters.append(b);}r.querySelector('.heading').append(counters);
   }
   if(this.tab==='insight'){const title=document.createElement('h2');title.className='content-title';title.textContent=u.energy;r.querySelector('.insight').before(title);}
+  const empty=r.querySelector('.empty');if(empty&&this.tab!=='insight')empty.textContent=this.emptyPeriodLabel;
   this.summaryGrids();
   for(const details of r.querySelectorAll('.details'))if(details.querySelector('.chart'))details.open=true;
   for(const label of r.querySelectorAll('.metric>span,.period-summary small')){

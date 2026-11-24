@@ -351,6 +351,16 @@ test('calculated range and current charging summary use only current snapshot fi
   assert.match(note.textContent,/recorded driving consumption/i);
 });
 
+test('explicit navigation reveals its destination without changing background rendering', () => {
+  const seen=[];
+  const panel={scrollIntoView:options=>seen.push(['history',options.block])};
+  const root={querySelector:()=>panel,scrollIntoView:options=>seen.push(['car',options.block])};
+  const card={shadowRoot:{querySelector:()=>root},selectScreen(screen){this.screen=screen;}};
+  Dashboard.prototype.navigate.call(card,'history');
+  Dashboard.prototype.navigate.call(card,'car');
+  assert.deepEqual(seen,[['history','start'],['car','start']]);
+});
+
 test('all fourteen dashboard locales include the grouped menu and missing-range explanation', () => {
   const card=Object.create(Dashboard.prototype);card._hass={language:'en'};
   for(const language of ['en','nl','de','fr','nb','sv','da','cs','el','hu','lb','pl','pt','ro']){
