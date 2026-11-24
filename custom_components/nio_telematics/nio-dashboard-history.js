@@ -39,6 +39,7 @@ export function periodLabel(meta,locale='en'){
 export class NioDashboardHistory extends CarLedgerCard{
  constructor(){super();this.scope='month';this.anchor=null;this.full=true;this.pageSize=36;this._requestId=0;this.filters={location:'all',basis:'all',price:false};}
  get displayLocale(){return this.config?.language||this._hass?.language||'en';}
+ translate(value){return super.translate(String(value).replace(/\bVerbruikt\b/g,'Verbruik'));}
  date(ts,options={day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}){return ts?new Date(ts*1000).toLocaleString(this.displayLocale,{hour12:false,...options,timeZone:this._hass?.config?.time_zone||'UTC'}):'—';}
  monthKey(ts){return new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',timeZone:this._hass?.config?.time_zone||'UTC'}).format(new Date(ts*1000));}
  get ui(){const code=this.displayLocale.toLowerCase().split(/[-_]/)[0];return Object.fromEntries(UI_KEYS.map((key,i)=>[key,(UI_ROWS[code]||UI_ROWS.en)[i]]));}
