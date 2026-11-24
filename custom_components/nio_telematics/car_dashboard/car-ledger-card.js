@@ -1556,6 +1556,10 @@ class CarLedgerCard extends HTMLElement {
     if(monthlyCharge)return leading+`${monthlyCharge[1].trim()} kWh · ${monthlyCharge[2].trim()} € ${exact('laadkosten')}`+(monthlyCharge[3]?` · ${monthlyCharge[3].trim()} € ${exact('vergoeding')} · ${monthlyCharge[4].trim()} € ${exact('laadvoordeel')}`:'')+trailing;
     const monthlyTrips=middle.match(/^([\d.,\s−—-]+) km · ([\d.,\s−—-]+) kWh\/100 km · (\d+) ritten$/);
     if(monthlyTrips)return leading+`${monthlyTrips[1].trim()} km · ${monthlyTrips[2].trim()} kWh/100 km · ${monthlyTrips[3]} ${exact('ritten')}`+trailing;
+    const activeCharge=middle.match(/^(.+?) · Lopende sessie$/);
+    if(activeCharge)return leading+activeCharge[1]+' · '+exact('Lopende sessie')+trailing;
+    const solarOnly=middle.match(/^·\s*(.+?)% zon$/);
+    if(solarOnly)return leading+'· '+solarOnly[1]+'% '+exact('zon')+trailing;
     const averageLine=middle.match(/^Gem\. (.+?) kWh\/100 km$/);
     if(averageLine)return leading+exact('Gem.')+' '+averageLine[1]+' kWh/100 km'+trailing;
     const combinedNotice=middle.match(/^Ontbrekende prijzen: (\d+) · Niet-bevestigde sessies: (\d+) · Bekende kosten: (.+?) €$/);

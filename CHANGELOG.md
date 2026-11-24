@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0-dev.5
+
+Development release — experimental.
+
+- Translate the complete active home-charging row, including its timestamp and
+  solar-only detail, in all 14 languages. Add a regression using the actual
+  ongoing-session renderer discovered during live activation verification.
+
 ## 0.7.0-dev.4
 
 Development release — experimental.
