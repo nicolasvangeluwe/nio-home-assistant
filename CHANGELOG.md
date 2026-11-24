@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.0-dev.5
+
+Development release — experimental.
+
+- Translate the complete active home-charging row, including its timestamp and
+  solar-only detail, in all 14 languages. Add a regression using the actual
+  ongoing-session renderer discovered during live activation verification.
+- Correct the remaining English/German draft wording in Luxembourgish history,
+  including charging costs, benefits, trip counters and stored-energy pricing.
+  Clarify charging-session and solar-energy wording in the affected locales.
+
 ## 0.7.0-dev.4
 
 Development release — experimental.

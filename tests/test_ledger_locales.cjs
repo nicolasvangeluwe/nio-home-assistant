@@ -150,6 +150,29 @@ test('actual rendered monthly history totals localize charging, home-charge and 
   }
 });
 
+test('actual ongoing home-charge history row localizes its live label and solar-only suffix', () => {
+  const locales=['en','nl','fr','de','nb','sv','da','cs','el','hu','lb','pl','pt','ro'];
+  const start=Date.parse('2026-11-24T13:08:00Z')/1000;
+  for(const locale of locales){
+    const instance=card(locale);instance.full=false;instance.pageSize=30;instance.tab='charging';
+    instance.snapshot={charges:[{id:'live-charge',start,ongoing:true,category:'home',kwh:8.4,cost_eur:null,confirmed:false,benefit_eur:null,reimbursement_eur:null,solar_pct:97}]};
+    const html=instance.history();
+    const timeSource=html.match(/class="row session-head"><span>(.*?)<\/span>/)[1];
+    const solarSource=html.match(/class="muted">(.*?)<\/div>/)[1];
+    assert.match(timeSource,/Lopende sessie$/,locale+' history renderer includes live state');
+    assert.match(solarSource,/· 97% zon$/,locale+' home row has solar without reimbursement');
+    const time=instance.translate(timeSource),solar=instance.translate(solarSource);
+    assert.match(time,new RegExp(instance.translate('Lopende sessie')+'$'),locale+' live state translated');
+    assert.match(solar,/97%/);
+    if(locale!=='nl'){assert.doesNotMatch(time,/Lopende sessie/);assert.doesNotMatch(solar,/zon/);assert.notEqual(solar,solarSource,locale+' solar label translated');}
+  }
+});
+
+test('Luxembourgish ledger copy does not regress to the observed English and German draft phrases', () => {
+  const copy=JSON.stringify([Object.values(translations.lb),dynamic.lb]);
+  assert.doesNotMatch(copy,/Charging profit|Trip Ledger|Avg\.|Fahrtenzähler|Ladekosten|virausgesot Export/);
+});
+
 test('localize skips user-supplied names but still translates surrounding static labels', () => {
   const instance = card('en');
   const marked = { textContent: 'Laden', parentElement: { closest: selector => selector.includes('data-user-content') ? {} : null } };
