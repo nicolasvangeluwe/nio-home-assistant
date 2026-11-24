@@ -1,0 +1,7 @@
+Approved asset provenance
+
+Source: staging/car-ledger/nio-et5-touring.png (approved original Touring bitmap)
+SHA-256: 14EE0711B3B1DA742714B076DE647C4687BE05875E9A6F96E14BEA58B9820C13
+Copied byte-for-byte to artwork/et5-touring/approved-hero.png for this module's existing artwork static route.
+
+No separate licence or redistribution terms were found alongside the source asset at implementation time. This note does not claim ownership or add a licence.

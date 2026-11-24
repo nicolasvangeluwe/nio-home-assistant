@@ -75,6 +75,14 @@
     "companion_source_reconnect": {
       "title": "Reconectați NIO în Companion",
       "description": "Conexiunea dvs. NIO în amonte necesită atenție. Deschideți [Pagina de conexiuni însoțitoare]({connections_url}) și reconectați NIO. Păstrați linkul existent pentru Home Assistant: acreditările sale rămân valabile. Home Assistant va relua automat citirile memorate în cache când sursa se recuperează."
+    },
+    "managed_dashboard_route_collision": {
+      "title": "Calea tabloului de bord NIO este ocupată",
+      "description": "Calea /{path} aparține altui panou Home Assistant. Alegeți o cale liberă în setările vehiculului NIO. Niciun panou existent nu a fost modificat."
+    },
+    "managed_dashboard_route_conflict": {
+      "title": "Vehiculele NIO folosesc căi diferite",
+      "description": "Vehiculele activate au ales căi diferite: {paths}. Trebuie să folosească o singură cale. Tabloul de bord rămâne la /{path} până când setările coincid."
     }
   },
   "application_credentials": {
@@ -112,7 +120,9 @@
           "adaptive": "Interogare adaptivă",
           "connected_entity": "Entitatea conexiunii încărcătorului",
           "charging_entity": "Entitate încărcare activă",
-          "power_entity": "Entitate putere încărcător"
+          "power_entity": "Entitate putere încărcător",
+          "nio_dashboard_enabled": "Afișează tabloul de bord NIO",
+          "nio_dashboard_path": "Calea URL a tabloului de bord"
         },
         "data_description": {
           "interval_seconds": "Interval pentru interogarea normală. Implicit: 15 secunde pentru Direct NIO și 30 pentru Companion.",
@@ -120,7 +130,9 @@
           "adaptive": "Când este activată, starea încărcătorului selectează intervalul normal sau inactiv. Independent de tabloul vehiculului și EVCC.",
           "connected_entity": "Starea conexiunii încărcătorului; obligatorie când interogarea adaptivă este activată.",
           "charging_entity": "Senzor binar sau senzor opțional pentru încărcare activă.",
-          "power_entity": "Senzor opțional de putere în W sau kW; interogarea adaptivă necesită un indicator de încărcare sau putere."
+          "power_entity": "Senzor opțional de putere în W sau kW; interogarea adaptivă necesită un indicator de încărcare sau putere.",
+          "nio_dashboard_enabled": "Adaugă un singur tablou de bord NIO partajat în bara laterală Home Assistant. Include toate vehiculele NIO activate pentru care s-a selectat această opțiune.",
+          "nio_dashboard_path": "Doar o cale URL, de exemplu nio. Vehiculele care partajează tabloul de bord trebuie să folosească aceeași cale."
         }
       }
     },
@@ -129,7 +141,8 @@
       "incomplete_cost_sources": "Setați toate cele cinci surse de cost înregistrat sau lăsați-le goale.",
       "invalid_paint_for_model": "Alegeți o culoare disponibilă pentru acest model de mașină.",
       "invalid_polling_interval": "Interval nevalid pentru această conexiune.",
-      "invalid_polling_sources": "Interogarea adaptivă necesită o entitate de conectare și cel puțin o entitate de încărcare sau putere."
+      "invalid_polling_sources": "Interogarea adaptivă necesită o entitate de conectare și cel puțin o entitate de încărcare sau putere.",
+      "invalid_dashboard_path": "Introduceți o cale URL cu litere mici, cifre, cratime sau liniuțe de subliniere."
     }
   },
   "entity": {

@@ -75,6 +75,14 @@
     "companion_source_reconnect": {
       "title": "Återanslut NIO i Companion",
       "description": "Din uppströms NIO-anslutning behöver åtgärdas. Öppna sidan [Companion connections]({connections_url}) och anslut NIO igen. Behåll den befintliga Home Assistant-länken: dess autentiseringsuppgifter förblir giltiga. Home Assistant återupptar cachad läsning automatiskt när källan återställs."
+    },
+    "managed_dashboard_route_collision": {
+      "title": "NIO-instrumentpanelens sökväg används",
+      "description": "Sökvägen /{path} tillhör en annan Home Assistant-panel. Välj en ledig sökväg i NIO-fordonsinställningarna. Ingen befintlig panel ändrades."
+    },
+    "managed_dashboard_route_conflict": {
+      "title": "NIO-fordon använder olika sökvägar",
+      "description": "Aktiverade fordon har valt olika sökvägar: {paths}. De måste dela en sökväg. Instrumentpanelen ligger kvar på /{path} tills inställningarna stämmer."
     }
   },
   "application_credentials": {
@@ -112,7 +120,9 @@
           "adaptive": "Adaptiv polling",
           "connected_entity": "Entitet för laddaranslutning",
           "charging_entity": "Entitet för aktiv laddning",
-          "power_entity": "Laddarens effektentitet"
+          "power_entity": "Laddarens effektentitet",
+          "nio_dashboard_enabled": "Visa NIO-instrumentpanelen",
+          "nio_dashboard_path": "URL-sökväg för instrumentpanelen"
         },
         "data_description": {
           "interval_seconds": "Intervall för normal polling. Standard är 15 sekunder för Direct NIO och 30 sekunder för Companion.",
@@ -120,7 +130,9 @@
           "adaptive": "När det aktiveras väljer laddarstatus normal- eller vilointervall. Oberoende av fordonsöversikten och EVCC.",
           "connected_entity": "Laddarens anslutningsstatus; krävs när adaptiv hämtning är aktiverad.",
           "charging_entity": "Valfri binär sensor eller sensor som visar aktiv laddning.",
-          "power_entity": "Valfri effektsensor i W eller kW; adaptiv polling kräver en laddnings- eller effektindikator."
+          "power_entity": "Valfri effektsensor i W eller kW; adaptiv polling kräver en laddnings- eller effektindikator.",
+          "nio_dashboard_enabled": "Lägger till en gemensam NIO-instrumentpanel i Home Assistants sidofält. Den innehåller alla aktiverade NIO-fordon som har valt detta.",
+          "nio_dashboard_path": "Endast en URL-sökväg, till exempel nio. Fordon som delar instrumentpanelen måste använda samma sökväg."
         }
       }
     },
@@ -129,7 +141,8 @@
       "incomplete_cost_sources": "Ställ in alla fem registrerade kostnadskällor eller lämna dem tomma.",
       "invalid_paint_for_model": "Välj en färg tillgänglig för denna bilmodell.",
       "invalid_polling_interval": "Ogiltigt intervall för den här anslutningen.",
-      "invalid_polling_sources": "Adaptiv polling kräver en anslutningsentitet och minst en laddnings- eller effektentitet."
+      "invalid_polling_sources": "Adaptiv polling kräver en anslutningsentitet och minst en laddnings- eller effektentitet.",
+      "invalid_dashboard_path": "Ange en URL-sökväg med gemena bokstäver, siffror, bindestreck eller understreck."
     }
   },
   "entity": {

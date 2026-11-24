@@ -75,6 +75,14 @@
     "companion_source_reconnect": {
       "title": "Csatlakoztassa újra a NIO-t a Companionben",
       "description": "Az upstream NIO kapcsolata figyelmet igényel. Nyissa meg a [Kísérő kapcsolatok oldalt] ({connections_url}), és csatlakoztassa újra a NIO-t. Tartsa meg a meglévő Otthoni asszisztens hivatkozást: a hitelesítési adatai érvényben maradnak. A Home Assistant automatikusan folytatja a gyorsítótárazott olvasást, amikor a forrás helyreáll."
+    },
+    "managed_dashboard_route_collision": {
+      "title": "Az NIO-irányítópult útvonala foglalt",
+      "description": "A /{path} útvonal egy másik Home Assistant-panelhez tartozik. Válasszon szabad útvonalat az NIO-jármű beállításaiban. Meglévő panel nem módosult."
+    },
+    "managed_dashboard_route_conflict": {
+      "title": "Az NIO-járművek eltérő irányítópult-útvonalakat használnak",
+      "description": "A bekapcsolt járművek eltérő útvonalakat választottak: {paths}. Egyetlen útvonalat kell megosztaniuk. Az irányítópult a /{path} útvonalon marad, amíg a beállítások nem egyeznek."
     }
   },
   "application_credentials": {
@@ -112,7 +120,9 @@
           "adaptive": "Adaptív lekérdezés",
           "connected_entity": "Töltőcsatlakozás entitása",
           "charging_entity": "Aktív töltés entitása",
-          "power_entity": "Töltő teljesítmény entitása"
+          "power_entity": "Töltő teljesítmény entitása",
+          "nio_dashboard_enabled": "NIO-irányítópult megjelenítése",
+          "nio_dashboard_path": "Az irányítópult URL-útvonala"
         },
         "data_description": {
           "interval_seconds": "Normál lekérdezési időköz. Alapérték: 15 másodperc Direct NIO esetén és 30 másodperc Companion esetén.",
@@ -120,7 +130,9 @@
           "adaptive": "Bekapcsolva a töltő állapota választja ki a normál vagy tétlen időközt. A jármű-irányítópulttól és az EVCC-től független.",
           "connected_entity": "A töltő csatlakozási állapota; adaptív lekérdezés esetén kötelező.",
           "charging_entity": "Opcionális bináris érzékelő vagy érzékelő az aktív töltés jelzésére.",
-          "power_entity": "Opcionális teljesítményérzékelő W vagy kW egységben; adaptív módhoz töltési vagy teljesítményjelző szükséges."
+          "power_entity": "Opcionális teljesítményérzékelő W vagy kW egységben; adaptív módhoz töltési vagy teljesítményjelző szükséges.",
+          "nio_dashboard_enabled": "Egy közös NIO-irányítópultot ad a Home Assistant oldalsávjához. Minden bekapcsolt, ezt választó NIO-jármű megjelenik rajta.",
+          "nio_dashboard_path": "Csak egy URL-útvonal, például nio. A közös irányítópultot használó járműveknek ugyanazt az útvonalat kell használniuk."
         }
       }
     },
@@ -129,7 +141,8 @@
       "incomplete_cost_sources": "Állítsa be mind az öt rögzített költségforrást, vagy hagyja üresen.",
       "invalid_paint_for_model": "Válasszon egy színt ehhez az autómodellhez.",
       "invalid_polling_interval": "Érvénytelen időköz ehhez a kapcsolathoz.",
-      "invalid_polling_sources": "Az adaptív módhoz csatlakozási entitás és legalább egy töltési vagy teljesítményentitás szükséges."
+      "invalid_polling_sources": "Az adaptív módhoz csatlakozási entitás és legalább egy töltési vagy teljesítményentitás szükséges.",
+      "invalid_dashboard_path": "Kisbetűkből, számokból, kötőjelekből vagy aláhúzásjelekből álló URL-útvonalat adjon meg."
     }
   },
   "entity": {

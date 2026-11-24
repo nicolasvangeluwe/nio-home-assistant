@@ -75,6 +75,14 @@
     "companion_source_reconnect": {
       "title": "Verbind NIO opnieuw in Companion",
       "description": "Je verbinding met NIO heeft aandacht nodig. Open de [Companion-verbindingenpagina]({connections_url}) en verbind NIO opnieuw. Behoud de bestaande Home Assistant-koppeling: de HA-sleutel blijft geldig. Home Assistant hervat het lezen van opgeslagen gegevens automatisch zodra de bron herstelt."
+    },
+    "managed_dashboard_route_collision": {
+      "title": "NIO-dashboardpad is bezet",
+      "description": "Het pad /{path} hoort bij een ander Home Assistant-paneel. Kies een vrij pad bij de NIO-voertuiginstellingen. Er is geen bestaand paneel gewijzigd."
+    },
+    "managed_dashboard_route_conflict": {
+      "title": "NIO-auto’s gebruiken verschillende dashboardpaden",
+      "description": "Ingeschakelde auto’s hebben verschillende paden gekozen: {paths}. Ze moeten één pad delen. Het dashboard blijft op /{path} tot de instellingen overeenkomen."
     }
   },
   "application_credentials": {
@@ -112,7 +120,9 @@
           "adaptive": "Adaptief pollen",
           "connected_entity": "Entiteit voor laderverbinding",
           "charging_entity": "Entiteit voor actief laden",
-          "power_entity": "Vermogensentiteit van de lader"
+          "power_entity": "Vermogensentiteit van de lader",
+          "nio_dashboard_enabled": "NIO-dashboard tonen",
+          "nio_dashboard_path": "URL-pad van het dashboard"
         },
         "data_description": {
           "interval_seconds": "Gebruik dit interval voor normaal pollen. Standaard is 15 seconden voor Direct NIO en 30 seconden voor Companion.",
@@ -120,7 +130,9 @@
           "adaptive": "Gebruik bij inschakeling de laadstatus om het normale interval of het interval bij stilstand te kiezen. Dit werkt los van het voertuigdashboard en EVCC.",
           "connected_entity": "Verbindingsstatus van de lader; vereist als adaptief pollen is ingeschakeld.",
           "charging_entity": "Optionele binaire sensor of sensor die aangeeft of de auto actief laadt.",
-          "power_entity": "Optionele vermogenssensor van de lader in W of kW; adaptief pollen vereist minstens een laad- of vermogensindicator."
+          "power_entity": "Optionele vermogenssensor van de lader in W of kW; adaptief pollen vereist minstens een laad- of vermogensindicator.",
+          "nio_dashboard_enabled": "Voeg één gedeeld NIO-dashboard toe aan de zijbalk van Home Assistant. Het bevat alle ingeschakelde NIO-auto’s waarvoor dit is aangezet.",
+          "nio_dashboard_path": "Alleen een URL-pad, zoals nio. Auto’s die het dashboard delen, moeten hetzelfde pad gebruiken."
         }
       }
     },
@@ -129,7 +141,8 @@
       "incomplete_cost_sources": "Stel alle vijf bronnen voor geregistreerde kosten in, of laat ze allemaal leeg.",
       "invalid_paint_for_model": "Kies een kleur die beschikbaar is voor dit automodel.",
       "invalid_polling_interval": "Het pollingsinterval is ongeldig voor deze verbinding.",
-      "invalid_polling_sources": "Adaptief pollen vereist een entiteit voor aangesloten en minstens één laad- of vermogensentiteit."
+      "invalid_polling_sources": "Adaptief pollen vereist een entiteit voor aangesloten en minstens één laad- of vermogensentiteit.",
+      "invalid_dashboard_path": "Vul een URL-pad in met kleine letters, cijfers, koppeltekens of underscores."
     }
   },
   "entity": {

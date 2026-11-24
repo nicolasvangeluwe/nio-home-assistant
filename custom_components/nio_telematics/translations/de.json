@@ -75,6 +75,14 @@
     "companion_source_reconnect": {
       "title": "NIO im Companion erneut verbinden",
       "description": "Ihre Upstream-NIO-Verbindung erfordert Aufmerksamkeit. Öffnen Sie die Seite „Companion-Verbindungen“ ({connections_url}) und verbinden Sie NIO erneut. Behalten Sie den vorhandenen Home Assistant-Link bei: Seine Anmeldeinformationen bleiben gültig. Home Assistant setzt zwischengespeicherte Lesevorgänge automatisch fort, wenn die Quelle wiederhergestellt wird."
+    },
+    "managed_dashboard_route_collision": {
+      "title": "NIO-Dashboardpfad ist belegt",
+      "description": "Der Pfad /{path} gehört zu einem anderen Home-Assistant-Panel. Wähle in den NIO-Fahrzeugeinstellungen einen freien Pfad. Es wurde kein vorhandenes Panel geändert."
+    },
+    "managed_dashboard_route_conflict": {
+      "title": "NIO-Fahrzeuge verwenden verschiedene Dashboardpfade",
+      "description": "Aktivierte Fahrzeuge haben verschiedene Pfade gewählt: {paths}. Sie müssen einen Pfad gemeinsam verwenden. Das Dashboard bleibt auf /{path}, bis die Einstellungen übereinstimmen."
     }
   },
   "application_credentials": {
@@ -112,7 +120,9 @@
           "adaptive": "Adaptiver Abruf",
           "connected_entity": "Entität für die Ladeverbindung",
           "charging_entity": "Entität für aktives Laden",
-          "power_entity": "Leistungsentität des Ladegeräts"
+          "power_entity": "Leistungsentität des Ladegeräts",
+          "nio_dashboard_enabled": "NIO-Dashboard anzeigen",
+          "nio_dashboard_path": "Dashboard-URL-Pfad"
         },
         "data_description": {
           "interval_seconds": "Dieses Intervall gilt für den normalen Abruf. Standard: 15 Sekunden bei Direct NIO und 30 Sekunden bei Companion.",
@@ -120,7 +130,9 @@
           "adaptive": "Bei Aktivierung bestimmt der Ladestatus das normale oder das Ruheintervall. Unabhängig vom Fahrzeug-Dashboard und EVCC.",
           "connected_entity": "Verbindungsstatus der Ladestation; bei adaptiver Abfrage erforderlich.",
           "charging_entity": "Optionaler Binärsensor oder Sensor, der aktives Laden meldet.",
-          "power_entity": "Optionaler Leistungssensor in W oder kW; adaptiver Abruf benötigt eine Lade- oder Leistungsentität."
+          "power_entity": "Optionaler Leistungssensor in W oder kW; adaptiver Abruf benötigt eine Lade- oder Leistungsentität.",
+          "nio_dashboard_enabled": "Fügt der Home-Assistant-Seitenleiste ein gemeinsames NIO-Dashboard hinzu. Es enthält alle aktivierten NIO-Fahrzeuge mit eingeschalteter Option.",
+          "nio_dashboard_path": "Nur ein URL-Pfadsegment, zum Beispiel nio. Fahrzeuge im gemeinsamen Dashboard müssen denselben Pfad verwenden."
         }
       }
     },
@@ -129,7 +141,8 @@
       "incomplete_cost_sources": "Legen Sie alle fünf erfassten Kostenquellen fest oder lassen Sie sie leer.",
       "invalid_paint_for_model": "Wählen Sie eine für dieses Automodell verfügbare Farbe.",
       "invalid_polling_interval": "Das Abrufintervall ist für diese Verbindung ungültig.",
-      "invalid_polling_sources": "Adaptiver Abruf benötigt eine Entität für die Verbindung und mindestens eine Lade- oder Leistungsentität."
+      "invalid_polling_sources": "Adaptiver Abruf benötigt eine Entität für die Verbindung und mindestens eine Lade- oder Leistungsentität.",
+      "invalid_dashboard_path": "Gib ein URL-Pfadsegment mit Kleinbuchstaben, Zahlen, Bindestrichen oder Unterstrichen ein."
     }
   },
   "entity": {
