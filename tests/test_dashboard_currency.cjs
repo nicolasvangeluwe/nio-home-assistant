@@ -247,6 +247,39 @@ test('dynamic usernames containing euro text remain unchanged', () => {
   assert.equal(c.translate('Trip € 20'), 'Trip € 20');
 });
 
+test('Ignore and Undo acknowledge success by closing the old trip dialog', async () => {
+  for (const status of ['ignored', 'open']) {
+    const c = card(); let finish; let closes = 0; let writes = 0;
+    const dialog = { close() { closes++; } };
+    const panel = { querySelector() { return null; } };
+    const button = { disabled: false, dataset: { gapIdent: 'gap', gapFingerprint: 'fingerprint', gapStatus: status }, closest(selector) { return selector === 'dialog' ? dialog : panel; } };
+    c.update = async (action, values) => { writes++; assert.equal(action, 'resolve_gap'); assert.equal(values.status, status); await new Promise(resolve => { finish = resolve; }); return { saved: true, refreshed: true }; };
+    const pending = c.setGapResolution(button);
+    assert.equal(button.disabled, true);
+    assert.equal(closes, 0);
+    finish(); await pending;
+    assert.equal(closes, 1);
+    assert.equal(writes, 1);
+  }
+});
+
+test('rejected Ignore keeps the dialog open and shows an inline localized error', async () => {
+  const c = card(); let closes = 0; let message;
+  const dialog = { close() { closes++; } };
+  const panel = { querySelector() { return message; }, append(node) { message = node; } };
+  const button = { disabled: false, dataset: { gapIdent: 'gap', gapFingerprint: 'fingerprint', gapStatus: 'ignored' }, closest(selector) { return selector === 'dialog' ? dialog : panel; } };
+  const previousCreate = context.document.createElement;
+  context.document.createElement = () => ({ setAttribute(key, value) { this[key] = value; } });
+  c.localizeError = () => 'Could not save. Try again.';
+  c.update = async () => { throw new Error('private backend detail'); };
+  try { await c.setGapResolution(button); } finally { context.document.createElement = previousCreate; }
+  assert.equal(closes, 0);
+  assert.equal(button.disabled, false);
+  assert.equal(message.role, 'alert');
+  assert.equal(message.textContent, 'Could not save. Try again.');
+  assert.doesNotMatch(message.textContent, /backend detail/);
+});
+
 test('trip with an unresolved gap keeps energy from its valid matched segments', () => {
   const c = card('en'); c.snapshot.settings.capacity_kwh = 75;
   const trip = { id: 'trip', start: 1, end: 4, distance_km: 61, start_energy: 60, end_energy: 55, segments: [

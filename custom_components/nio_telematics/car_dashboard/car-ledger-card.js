@@ -1733,7 +1733,14 @@ class CarLedgerCard extends HTMLElement {
     catch(error){const message=form.querySelector('.form-error');if(message)message.textContent=this.translate(this.localizeError(error));}
   }
   change(e){const select=e.target.closest?.('form.gap-form select[name="currency"]');if(!select)return;const form=select.closest('form.gap-form');if(form.dataset.currency&&form.dataset.currency!==select.value)form.elements.cost.value='';form.dataset.currency=select.value;}
-  async setGapResolution(button){try{await this.update('resolve_gap',{ident:button.dataset.gapIdent,fingerprint:button.dataset.gapFingerprint,status:button.dataset.gapStatus});}catch(error){this.error=this.localizeError(error);this.render();}}
+  async setGapResolution(button){
+    const dialog=button.closest?.('dialog'),target=button.closest?.('.gap-entry')||dialog;
+    let errorNode=target?.querySelector('.gap-action-error');
+    if(errorNode)errorNode.textContent='';
+    button.disabled=true;
+    try{await this.update('resolve_gap',{ident:button.dataset.gapIdent,fingerprint:button.dataset.gapFingerprint,status:button.dataset.gapStatus});dialog?.close();}
+    catch(error){button.disabled=false;if(target){if(!errorNode){errorNode=document.createElement('p');errorNode.className='gap-action-error form-error';errorNode.setAttribute('role','alert');target.append(errorNode);}errorNode.textContent=this.localizeError(error);}else{this.error=this.localizeError(error);this.render();}}
+  }
   currencyChoices(...currencies){const fallback=['EUR','USD','GBP','DKK','SEK','NOK','CHF','PLN','CZK','HUF','RON','BGN','ISK','AUD','CAD','JPY','CNY'];let supported=[];try{supported=Intl.supportedValuesOf?.('currency')||[];}catch{}return [...new Set([...supported,...fallback,this.accountingCurrency(),this.snapshot?.preferences?.currency,...(this.snapshot?.charges||[]).map(c=>c.currency),...currencies].filter(Boolean).map(c=>this.currencyCode(c)))].sort((a,b)=>a==='EUR'?-1:b==='EUR'?1:a.localeCompare(b));}
   date(t,opts){return new Date(t*1000).toLocaleString(this.displayLocale,opts||{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
   value(label,v,unit='',d=1){return `<div class="metric"><span>${label}</span><strong>${this.n(v,d)}${unit?`<small>${unit}</small>`:''}</strong></div>`;}
