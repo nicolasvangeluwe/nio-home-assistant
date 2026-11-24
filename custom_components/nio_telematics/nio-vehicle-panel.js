@@ -20,6 +20,7 @@ class NioVehiclePanel extends HTMLElement {
 
   setConfig(config) {
     this.config = config || {};
+    this._markLocalized();
     const key = this._configurationKey();
     if (key !== this._configKey) {
       this._configKey = key;
@@ -43,12 +44,16 @@ class NioVehiclePanel extends HTMLElement {
     const firstHass = !this._hass && Boolean(value);
     const languageChanged = value?.language !== this._hass?.language;
     this._hass = value;
+    this._markLocalized();
     const menu = this.shadowRoot?.querySelector("ha-menu-button");
     if (menu) {
       menu.hass = value;
       menu.setAttribute("aria-label", this._words().openMenu);
     }
     if (languageChanged && this._vehicles.length) this._renderSelector();
+    if (languageChanged && this._statusKey) {
+      this._setStatus(this._words()[this._statusKey], this._statusError);
+    }
     if (this._card) this._forwardContext();
     if (firstHass) this._scheduleLoad();
   }
@@ -78,6 +83,7 @@ class NioVehiclePanel extends HTMLElement {
   }
 
   connectedCallback() {
+    this._markLocalized();
     this._renderShell();
     this._scheduleLoad();
   }
@@ -88,24 +94,38 @@ class NioVehiclePanel extends HTMLElement {
     this._pending = false;
   }
 
+  _languageCode() {
+    const code = (this._hass?.language || "en").replaceAll("_", "-").split("-")[0].toLowerCase();
+    const normalized = code === "no" ? "nb" : code;
+    return ["en", "nl", "fr", "de", "nb", "sv", "da", "cs", "el", "hu", "lb", "pl", "pt", "ro"].includes(normalized) ? normalized : "en";
+  }
+
+  _markLocalized() {
+    // This component owns its copy. Do not let another DOM translator rewrite it.
+    // Set attributes after construction so document.createElement remains valid.
+    this.setAttribute("data-i18n-ignore", "");
+    this.setAttribute("translate", "no");
+    this.setAttribute("lang", this._languageCode());
+  }
+
   _words() {
-    const code = (this._hass?.language || "en").replace("_", "-").split("-")[0].toLowerCase();
+    const code = this._languageCode();
     const keys = ["loading", "selector", "unavailable", "failed", "retry", "openMenu", "invalid"];
     const rows = {
-      en: ["Loading NIO vehicles…", "Vehicle", "No opted-in NIO vehicle is currently available.", "The NIO dashboard could not load.", "Try again", "Open navigation menu", "The NIO dashboard configuration is incomplete."],
-      nl: ["NIO-auto’s laden…", "Auto", "Er is momenteel geen ingeschakelde NIO-auto beschikbaar.", "Het NIO-dashboard kon niet worden geladen.", "Opnieuw proberen", "Navigatiemenu openen", "De configuratie van het NIO-dashboard is onvolledig."],
-      fr: ["Chargement des véhicules NIO…", "Véhicule", "Aucun véhicule NIO activé n’est disponible.", "Le tableau de bord NIO n’a pas pu être chargé.", "Réessayer", "Ouvrir le menu de navigation", "La configuration du tableau de bord NIO est incomplète."],
-      de: ["NIO-Fahrzeuge werden geladen…", "Fahrzeug", "Kein aktiviertes NIO-Fahrzeug ist verfügbar.", "Das NIO-Dashboard konnte nicht geladen werden.", "Erneut versuchen", "Navigationsmenü öffnen", "Die NIO-Dashboard-Konfiguration ist unvollständig."],
-      nb: ["Laster NIO-kjøretøy…", "Kjøretøy", "Ingen aktivert NIO-bil er tilgjengelig.", "NIO-dashbordet kunne ikke lastes.", "Prøv igjen", "Åpne navigasjonsmenyen", "NIO-dashbordkonfigurasjonen er ufullstendig."],
-      sv: ["Läser in NIO-fordon…", "Fordon", "Inget aktiverat NIO-fordon är tillgängligt.", "NIO-instrumentpanelen kunde inte läsas in.", "Försök igen", "Öppna navigeringsmenyn", "Konfigurationen för NIO-instrumentpanelen är ofullständig."],
-      da: ["Indlæser NIO-køretøjer…", "Køretøj", "Intet aktiveret NIO-køretøj er tilgængeligt.", "NIO-dashboardet kunne ikke indlæses.", "Prøv igen", "Åbn navigationsmenuen", "NIO-dashboardkonfigurationen er ufuldstændig."],
-      cs: ["Načítání vozidel NIO…", "Vozidlo", "Není dostupné žádné povolené vozidlo NIO.", "Panel NIO se nepodařilo načíst.", "Zkusit znovu", "Otevřít navigační nabídku", "Konfigurace panelu NIO není úplná."],
-      el: ["Φόρτωση οχημάτων NIO…", "Όχημα", "Δεν υπάρχει διαθέσιμο ενεργοποιημένο όχημα NIO.", "Δεν ήταν δυνατή η φόρτωση του πίνακα NIO.", "Δοκιμή ξανά", "Άνοιγμα μενού πλοήγησης", "Η διαμόρφωση του πίνακα NIO δεν είναι πλήρης."],
-      hu: ["NIO-járművek betöltése…", "Jármű", "Nem érhető el bekapcsolt NIO-jármű.", "Az NIO-irányítópult nem tölthető be.", "Újra", "Navigációs menü megnyitása", "Az NIO-irányítópult beállítása hiányos."],
-      lb: ["NIO-Gefierer gi gelueden…", "Gefier", "Keen aktivéiert NIO-Gefier ass disponibel.", "Den NIO-Dashboard konnt net geluede ginn.", "Nach eng Kéier probéieren", "Navigatiounsmenü opmaachen", "D’NIO-Dashboard-Konfiguratioun ass net komplett."],
-      pl: ["Wczytywanie pojazdów NIO…", "Pojazd", "Brak dostępnego włączonego pojazdu NIO.", "Nie udało się wczytać pulpitu NIO.", "Spróbuj ponownie", "Otwórz menu nawigacji", "Konfiguracja pulpitu NIO jest niekompletna."],
-      pt: ["A carregar veículos NIO…", "Veículo", "Não há veículos NIO ativos disponíveis.", "Não foi possível carregar o painel NIO.", "Tentar novamente", "Abrir menu de navegação", "A configuração do painel NIO está incompleta."],
-      ro: ["Se încarcă vehiculele NIO…", "Vehicul", "Nu este disponibil niciun vehicul NIO activat.", "Tabloul de bord NIO nu a putut fi încărcat.", "Încearcă din nou", "Deschide meniul de navigare", "Configurația tabloului de bord NIO este incompletă."],
+      en: ["Loading NIO vehicles…", "Vehicle", "No NIO vehicle with this dashboard enabled is currently available.", "The NIO dashboard could not load.", "Try again", "Open navigation menu", "The NIO dashboard configuration is incomplete."],
+      nl: ["NIO-auto’s ophalen…", "Auto", "Er is momenteel geen NIO-auto beschikbaar waarvoor dit dashboard is ingeschakeld.", "Het NIO-dashboard kon niet worden geladen.", "Opnieuw proberen", "Navigatiemenu openen", "De configuratie van het NIO-dashboard is onvolledig."],
+      fr: ["Chargement des véhicules NIO…", "Véhicule", "Aucun véhicule NIO pour lequel ce tableau de bord est activé n’est disponible.", "Le tableau de bord NIO n’a pas pu être chargé.", "Réessayer", "Ouvrir le menu de navigation", "La configuration du tableau de bord NIO est incomplète."],
+      de: ["NIO-Fahrzeuge werden geladen…", "Fahrzeug", "Kein NIO-Fahrzeug mit aktiviertem Dashboard ist derzeit verfügbar.", "Das NIO-Dashboard konnte nicht geladen werden.", "Erneut versuchen", "Navigationsmenü öffnen", "Die NIO-Dashboard-Konfiguration ist unvollständig."],
+      nb: ["Laster NIO-kjøretøy…", "Kjøretøy", "Ingen NIO-bil med dette dashbordet aktivert er tilgjengelig.", "NIO-dashbordet kunne ikke lastes.", "Prøv igjen", "Åpne navigasjonsmenyen", "NIO-dashbordkonfigurasjonen er ufullstendig."],
+      sv: ["Läser in NIO-fordon…", "Fordon", "Inget NIO-fordon med den här instrumentpanelen aktiverad är tillgängligt.", "NIO-instrumentpanelen kunde inte läsas in.", "Försök igen", "Öppna navigeringsmenyn", "Konfigurationen för NIO-instrumentpanelen är ofullständig."],
+      da: ["Indlæser NIO-køretøjer…", "Køretøj", "Intet NIO-køretøj med dette dashboard aktiveret er tilgængeligt.", "NIO-dashboardet kunne ikke indlæses.", "Prøv igen", "Åbn navigationsmenuen", "NIO-dashboardkonfigurationen er ufuldstændig."],
+      cs: ["Načítání vozidel NIO…", "Vozidlo", "Není dostupné žádné vozidlo NIO, pro které je tento panel zapnutý.", "Panel NIO se nepodařilo načíst.", "Zkusit znovu", "Otevřít navigační nabídku", "Konfigurace panelu NIO není úplná."],
+      el: ["Φόρτωση οχημάτων NIO…", "Όχημα", "Δεν υπάρχει διαθέσιμο όχημα NIO με ενεργοποιημένο αυτόν τον πίνακα.", "Δεν ήταν δυνατή η φόρτωση του πίνακα NIO.", "Δοκιμή ξανά", "Άνοιγμα μενού πλοήγησης", "Η διαμόρφωση του πίνακα NIO δεν είναι πλήρης."],
+      hu: ["NIO-járművek betöltése…", "Jármű", "Nem érhető el olyan NIO-jármű, amelynél ez az irányítópult engedélyezve van.", "Az NIO-irányítópult nem tölthető be.", "Újra", "Navigációs menü megnyitása", "Az NIO-irányítópult beállítása hiányos."],
+      lb: ["NIO-Gefierer gi gelueden…", "Gefier", "Keen NIO-Gefier mat dësem aktivéierten Dashboard ass disponibel.", "Den NIO-Dashboard konnt net geluede ginn.", "Nach eng Kéier probéieren", "Navigatiounsmenü opmaachen", "D’NIO-Dashboard-Konfiguratioun ass net komplett."],
+      pl: ["Wczytywanie pojazdów NIO…", "Pojazd", "Brak dostępnego pojazdu NIO, dla którego włączono ten pulpit.", "Nie udało się wczytać pulpitu NIO.", "Spróbuj ponownie", "Otwórz menu nawigacji", "Konfiguracja pulpitu NIO jest niekompletna."],
+      pt: ["A carregar veículos NIO…", "Veículo", "Não há veículos NIO disponíveis com este painel ativado.", "Não foi possível carregar o painel NIO.", "Tentar novamente", "Abrir menu de navegação", "A configuração do painel NIO está incompleta."],
+      ro: ["Se încarcă vehiculele NIO…", "Vehicul", "Nu este disponibil niciun vehicul NIO pentru care este activat acest tablou de bord.", "Tabloul de bord NIO nu a putut fi încărcat.", "Încearcă din nou", "Deschide meniul de navigare", "Configurația tabloului de bord NIO este incompletă."],
     };
     return Object.fromEntries(keys.map((key, index) => [key, (rows[code] || rows.en)[index]]));
   }
@@ -193,6 +213,12 @@ class NioVehiclePanel extends HTMLElement {
     }
   }
 
+  _showStatus(key, error = false) {
+    this._statusKey = key;
+    this._statusError = error;
+    this._setStatus(key ? this._words()[key] : "", error);
+  }
+
   _scheduleLoad(retry = false) {
     if (!this.config || !this._hass || !this.isConnected) return;
     const key = this._configurationKey();
@@ -212,7 +238,7 @@ class NioVehiclePanel extends HTMLElement {
   async _load(request, retry = false) {
     try {
       if (!this._validConfig()) {
-        this._setStatus(this._words().invalid, true);
+        this._showStatus("invalid", true);
         return;
       }
       const config = this.config;
@@ -220,7 +246,7 @@ class NioVehiclePanel extends HTMLElement {
       const moduleUrl = retry
         ? `${config.vehicle_card_url}${config.vehicle_card_url.includes("?") ? "&" : "?"}nio_retry=${++this._retryAttempt}`
         : config.vehicle_card_url;
-      this._setStatus(this._words().loading, false);
+      this._showStatus("loading");
       const [, result] = await Promise.all([
         import(moduleUrl),
         hass.callWS({ type: "nio_telematics/vehicle_dashboard/get" }),
@@ -229,17 +255,17 @@ class NioVehiclePanel extends HTMLElement {
       const optedIn = new Set(config.entry_ids);
       this._vehicles = (Array.isArray(result?.vehicles) ? result.vehicles : [])
         .filter((vehicle) => optedIn.has(vehicle.entry_id))
-        .map((vehicle, index) => ({
+        .map((vehicle) => ({
           entry_id: vehicle.entry_id,
           name: typeof vehicle.name === "string" && vehicle.name.trim()
             ? vehicle.name.trim()
-            : `NIO vehicle ${index + 1}`,
+            : "",
         }));
       if (!this._vehicles.length) {
         this._card?.remove();
         this._card = null;
         this._renderSelector();
-        this._setStatus(this._words().unavailable, true);
+        this._showStatus("unavailable", true);
         return;
       }
       if (!customElements.get("nio-vehicle-dashboard")) {
@@ -252,7 +278,7 @@ class NioVehiclePanel extends HTMLElement {
       this._selectVehicle(selected);
     } catch (_error) {
       if (request !== this._request) return;
-      this._setStatus(this._words().failed, true);
+      this._showStatus("failed", true);
     } finally {
       this._running = false;
       if (this._pending) {
@@ -271,10 +297,10 @@ class NioVehiclePanel extends HTMLElement {
     label.textContent = words.selector;
     select.setAttribute("aria-label", words.selector);
     select.replaceChildren();
-    for (const vehicle of this._vehicles) {
+    for (const [index, vehicle] of this._vehicles.entries()) {
       const option = document.createElement("option");
       option.value = vehicle.entry_id;
-      option.textContent = vehicle.name;
+      option.textContent = vehicle.name || `NIO · ${words.selector} ${index + 1}`;
       select.append(option);
     }
     wrapper.hidden = this._vehicles.length < 2;
@@ -302,11 +328,11 @@ class NioVehiclePanel extends HTMLElement {
         history_base_url: this.config.history_base_url,
       });
       this._forwardContext();
-      this._setStatus("", false);
+      this._showStatus("");
     } catch (_error) {
       this._card.remove();
       this._card = null;
-      this._setStatus(this._words().failed, true);
+      this._showStatus("failed", true);
     }
   }
 

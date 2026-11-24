@@ -19,7 +19,7 @@ jobs:
       - run: node --check custom_components/nio_telematics/car_dashboard/car-ledger-card.js
       - run: node --check custom_components/nio_telematics/nio-dashboard-history.js
       - run: node --check custom_components/nio_telematics/nio-vehicle-panel.js
-      - run: node --test tests/test_vehicle_dashboard_frontend.cjs tests/test_ledger_locales.cjs tests/test_vehicle_card_locales.cjs tests/test_dashboard_history_frontend.cjs tests/test_managed_panel_frontend.cjs
+      - run: node --test tests/test_vehicle_dashboard_frontend.cjs tests/test_ledger_locales.cjs tests/test_vehicle_card_locales.cjs tests/test_dashboard_history_frontend.cjs tests/test_managed_panel_frontend.cjs tests/test_native_locale_catalogues.cjs
 
   tests:
     runs-on: ubuntu-latest

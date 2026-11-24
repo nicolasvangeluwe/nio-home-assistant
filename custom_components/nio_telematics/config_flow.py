@@ -486,7 +486,9 @@ class NioOptionsFlow(config_entries.OptionsFlow):
                 vol.Any(entity, "")
             ),
             vol.Required("model", default=shown_model): selector.SelectSelector(
-                selector.SelectSelectorConfig(options=list(MODELS))
+                selector.SelectSelectorConfig(
+                    options=list(MODELS), translation_key="model"
+                )
             ),
             vol.Required("paint", default=shown_paint): selector.SelectSelector(
                 selector.SelectSelectorConfig(
@@ -497,7 +499,9 @@ class NioOptionsFlow(config_entries.OptionsFlow):
             vol.Required(
                 "language", default=current["language"]
             ): selector.SelectSelector(
-                selector.SelectSelectorConfig(options=list(LANGUAGES))
+                selector.SelectSelectorConfig(
+                    options=list(LANGUAGES), translation_key="language"
+                )
             ),
         }
         for key in (

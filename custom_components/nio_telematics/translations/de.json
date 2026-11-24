@@ -2,37 +2,37 @@
   "config": {
     "step": {
       "user": {
-        "title": "Fahrzeuganbindung",
-        "description": "Wählen Sie für die normale Verwendung von Home Assistant Direct NIO. Companion ist experimentell und für Tester mit einem bestehenden Companion-Konto, einem vernetzten Auto und einem separaten Home Assistant-Link gedacht.",
+        "title": "Fahrzeugverbindung",
+        "description": "Wählen Sie für die normale Nutzung in Home Assistant Direct NIO. Companion ist experimentell und für Tester mit einem bestehenden Companion-Konto, einem verbundenen Fahrzeug und einer separaten Home Assistant-Verknüpfung vorgesehen.",
         "menu_options": {
-          "direct": "Direktes NIO (empfohlen)",
-          "companion": "Begleitkonto (Testen)",
-          "change_connection": "Anschluss für ein bestehendes Fahrzeug ändern"
+          "direct": "Direct NIO (empfohlen)",
+          "companion": "Companion-Konto (Testbetrieb)",
+          "change_connection": "Verbindung für ein vorhandenes Fahrzeug ändern"
         }
       },
       "reconfigure": {
-        "title": "Fahrzeuganbindung",
+        "title": "Fahrzeugverbindung",
         "description": "Wählen Sie für die normale Verwendung von Home Assistant Direct NIO. Companion bleibt für Tester mit einem bestehenden Companion-Konto, einem vernetzten Auto und einem separaten Home Assistant-Link verfügbar. Ihre aktuelle Verbindung bleibt bestehen, bis Sie eine Änderung bestätigen.",
         "menu_options": {
-          "direct": "Direktes NIO / Anwendungsanmeldeinformationen ändern",
-          "companion": "Begleitkonto (Testen)"
+          "direct": "Direct NIO / Anwendungszugangsdaten ändern",
+          "companion": "Companion-Konto (Testbetrieb)"
         }
       },
       "companion": {
-        "title": "Connect Companion",
-        "description": "Companion ist experimentell und für Tester gedacht; Wählen Sie für die normale Verwendung von Home Assistant Direct NIO. Wenn Sie Companion testen, erstellen Sie einen dauerhaften Home Assistant-Link auf Ihrer [Companion-Verbindungsseite] ({connections_url}) und fügen Sie dann dessen HA-Anmeldeinformationen hier ein. Das verknüpfte Auto muss über aktuelle Ladezustands-, Reichweiten- und Kilometerzählerdaten verfügen. Companion liefert derzeit nur Kerndaten des Fahrzeugs; Zusätzliche Direct NIO-Sensoren sind nicht verfügbar.",
+        "title": "Companion verbinden",
+        "description": "Companion ist experimentell und für Tester vorgesehen. Wählen Sie für die normale Nutzung in Home Assistant Direct NIO. Erstellen Sie für einen Companion-Test eine dauerhafte Home Assistant-Verknüpfung auf der [Companion-Verbindungsseite]({connections_url}) und fügen Sie deren HA-Zugangsschlüssel hier ein. Das verbundene Fahrzeug muss aktuelle Daten zu Batterieladezustand, Reichweite und Kilometerstand liefern. Companion stellt derzeit nur grundlegende Fahrzeugdaten bereit; zusätzliche Sensoren von Direct NIO sind nicht verfügbar.",
         "data": {
           "vehicle_name": "Fahrzeugname",
           "vin": "Fahrgestellnummer",
-          "companion_credential": "Persistent Home Assistant-Berechtigung"
+          "companion_credential": "Dauerhafter Home Assistant-Zugangsschlüssel"
         }
       },
       "confirm_source": {
         "title": "Dieses Fahrzeug auf Companion umstellen?",
-        "description": "Behalten Sie die Entitäten, Dashboard-Einstellungen und den Verlauf dieses Fahrzeugs und lesen Sie seine Kerntelemetrie vom Companion. Nur-Direkt-Sensoren werden nicht mehr verfügbar sein. Die vorherige Konfiguration wird wiederhergestellt, wenn die neue Quelle nicht geladen werden kann. Ein pausierter Eintrag aktiviert Companion erst nach der Validierung. Eine Rückkehr zu Direct NIO erfordert möglicherweise eine erneute NIO-Autorisierung."
+        "description": "Behalten Sie die Entitäten, Dashboard-Einstellungen und den Verlauf dieses Fahrzeugs und beziehen Sie seine grundlegenden Fahrzeugdaten aus Companion. Sensoren, die nur Direct NIO bereitstellt, werden nicht verfügbar. Kann die neue Verbindung nicht geladen werden, wird die vorherige Konfiguration wiederhergestellt. Ein deaktivierter Integrationseintrag wird erst nach erfolgreicher Prüfung mit Companion aktiviert. Eine Rückkehr zu Direct NIO kann eine erneute Autorisierung bei NIO erfordern."
       },
       "vehicle": {
-        "title": "Fügen Sie Ihr NIO-Fahrzeug hinzu",
+        "title": "NIO-Fahrzeug hinzufügen",
         "description": "Geben Sie die Fahrzeugidentität ein, nachdem Sie Home Assistant mit NIO autorisiert haben.",
         "data": {
           "vehicle_name": "Fahrzeugname",
@@ -41,7 +41,7 @@
       },
       "change_connection": {
         "title": "Wählen Sie Ihr vorhandenes Fahrzeug",
-        "description": "Ändern Sie die Datenquelle dieses Fahrzeugs und behalten Sie dabei seine Entitäten, Einstellungen und seinen Verlauf bei. Ein pausiertes Fahrzeug bleibt pausiert, bis die validierte Ersatzquelle bereit ist.",
+        "description": "Ändern Sie die Datenquelle dieses Fahrzeugs unter Beibehaltung seiner Entitäten, Einstellungen und seines Verlaufs. Ein deaktivierter Integrationseintrag bleibt deaktiviert, bis die neue Datenquelle erfolgreich geprüft wurde.",
         "data": {
           "existing_entry_id": "Fahrzeug"
         }
@@ -51,20 +51,20 @@
       "already_configured": "Dieses Fahrzeug ist bereits konfiguriert.",
       "source_unload_failed": "Die aktuelle Verbindung konnte nicht beendet werden. Es wurde keine Quellenänderung gespeichert.",
       "source_switch_failed": "Die neue Verbindung konnte nicht geladen werden. Die vorherige Konfiguration wurde wiederhergestellt.",
-      "source_rollback_failed": "Der Switch ist fehlgeschlagen und die vorherige Konfiguration wurde wiederhergestellt, konnte jedoch nicht geladen werden. Überprüfen Sie die Integration und stellen Sie bei Bedarf erneut eine Verbindung her.",
+      "source_rollback_failed": "Der Wechsel ist fehlgeschlagen. Die vorherige Konfiguration wurde wiederhergestellt, konnte jedoch nicht geladen werden. Prüfen Sie die Integration und verbinden Sie sie bei Bedarf erneut.",
       "no_existing_vehicle": "Es ist kein vorhandenes NIO-Fahrzeug zur Neukonfiguration verfügbar.",
       "existing_vehicle_missing": "Dieses Fahrzeug existiert nicht mehr oder gehört zu einer anderen Integration. Es wurde keine Verbindung geändert."
     },
     "error": {
       "invalid_vin": "Geben Sie eine gültige 17-stellige Fahrgestellnummer ein.",
-      "persistent_credential_required": "Verwenden Sie dauerhafte Companion-HA-Anmeldeinformationen, kein temporäres Beweistoken.",
-      "consumer_reauthentication_required": "Diese HA-Anmeldeinformationen wurden abgelehnt. Erstellen Sie auf der Companion-Verbindungsseite einen neuen HA-Link.",
-      "upstream_reauthorization_required": "NIO auf der Companion-Verbindungsseite erneut verbinden; Behalten Sie Ihre vorhandenen HA-Anmeldeinformationen.",
+      "persistent_credential_required": "Verwenden Sie einen dauerhaften Companion-Zugangsschlüssel für HA, kein vorübergehendes Test-Token.",
+      "consumer_reauthentication_required": "Dieser HA-Zugangsschlüssel wurde abgelehnt. Erstellen Sie auf der Companion-Verbindungsseite eine neue HA-Verknüpfung.",
+      "upstream_reauthorization_required": "Verbinden Sie NIO auf der Companion-Verbindungsseite erneut. Behalten Sie Ihren vorhandenen HA-Zugangsschlüssel.",
       "source_disconnected": "Verbinden Sie Ihre NIO-Quelle erneut auf der Companion-Verbindungsseite.",
       "retry_later": "Companion ist vorübergehend nicht verfügbar. Versuchen Sie es später noch einmal.",
       "invalid_response": "Companion hat eine ungültige Antwort zurückgegeben.",
-      "identity_mismatch": "Dieser Companion-Link gehört zu einem anderen Fahrzeug.",
-      "insufficient_coverage": "Companion benötigt vor diesem Wechsel aktuelle, überprüfte Ladezustands-, Reichweiten- und Kilometerzählerdaten.",
+      "identity_mismatch": "Diese Companion-Verknüpfung gehört zu einem anderen Fahrzeug.",
+      "insufficient_coverage": "Companion benötigt vor diesem Wechsel aktuelle, geprüfte Daten zu Batterieladezustand, Reichweite und Kilometerstand.",
       "source_unload_failed": "Die bestehende Verbindung konnte nicht beendet werden. Versuchen Sie es später noch einmal.",
       "source_switch_failed": "Der Wechsel ist fehlgeschlagen. Die vorherige Konfiguration wurde wiederhergestellt.",
       "source_rollback_failed": "Die vorherige Konfiguration wurde wiederhergestellt, konnte aber nicht geladen werden. Überprüfen Sie die Integration, bevor Sie es erneut versuchen.",
@@ -73,12 +73,12 @@
   },
   "issues": {
     "companion_source_reconnect": {
-      "title": "NIO im Companion erneut verbinden",
-      "description": "Ihre Upstream-NIO-Verbindung erfordert Aufmerksamkeit. Öffnen Sie die Seite „Companion-Verbindungen“ ({connections_url}) und verbinden Sie NIO erneut. Behalten Sie den vorhandenen Home Assistant-Link bei: Seine Anmeldeinformationen bleiben gültig. Home Assistant setzt zwischengespeicherte Lesevorgänge automatisch fort, wenn die Quelle wiederhergestellt wird."
+      "title": "NIO in Companion erneut verbinden",
+      "description": "Ihre Verbindung zu NIO benötigt Aufmerksamkeit. Öffnen Sie die [Companion-Verbindungsseite]({connections_url}) und verbinden Sie NIO erneut. Behalten Sie die vorhandene Home Assistant-Verknüpfung: Ihr Zugangsschlüssel bleibt gültig. Home Assistant liest die zwischengespeicherten Daten automatisch wieder, sobald die Verbindung funktioniert."
     },
     "managed_dashboard_route_collision": {
       "title": "NIO-Dashboardpfad ist belegt",
-      "description": "Der Pfad /{path} gehört zu einem anderen Home-Assistant-Panel. Wähle in den NIO-Fahrzeugeinstellungen einen freien Pfad. Es wurde kein vorhandenes Panel geändert."
+      "description": "Der Pfad /{path} gehört zu einem anderen Home Assistant-Panel. Wählen Sie in den NIO-Fahrzeugeinstellungen einen freien Pfad. Es wurde kein vorhandenes Panel geändert."
     },
     "managed_dashboard_route_conflict": {
       "title": "NIO-Fahrzeuge verwenden verschiedene Dashboardpfade",
@@ -86,47 +86,47 @@
     }
   },
   "application_credentials": {
-    "description": "Erstellen oder öffnen Sie Ihre persönliche Anwendung in der [NIO Open Telematics-Entwicklerkonsole] ({console_url}), legen Sie den OAuth-Umleitungs-URI genau auf [{redirect_url}] ({redirect_url}) fest und geben Sie dann die Client-ID und das Client-Geheimnis ein."
+    "description": "Erstellen oder öffnen Sie Ihre persönliche Anwendung in der [NIO Open Telematics-Entwicklerkonsole]({console_url}). Setzen Sie die OAuth-Weiterleitungs-URI genau auf [{redirect_url}]({redirect_url}) und geben Sie anschließend Client ID und Client Secret ein."
   },
   "options": {
     "step": {
       "init": {
         "title": "Fahrzeugeinstellungen",
-        "description": "Optionale Fahrzeug- und Haushaltsquellen. Lassen Sie eine Fahrzeugquelle leer, um ihre NIO-Entität automatisch zu verwenden. Anschluss und Strom können von jedem HA-Ladegerät erfolgen, EVCC ist nicht erforderlich. Für den Import von Verlaufssitzungen ist das EVCC-kompatible Format erforderlich. Nur bei Companion ändert dies das Leseintervall des Caches in Home Assistant, nicht die vorgelagerte NIO-Abfrage.",
+        "description": "Optionale Datenquellen für Fahrzeug und Haushalt. Lassen Sie eine Fahrzeugquelle leer, um die zugehörige NIO-Entität zu verwenden. Verbindungsstatus und Ladeleistung können von jeder Ladestation in Home Assistant stammen; EVCC ist optional. Der Import von Ladevorgängen erfordert das EVCC-kompatible Format. Bei Companion ändert das Abrufintervall nur, wie oft Home Assistant den Cache liest, nicht wie oft Companion NIO-Daten abruft.",
         "data": {
-          "model": "Automodell für lokale Kunstwerke",
-          "paint": "Wagenfarbe (Automatik behält das bestehende ET5 Touring-Image bei)",
-          "language": "Dashboard-Sprache (folgt automatisch der Home Assistant-Sprache jedes Betrachters)",
-          "soc_entity": "Ladezustandseinheit (optionale NIO-Überschreibung)",
-          "range_entity": "Verbleibende Bereichsentität (optionale NIO-Überschreibung)",
-          "odometer_entity": "Kilometerzähler-Entität (optionale NIO-Überschreibung)",
-          "charging_state_entity": "Ladezustandseinheit (optionale NIO-Überschreibung)",
-          "charge_limit_entity": "Gebührenbegrenzungseinheit (optionale NIO-Überschreibung)",
-          "cost_energy": "Erfasste Ladeenergieeinheit (kumulierte kWh)",
-          "cost_solar": "Erfasste Solarladeenergieeinheit (kumulierte kWh)",
-          "cost_total_cost": "Erfasste Ladekosteneinheit (kumulierte Währung)",
-          "cost_grid_price": "Netzimportpreiseinheit (Währung/kWh)",
-          "cost_export_price": "Solarexportpreiseinheit (Währung/kWh)",
-          "evcc_connected": "Mit dem Ladegerät verbundene Einheit (EVCC oder andere HA-Quelle)",
-          "evcc_power": "Ladeleistungseinheit (EVCC oder andere HA-Quelle)",
-          "evcc_history": "EVCC-kompatible Ladesitzungseinheit",
-          "electricity_price": "Strompreiseinheit",
-          "reimbursement_rate": "Erstattungssatzeinheit",
+          "model": "Fahrzeugmodell für das Dashboard-Bild",
+          "paint": "Fahrzeugfarbe (Automatisch verwendet das Standardbild des Modells)",
+          "language": "Dashboard-Sprache (Automatisch folgt der Home Assistant-Sprache des jeweiligen Benutzers)",
+          "soc_entity": "Entität für den Batterieladezustand (optionale NIO-Alternative)",
+          "range_entity": "Entität für die verbleibende Reichweite (optionale NIO-Alternative)",
+          "odometer_entity": "Entität für den Kilometerstand (optionale NIO-Alternative)",
+          "charging_state_entity": "Entität für den Ladestatus (optionale NIO-Alternative)",
+          "charge_limit_entity": "Entität für das Ladelimit (optionale NIO-Alternative)",
+          "cost_energy": "Entität für erfasste Ladeenergie (kumulierte kWh)",
+          "cost_solar": "Entität für erfasste Solarladeenergie (kumulierte kWh)",
+          "cost_total_cost": "Entität für erfasste Ladekosten (kumulierter Betrag)",
+          "cost_grid_price": "Entität für den Netzbezugspreis (Währung/kWh)",
+          "cost_export_price": "Entität für die Einspeisevergütung (Währung/kWh)",
+          "evcc_connected": "Entität für den Verbindungsstatus der Ladestation (EVCC oder andere HA-Quelle)",
+          "evcc_power": "Entität für die Ladeleistung (EVCC oder andere HA-Quelle)",
+          "evcc_history": "Entität für EVCC-kompatible Ladevorgänge",
+          "electricity_price": "Entität für den Strompreis",
+          "reimbursement_rate": "Entität für den Erstattungssatz",
           "battery_capacity_kwh": "Nutzbare Batteriekapazität (kWh)",
-          "full_range_km": "Reichweite bei voller Ladung (km; Ledger-Fallback)",
+          "full_range_km": "Reichweite bei voller Ladung (km; Ersatzwert für Verlaufsberechnungen)",
           "ledger_enabled": "Fahrt- und Ladehistorie aktivieren",
           "interval_seconds": "Abrufintervall (Sekunden)",
           "idle_interval_seconds": "Abrufintervall im Ruhezustand (Sekunden)",
           "adaptive": "Adaptiver Abruf",
           "connected_entity": "Entität für die Ladeverbindung",
           "charging_entity": "Entität für aktives Laden",
-          "power_entity": "Leistungsentität des Ladegeräts",
+          "power_entity": "Entität für die Leistung der Ladestation",
           "nio_dashboard_enabled": "NIO-Dashboard anzeigen",
           "nio_dashboard_path": "Dashboard-URL-Pfad"
         },
         "data_description": {
           "interval_seconds": "Dieses Intervall gilt für den normalen Abruf. Standard: 15 Sekunden bei Direct NIO und 30 Sekunden bei Companion.",
-          "idle_interval_seconds": "Dieses Intervall gilt, wenn das Fahrzeug nicht lädt; es darf nicht kürzer als das normale Intervall sein.",
+          "idle_interval_seconds": "Dieses Intervall gilt, wenn das Fahrzeug nicht aktiv lädt. Es darf nicht kürzer als das normale Intervall sein.",
           "adaptive": "Bei Aktivierung bestimmt der Ladestatus das normale oder das Ruheintervall. Unabhängig vom Fahrzeug-Dashboard und EVCC.",
           "connected_entity": "Verbindungsstatus der Ladestation; bei adaptiver Abfrage erforderlich.",
           "charging_entity": "Optionaler Binärsensor oder Sensor, der aktives Laden meldet.",
@@ -137,12 +137,12 @@
       }
     },
     "error": {
-      "ledger_calibration_required": "Stellen Sie die nutzbare Batteriekapazität und den Vollladebereich ein, bevor Sie den Verlauf aktivieren.",
+      "ledger_calibration_required": "Legen Sie die nutzbare Batteriekapazität und die Reichweite bei voller Ladung fest, bevor Sie den Verlauf aktivieren.",
       "incomplete_cost_sources": "Legen Sie alle fünf erfassten Kostenquellen fest oder lassen Sie sie leer.",
       "invalid_paint_for_model": "Wählen Sie eine für dieses Automodell verfügbare Farbe.",
       "invalid_polling_interval": "Das Abrufintervall ist für diese Verbindung ungültig.",
       "invalid_polling_sources": "Adaptiver Abruf benötigt eine Entität für die Verbindung und mindestens eine Lade- oder Leistungsentität.",
-      "invalid_dashboard_path": "Gib ein URL-Pfadsegment mit Kleinbuchstaben, Zahlen, Bindestrichen oder Unterstrichen ein."
+      "invalid_dashboard_path": "Geben Sie ein URL-Pfadsegment mit Kleinbuchstaben, Zahlen, Bindestrichen oder Unterstrichen ein."
     }
   },
   "entity": {
@@ -151,10 +151,10 @@
         "name": "Batterieladezustand"
       },
       "remaining_range": {
-        "name": "Verbleibender Bereich"
+        "name": "Verbleibende Reichweite"
       },
       "charging_state": {
-        "name": "Ladezustand"
+        "name": "Ladestatus"
       },
       "charging_target": {
         "name": "Ladeziel"
@@ -189,6 +189,38 @@
         "sunrise-beige": "Sunrise Beige",
         "new-moon-silver": "New Moon Silver",
         "nebula-green": "Nebula Green"
+      }
+    },
+    "model": {
+      "options": {
+        "auto": "Automatisch",
+        "ET5": "ET5",
+        "ET5 Touring": "ET5 Touring",
+        "ET7": "ET7",
+        "EL6": "EL6",
+        "EL7": "EL7",
+        "EL8": "EL8",
+        "ES8": "ES8",
+        "other": "Anderes Modell"
+      }
+    },
+    "language": {
+      "options": {
+        "auto": "Automatisch",
+        "en": "English",
+        "nl": "Nederlands",
+        "fr": "Français",
+        "de": "Deutsch",
+        "nb": "Norsk bokmål",
+        "sv": "Svenska",
+        "da": "Dansk",
+        "cs": "Čeština",
+        "el": "Ελληνικά",
+        "hu": "Magyar",
+        "lb": "Lëtzebuergesch",
+        "pl": "Polski",
+        "pt": "Português",
+        "ro": "Română"
       }
     }
   }

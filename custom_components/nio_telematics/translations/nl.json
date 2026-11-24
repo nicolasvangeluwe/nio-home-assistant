@@ -14,13 +14,13 @@
         "title": "Verbinding met de auto",
         "description": "Kies Direct NIO voor normaal gebruik in Home Assistant. Companion blijft beschikbaar voor testers met een bestaand Companion-account, een gekoppelde auto en een aparte Home Assistant-koppeling. Je huidige verbinding blijft behouden tot je een wijziging bevestigt.",
         "menu_options": {
-          "direct": "Direct NIO / applicatiegegevens wijzigen",
+          "direct": "Direct NIO / toepassingsgegevens wijzigen",
           "companion": "Companion-account (testen)"
         }
       },
       "companion": {
         "title": "Companion verbinden",
-        "description": "Companion is experimenteel en bedoeld voor testers; kies Direct NIO voor normaal gebruik in Home Assistant. Als je Companion test, maak dan een permanente Home Assistant-koppeling op je [Companion-verbindingenpagina]({connections_url}) en vul hier de HA-sleutel van die koppeling in. De gekoppelde auto moet recente gegevens voor laadpercentage, bereik en kilometerstand hebben. Companion levert nu alleen de belangrijkste autogegevens; extra Direct NIO-sensoren zijn niet beschikbaar.",
+        "description": "Companion is experimenteel en bedoeld voor testers; kies Direct NIO voor normaal gebruik in Home Assistant. Als je Companion test, maak dan een permanente Home Assistant-koppeling op je [Companion-verbindingenpagina]({connections_url}) en vul hier de HA-sleutel van die koppeling in. De gekoppelde auto moet recente gegevens voor laadpercentage, actieradius en kilometerstand hebben. Companion levert nu alleen de belangrijkste autogegevens; extra Direct NIO-sensoren zijn niet beschikbaar.",
         "data": {
           "vehicle_name": "Naam van de auto",
           "vin": "VIN",
@@ -29,7 +29,7 @@
       },
       "confirm_source": {
         "title": "Deze auto omschakelen naar Companion?",
-        "description": "Behoud de entiteiten, dashboardinstellingen en geschiedenis van deze auto en lees de belangrijkste gegevens via Companion. Sensoren die alleen Direct NIO levert, worden niet beschikbaar. Als de nieuwe bron niet kan laden, wordt de vorige configuratie hersteld. Een gepauzeerde integratie wordt pas na validatie met Companion ingeschakeld. Terugkeren naar Direct NIO kan een nieuwe autorisatie bij NIO vereisen."
+        "description": "Behoud de entiteiten, dashboardinstellingen en historiek van deze auto en lees de belangrijkste autogegevens via Companion. Sensoren die alleen via Direct NIO beschikbaar zijn, worden niet beschikbaar. Als de nieuwe bron niet kan laden, wordt de vorige configuratie hersteld. Een uitgeschakelde integratie wordt pas na validatie via Companion ingeschakeld. Terugkeren naar Direct NIO kan opnieuw toestemming bij NIO vereisen."
       },
       "vehicle": {
         "title": "Voeg je NIO-auto toe",
@@ -41,7 +41,7 @@
       },
       "change_connection": {
         "title": "Kies je bestaande auto",
-        "description": "Wijzig de gegevensbron van deze auto met behoud van entiteiten, instellingen en geschiedenis. Een gepauzeerde auto blijft gepauzeerd tot de vervangende bron is gevalideerd.",
+        "description": "Wijzig de gegevensbron van deze auto met behoud van entiteiten, instellingen en historiek. Een uitgeschakelde integratie blijft uitgeschakeld totdat de vervangende bron is gevalideerd.",
         "data": {
           "existing_entry_id": "Auto"
         }
@@ -49,7 +49,7 @@
     },
     "abort": {
       "already_configured": "Deze auto is al geconfigureerd.",
-      "source_unload_failed": "De huidige verbinding kon niet stoppen. Er is geen bron gewijzigd.",
+      "source_unload_failed": "De huidige verbinding kon niet worden afgesloten. Er is geen wijziging van de gegevensbron opgeslagen.",
       "source_switch_failed": "De nieuwe verbinding kon niet laden. De vorige configuratie is hersteld.",
       "source_rollback_failed": "De omschakeling is mislukt en de vorige configuratie is hersteld, maar kon niet laden. Controleer de integratie en verbind zo nodig opnieuw.",
       "no_existing_vehicle": "Er is geen bestaande NIO-auto beschikbaar om opnieuw te configureren.",
@@ -64,8 +64,8 @@
       "retry_later": "Companion is tijdelijk niet beschikbaar. Probeer het later opnieuw.",
       "invalid_response": "Companion gaf een ongeldig antwoord.",
       "identity_mismatch": "Deze Companion-koppeling hoort bij een andere auto.",
-      "insufficient_coverage": "Companion heeft recente, geverifieerde gegevens voor laadpercentage, bereik en kilometerstand nodig vóór deze omschakeling.",
-      "source_unload_failed": "De bestaande verbinding kon niet stoppen. Probeer het later opnieuw.",
+      "insufficient_coverage": "Companion heeft recente, geverifieerde gegevens voor laadpercentage, actieradius en kilometerstand nodig vóór deze omschakeling.",
+      "source_unload_failed": "De huidige verbinding kon niet worden afgesloten. Probeer het later opnieuw.",
       "source_switch_failed": "De omschakeling is mislukt. De vorige configuratie is hersteld.",
       "source_rollback_failed": "De vorige configuratie is hersteld maar kon niet laden. Controleer de integratie voordat je het opnieuw probeert.",
       "existing_vehicle_missing": "Deze auto bestaat niet meer. Kies een bestaande auto."
@@ -91,19 +91,19 @@
   "options": {
     "step": {
       "init": {
-        "title": "Voertuiginstellingen",
-        "description": "Optionele bronnen voor auto en huishouden. Laat een autobron leeg om automatisch de NIO-entiteit te gebruiken; verbinding en vermogen mogen van elke HA-lader komen, EVCC is niet verplicht. Geschiedenis importeren vereist een EVCC-compatibel formaat. Alleen bij Companion verandert dit hoe vaak Home Assistant de cache leest; het ophalen bij NIO blijft ongewijzigd.",
+        "title": "Auto-instellingen",
+        "description": "Optionele gegevensbronnen voor auto en huishouden. Laat een autobron leeg om de NIO-entiteit te gebruiken. Verbinding en laadvermogen mogen van elke Home Assistant-lader komen; EVCC is optioneel. Laadsessies importeren vereist het EVCC-compatibele formaat. Bij Companion verandert het verversingsinterval hoe vaak Home Assistant de cache leest, niet hoe vaak Companion gegevens bij NIO ophaalt.",
         "data": {
-          "model": "Automodel voor lokale afbeelding",
-          "language": "Dashboardtaal (automatisch volgt de Home Assistant-taal van elke kijker)",
+          "model": "Automodel voor de dashboardafbeelding",
+          "language": "Dashboardtaal (Automatisch volgt de Home Assistant-taal van elke gebruiker)",
           "soc_entity": "Entiteit voor laadpercentage (optionele vervanging van NIO)",
-          "range_entity": "Entiteit voor resterend bereik (optionele vervanging van NIO)",
+          "range_entity": "Entiteit voor resterende actieradius (optionele vervanging van NIO)",
           "odometer_entity": "Entiteit voor kilometerstand (optionele vervanging van NIO)",
           "charging_state_entity": "Entiteit voor laadstatus (optionele vervanging van NIO)",
           "charge_limit_entity": "Entiteit voor laadlimiet (optionele vervanging van NIO)",
-          "cost_energy": "Entiteit voor geregistreerde laadenergie (oplopende kWh)",
-          "cost_solar": "Entiteit voor geregistreerde zonnelaadenergie (oplopende kWh)",
-          "cost_total_cost": "Entiteit voor geregistreerde laadkosten (oplopende valuta)",
+          "cost_energy": "Entiteit voor geregistreerde laadenergie (cumulatieve kWh)",
+          "cost_solar": "Entiteit voor geregistreerde zonnelaadenergie (cumulatieve kWh)",
+          "cost_total_cost": "Entiteit voor geregistreerde laadkosten (cumulatief bedrag)",
           "cost_grid_price": "Entiteit voor netafnameprijs (valuta/kWh)",
           "cost_export_price": "Entiteit voor terugleverprijs (valuta/kWh)",
           "evcc_connected": "Entiteit voor aangesloten lader (EVCC of andere HA-bron)",
@@ -112,25 +112,25 @@
           "electricity_price": "Entiteit voor elektriciteitsprijs",
           "reimbursement_rate": "Entiteit voor vergoedingstarief",
           "battery_capacity_kwh": "Bruikbare batterijcapaciteit (kWh)",
-          "full_range_km": "Bereik bij volle batterij (km; terugval voor rittenhistoriek)",
+          "full_range_km": "Actieradius bij volle batterij (km; terugvalwaarde voor historiekberekeningen)",
           "ledger_enabled": "Ritten- en laadhistoriek inschakelen",
-          "paint": "Autokleur (automatisch behoudt de bestaande ET5 Touring-afbeelding)",
-          "interval_seconds": "Pollingsinterval (seconden)",
-          "idle_interval_seconds": "Pollingsinterval bij stilstand (seconden)",
-          "adaptive": "Adaptief pollen",
+          "paint": "Autokleur (Automatisch gebruikt de standaardafbeelding van het model)",
+          "interval_seconds": "Verversingsinterval (seconden)",
+          "idle_interval_seconds": "Verversingsinterval bij inactiviteit (seconden)",
+          "adaptive": "Adaptief verversen",
           "connected_entity": "Entiteit voor laderverbinding",
           "charging_entity": "Entiteit voor actief laden",
-          "power_entity": "Vermogensentiteit van de lader",
+          "power_entity": "Entiteit voor laadvermogen van de lader",
           "nio_dashboard_enabled": "NIO-dashboard tonen",
           "nio_dashboard_path": "URL-pad van het dashboard"
         },
         "data_description": {
-          "interval_seconds": "Gebruik dit interval voor normaal pollen. Standaard is 15 seconden voor Direct NIO en 30 seconden voor Companion.",
-          "idle_interval_seconds": "Gebruik dit interval wanneer de auto stilstaat; het mag niet korter zijn dan het normale interval.",
-          "adaptive": "Gebruik bij inschakeling de laadstatus om het normale interval of het interval bij stilstand te kiezen. Dit werkt los van het voertuigdashboard en EVCC.",
-          "connected_entity": "Verbindingsstatus van de lader; vereist als adaptief pollen is ingeschakeld.",
+          "interval_seconds": "Interval voor het normaal ophalen van gegevens. Standaard: 15 seconden bij Direct NIO en 30 seconden bij Companion.",
+          "idle_interval_seconds": "Interval wanneer de auto niet actief laadt. Dit mag niet korter zijn dan het normale interval.",
+          "adaptive": "Gebruik de laadstatus om het normale interval of het interval bij inactiviteit te kiezen. Dit werkt onafhankelijk van het autodashboard en EVCC.",
+          "connected_entity": "Verbindingsstatus van de lader; vereist als adaptief verversen is ingeschakeld.",
           "charging_entity": "Optionele binaire sensor of sensor die aangeeft of de auto actief laadt.",
-          "power_entity": "Optionele vermogenssensor van de lader in W of kW; adaptief pollen vereist minstens een laad- of vermogensindicator.",
+          "power_entity": "Optionele vermogenssensor van de lader in W of kW; adaptief verversen vereist minstens één entiteit voor actief laden of laadvermogen.",
           "nio_dashboard_enabled": "Voeg één gedeeld NIO-dashboard toe aan de zijbalk van Home Assistant. Het bevat alle ingeschakelde NIO-auto’s waarvoor dit is aangezet.",
           "nio_dashboard_path": "Alleen een URL-pad, zoals nio. Auto’s die het dashboard delen, moeten hetzelfde pad gebruiken."
         }
@@ -140,18 +140,18 @@
       "ledger_calibration_required": "Stel de bruikbare batterijcapaciteit en het bereik bij volle batterij in voordat je historiek inschakelt.",
       "incomplete_cost_sources": "Stel alle vijf bronnen voor geregistreerde kosten in, of laat ze allemaal leeg.",
       "invalid_paint_for_model": "Kies een kleur die beschikbaar is voor dit automodel.",
-      "invalid_polling_interval": "Het pollingsinterval is ongeldig voor deze verbinding.",
-      "invalid_polling_sources": "Adaptief pollen vereist een entiteit voor aangesloten en minstens één laad- of vermogensentiteit.",
+      "invalid_polling_interval": "Het verversingsinterval is ongeldig voor deze verbinding.",
+      "invalid_polling_sources": "Adaptief verversen vereist een entiteit voor de laderverbinding en minstens één entiteit voor actief laden of laadvermogen.",
       "invalid_dashboard_path": "Vul een URL-pad in met kleine letters, cijfers, koppeltekens of underscores."
     }
   },
   "entity": {
     "sensor": {
       "battery_state_of_charge": {
-        "name": "Laadpercentage batterij"
+        "name": "Laadpercentage"
       },
       "remaining_range": {
-        "name": "Resterend bereik"
+        "name": "Resterende actieradius"
       },
       "charging_state": {
         "name": "Laadstatus"
@@ -166,7 +166,7 @@
         "name": "Hoogspanningsbatterijstroom"
       },
       "data_timestamp": {
-        "name": "Tijdstip gegevens"
+        "name": "Tijdstip van de gegevens"
       }
     }
   },
@@ -189,6 +189,38 @@
         "sunrise-beige": "Sunrise Beige",
         "new-moon-silver": "New Moon Silver",
         "nebula-green": "Nebula Green"
+      }
+    },
+    "model": {
+      "options": {
+        "auto": "Automatisch",
+        "ET5": "ET5",
+        "ET5 Touring": "ET5 Touring",
+        "ET7": "ET7",
+        "EL6": "EL6",
+        "EL7": "EL7",
+        "EL8": "EL8",
+        "ES8": "ES8",
+        "other": "Ander model"
+      }
+    },
+    "language": {
+      "options": {
+        "auto": "Automatisch",
+        "en": "English",
+        "nl": "Nederlands",
+        "fr": "Français",
+        "de": "Deutsch",
+        "nb": "Norsk bokmål",
+        "sv": "Svenska",
+        "da": "Dansk",
+        "cs": "Čeština",
+        "el": "Ελληνικά",
+        "hu": "Magyar",
+        "lb": "Lëtzebuergesch",
+        "pl": "Polski",
+        "pt": "Português",
+        "ro": "Română"
       }
     }
   }

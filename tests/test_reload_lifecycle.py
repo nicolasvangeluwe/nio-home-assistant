@@ -96,6 +96,11 @@ async def test_options_manager_persists_and_applies_without_reload(hass, history
         ):
             assert serialized[field_name].get("type") != "constant"
             assert "entity" in serialized[field_name]["selector"]
+        for field_name in ("model", "paint", "language"):
+            assert (
+                serialized[field_name]["selector"]["select"]["translation_key"]
+                == field_name
+            )
         # Keep the optional selector's blank branch usable for clearing a value.
         connected_field = next(
             key
