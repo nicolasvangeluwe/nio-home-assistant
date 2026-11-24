@@ -6,6 +6,7 @@ import json
 from copy import deepcopy
 from datetime import UTC, datetime
 from hashlib import sha256
+from re import fullmatch
 
 FORMAT = "nio-telematics-dashboard"
 VERSION = 1
@@ -69,6 +70,14 @@ def validate_history(history: object) -> dict | None:
         raise ValueError("Sample history contains an invalid record")
     if any(not isinstance(row, dict) for row in history["charges"].values()):
         raise ValueError("Charging history contains an invalid record")
+    # Legacy archives intentionally omit this discriminator and retain EUR
+    # semantics when loaded. Explicit metadata must never be malformed.
+    for row in [history["preferences"], *history["charges"].values()]:
+        if "currency" in row and (
+            not isinstance(row["currency"], str)
+            or not fullmatch(r"[A-Z]{3}", row["currency"])
+        ):
+            raise ValueError("History currency is invalid")
     _check_safe(history)
     return deepcopy(history)
 

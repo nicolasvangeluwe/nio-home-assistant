@@ -58,6 +58,37 @@ class CostSplitTests(unittest.TestCase):
         result, _ = split_session(charge, data)
         self.assertEqual(result["status"], "missing_start")
 
+    def test_foreign_or_legacy_eur_checkpoint_cannot_price_dkk_session(self):
+        data = readings([(0, 0), (60, 1)], [(0, 0), (60, 0)], [(0, 0), (60, 1)], grid=1)
+        charge = {"start": 0, "end": 60, "kwh": 1, "cost_eur": 1, "currency": "DKK"}
+        progress = {
+            "version": 1,
+            "start": 0,
+            "t": 30,
+            "energy": 0.5,
+            "solar_energy": 0,
+            "grid_cost": 0.15,
+            "export_cost": 0,
+        }
+        for explicit_currency in (False, True):
+            if explicit_currency:
+                progress["currency"] = "EUR"
+            result, checkpoint = split_session(charge, data, progress)
+            self.assertEqual(result["status"], "complete")
+            self.assertEqual(result["currency"], "DKK")
+            self.assertEqual(checkpoint["currency"], "DKK")
+            self.assertAlmostEqual(result["grid_cost_eur"], 1)
+
+    def test_foreign_historical_rate_metadata_cannot_be_reinterpreted(self):
+        data = readings([(0, 0), (60, 1)], [(0, 0), (60, 0)], [(0, 0), (60, 1)], grid=1)
+        data["grid_price"][0]["currency"] = "EUR"
+        charge = {"start": 0, "end": 60, "kwh": 1, "cost_eur": 1, "currency": "DKK"}
+        result, checkpoint = split_session(charge, data)
+        self.assertEqual(result["status"], "currency_mismatch")
+        self.assertIsNone(checkpoint)
+        data["grid_price"][0]["currency"] = "DKK"
+        self.assertEqual(split_session(charge, data)[0]["status"], "complete")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,6 +5,7 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from hashlib import sha256
 from math import isfinite
+from re import fullmatch
 from uuid import uuid4
 
 
@@ -18,7 +19,30 @@ def number(value):
         return None
 
 
-def provisional_home_charge(ident, start, now, energy, cost, solar):
+def currency_code(value):
+    """Validate the currency discriminator; amounts are never converted."""
+    if not isinstance(value, str) or not fullmatch(r"[A-Z]{3}", value):
+        raise ValueError("Currency must be a three-letter uppercase code")
+    return value
+
+
+def source_currency(attributes, fallback):
+    """Honor explicit source units; HA's currency is only the no-metadata default."""
+    unit = attributes.get("unit_of_measurement")
+    unit_currency = None
+    if unit in ("€", "€/kWh"):
+        unit_currency = "EUR"
+    elif isinstance(unit, str) and fullmatch(r"[A-Z]{3}(?:/kWh)?", unit):
+        unit_currency = unit.split("/")[0]
+    if attributes.get("currency") is not None:
+        declared = currency_code(attributes["currency"])
+        if unit_currency is not None and declared != unit_currency:
+            raise ValueError("Source currency metadata conflicts with its unit")
+        return declared
+    return currency_code(unit_currency or fallback)
+
+
+def provisional_home_charge(ident, start, now, energy, cost, solar, currency="EUR"):
     """Project an identified live EVCC session without archiving it."""
     if not ident or not 0 < start <= now:
         raise ValueError("An active session ID and valid start are required")
@@ -30,6 +54,7 @@ def provisional_home_charge(ident, start, now, energy, cost, solar):
         "end": now,
         "kwh": number(energy),
         "cost_eur": number(cost),
+        "currency": currency_code(currency),
         "reimbursement_eur": None,
         "benefit_eur": None,
         "solar_pct": number(solar),
@@ -44,6 +69,7 @@ class Ledger:
         from .const import DEFAULTS
 
         self.settings = {**DEFAULTS, **(settings or {})}
+        self.currency = currency_code(self.settings.get("currency", "EUR"))
         self.data = (
             deepcopy(data)
             if data
@@ -67,6 +93,16 @@ class Ledger:
         self.data.setdefault("initial_capacity_kwh", self.settings["capacity_kwh"])
         self.data.setdefault("pending_epoch", None)
         self.data.setdefault("native_replays", {})
+        self.currency_migrated = False
+        for charge in self.data["charges"].values():
+            if "currency" not in charge:
+                charge["currency"] = "EUR"
+                self.currency_migrated = True
+            currency_code(charge["currency"])
+        if "currency" not in self.data["preferences"]:
+            self.data["preferences"]["currency"] = "EUR" if data else self.currency
+            self.currency_migrated = bool(data)
+        currency_code(self.data["preferences"]["currency"])
         if "source_transitions" not in self.data:
             first = self.data["source_transition_at"]
             self.data["source_transitions"] = (
@@ -192,6 +228,7 @@ class Ledger:
         grouped = []
         for raw in sorted(self.all_trips(), key=lambda r: r["start"]):
             trip = deepcopy(raw)
+            trip["segments"] = self.accounting_segments(raw)
             trip["leg_ids"] = [raw["id"]]
             previous = grouped[-1] if grouped else None
             same_day = (
@@ -577,6 +614,10 @@ class Ledger:
                     "end_energy": sample["energy"],
                 }
                 trip["segments"].append(segment)
+                if source == "native_soc" and invalid_reason == "gap":
+                    # Resume from this observed endpoint, never price or count
+                    # the unavailable gap again in the next movement window.
+                    trip["energy_anchor"] = sample["energy"]
                 if source == "native_soc" and complete:
                     pending = [segment]
                     for prior in reversed(trip["segments"][:-1]):
@@ -652,6 +693,7 @@ class Ledger:
                         "estimated_kwh": -delta,
                         "cost_eur": None,
                         "price_eur_kwh": None,
+                        "currency": self.currency,
                         "confirmed": False,
                         "energy_basis": source,
                         "cost_basis": "unknown",
@@ -680,7 +722,8 @@ class Ledger:
         self.changed()
         return True
 
-    def import_home(self, rows, active_session_id=None):
+    def import_home(self, rows, active_session_id=None, currency=None):
+        currency = currency_code(self.currency if currency is None else currency)
         changed = False
         active_id = (
             "home-" + str(active_session_id) if active_session_id is not None else None
@@ -708,6 +751,7 @@ class Ledger:
                 "end": end,
                 "kwh": kwh,
                 "cost_eur": number(row[5]),
+                "currency": currency,
                 "reimbursement_eur": number(row[6]),
                 "benefit_eur": number(row[7]),
                 "solar_pct": number(row[4]),
@@ -715,6 +759,21 @@ class Ledger:
                 "energy_basis": "charger_meter",
                 "cost_basis": "evcc_energy_and_foregone_export",
             }
+            if existing and existing.get("currency", "EUR") != currency:
+                # A source/configuration change cannot relabel or replace an
+                # archived amount. Preserve every monetary component together.
+                for key in (
+                    "currency",
+                    "cost_eur",
+                    "reimbursement_eur",
+                    "benefit_eur",
+                    "price_eur_kwh",
+                    "cost_basis",
+                    "manual_cost",
+                ):
+                    if key in existing:
+                        charge[key] = existing[key]
+                charge["cost_currency_conflict"] = True
             if existing.get("manual_cost"):
                 charge.update(
                     {k: existing[k] for k in ("manual_cost", "cost_eur", "cost_basis")}
@@ -738,8 +797,13 @@ class Ledger:
         kwh=None,
         category=None,
         confirmed=True,
+        currency=None,
     ):
         charge = self.data["charges"][ident]
+        currency = currency_code(
+            charge.get("currency", "EUR") if currency is None else currency
+        )
+        currency_changed = currency != charge.get("currency", "EUR")
         if any(
             raw is not None and number(raw) is None for raw in (price, receipt, kwh)
         ):
@@ -759,13 +823,32 @@ class Ledger:
                 and charge.get("cost_basis") == "entered_rate"
             ):
                 price = charge.get("price_eur_kwh")
+                if currency_changed:
+                    price = None
+        if currency_changed:
+            # Selecting a new unit without entering replacement amounts clears
+            # the old monetary values; it never relabels their numbers.
+            charge.update(
+                currency=currency,
+                cost_eur=None,
+                price_eur_kwh=None,
+                reimbursement_eur=None,
+                benefit_eur=None,
+                cost_basis="unknown",
+                manual_cost=True,
+            )
+            charge.pop("cost_currency_conflict", None)
         if price is not None or receipt is not None:
             charge.update(
                 cost_eur=receipt if receipt is not None else price * charge["kwh"],
                 price_eur_kwh=price,
                 cost_basis="receipt" if receipt is not None else "entered_rate",
                 manual_cost=True,
+                currency=currency,
             )
+            charge.pop("cost_currency_conflict", None)
+            if currency_changed:
+                charge["reimbursement_eur"] = charge["benefit_eur"] = None
         if category:
             charge["category"] = category
         charge["confirmed"] = confirmed
@@ -786,6 +869,9 @@ class Ledger:
             "end": end,
             "kwh": kwh,
             "cost_eur": None,
+            "currency": currency_code(
+                self.currency if kwargs.get("currency") is None else kwargs["currency"]
+            ),
             "confirmed": True,
             "energy_basis": "manual",
             "cost_basis": "unknown",
@@ -810,14 +896,51 @@ class Ledger:
             [self.data["active"]] if self.data["active"] else []
         )
 
+    def accounting_segments(self, trip):
+        """Exclude a proven legacy gap-anchor overlap without changing archives."""
+        rows = deepcopy(trip["segments"])
+        if trip.get("native_alignment_version", 0) < 1:
+            return rows
+        for previous, row in zip(rows, rows[1:], strict=False):
+            if previous.get("invalid_reason") != "gap" or row.get("kwh") is None:
+                continue
+            before, after, end = map(
+                number,
+                (
+                    previous.get("start_energy"),
+                    previous.get("end_energy"),
+                    row.get("end_energy"),
+                ),
+            )
+            if (
+                None not in (before, after, end)
+                and row["start"] == previous["end"]
+                and before > after >= end >= 0
+                and row.get("complete", True)
+                and not row.get("invalid_reason")
+                and abs(row["kwh"] - (before - end)) <= 1e-6
+            ):
+                row.update(
+                    kwh=None, complete=False, invalid_reason="legacy_gap_overlap"
+                )
+        return rows
+
     def cost_segments(self):
-        """Replay weighted battery stock; unknown opening price never becomes zero."""
+        """Replay booked battery value; missing trip allocation is never a charge.
+
+        A discharge-only telemetry gap reconciles the inventory quantity to its
+        observed endpoint while retaining an already fully known booked price.
+        Its own energy/cost stay unknown. Unknown prices and actual charging or
+        source boundaries cannot acquire that price through this convention.
+        """
         opening = self.data["opening"]
         if not opening:
             return []
         stock = opening["energy"]
         capacity = self.data["initial_capacity_kwh"]
         initial_price = number(self.data["preferences"].get("opening_price_eur_kwh"))
+        if self.data["preferences"].get("currency", "EUR") != self.currency:
+            initial_price = None
         known_energy = stock if initial_price is not None else 0.0
         value = stock * (initial_price or 0)
         events = []
@@ -829,7 +952,7 @@ class Ledger:
             ):
                 events.append((charge["end"], 0, "charge", charge))
         for trip in self.all_trips():
-            for segment in trip["segments"]:
+            for segment in self.accounting_segments(trip):
                 events.append((segment["end"], 1, "trip", segment))
         for loss in self.data["parked_losses"]:
             events.append((loss["end"], 1, "parked", loss))
@@ -846,7 +969,14 @@ class Ledger:
                 # Wall-to-battery losses are unknown; allocation is approximate.
                 if stock + kwh > capacity:
                     kwh = max(0, capacity - stock)
-                cost = row.get("cost_eur") if row.get("confirmed") else None
+                cost = (
+                    row.get("cost_eur")
+                    if (
+                        row.get("confirmed")
+                        and row.get("currency", "EUR") == self.currency
+                    )
+                    else None
+                )
                 stock += kwh
                 if cost is not None:
                     known_energy += kwh
@@ -862,11 +992,38 @@ class Ledger:
                 price = value / stock if stock > 0 else None
                 if kind == "trip":
                     result.append(
-                        {**row, "cost_eur": energy * price if complete else None}
+                        {
+                            **row,
+                            "cost_eur": energy * price if complete else None,
+                            "currency": self.currency,
+                        }
                     )
                 if energy is None:
-                    stock = row.get("end_energy", self.settings["capacity_kwh"])
-                    known_energy = value = 0.0
+                    start_energy = number(row.get("start_energy"))
+                    end_energy = number(row.get("end_energy"))
+                    can_carry = (
+                        row.get("invalid_reason") in ("gap", "legacy_gap_overlap")
+                        and None not in (start_energy, end_energy)
+                        and 0 <= end_energy <= start_energy <= capacity
+                        and stock > 0
+                        and known_energy >= stock - 1e-6
+                        and not any(
+                            c["kind"] != "dismissed"
+                            and c["start"] < row["end"]
+                            and c["end"] > row["start"]
+                            for c in self.data["charges"].values()
+                        )
+                        and not any(
+                            row["start"] <= t["t"] <= row["end"]
+                            for t in self.data["source_transitions"]
+                        )
+                    )
+                    stock = end_energy if end_energy is not None else capacity
+                    if can_carry:
+                        known_energy = stock
+                        value = stock * price
+                    else:
+                        known_energy = value = 0.0
                 elif stock > 0:
                     fraction = max(0, (stock - energy) / stock)
                     stock *= fraction
@@ -905,10 +1062,16 @@ class Ledger:
             km, kwh = number(row.get("km")), number(row.get("kwh"))
             return (
                 row.get("complete", True)
-                and (not row.get("invalid_reason") or row.get("native_correction_resolved"))
-                and km is not None and km > 0
-                and kwh is not None and kwh >= 0
+                and (
+                    not row.get("invalid_reason")
+                    or row.get("native_correction_resolved")
+                )
+                and km is not None
+                and km > 0
+                and kwh is not None
+                and kwh >= 0
             )
+
         if window_km is not None:
             result, remaining = [], window_km
             for row in reversed(segments):
@@ -947,21 +1110,34 @@ class Ledger:
             and start <= c["end"] <= end
         ]
         confirmed = [c for c in charges if c.get("confirmed")]
+        compatible = [c for c in confirmed if c.get("currency", "EUR") == self.currency]
+        mismatches = sum(c.get("currency", "EUR") != self.currency for c in confirmed)
         charged = sum(c["kwh"] for c in confirmed)
         known_spend = sum(
-            c["cost_eur"] for c in confirmed if c.get("cost_eur") is not None
+            c["cost_eur"] for c in compatible if c.get("cost_eur") is not None
         )
         complete_spend = all(
-            c.get("confirmed") and c.get("cost_eur") is not None for c in charges
+            c.get("confirmed")
+            and c.get("cost_eur") is not None
+            and c.get("currency", "EUR") == self.currency
+            for c in charges
         )
         categories = {}
         for category in ("home", "work", "supercharger", "other"):
             rows = [c for c in confirmed if c["category"] == category]
             if rows:
                 total = sum(c["kwh"] for c in rows)
-                complete = all(c.get("cost_eur") is not None for c in rows)
+                complete = all(
+                    c.get("cost_eur") is not None
+                    and c.get("currency", "EUR") == self.currency
+                    for c in rows
+                )
                 spend = sum(c["cost_eur"] for c in rows) if complete else None
                 categories[category] = {
+                    "currency": self.currency,
+                    "currency_mismatch_count": sum(
+                        c.get("currency", "EUR") != self.currency for c in rows
+                    ),
                     "kwh": total,
                     "cost_eur": spend,
                     "price_eur_kwh": spend / total
@@ -969,6 +1145,8 @@ class Ledger:
                     else None,
                 }
         return {
+            "currency": self.currency,
+            "currency_mismatch_count": mismatches,
             "distance_km": distance,
             "consumption_distance_km": known_distance,
             "cost_distance_km": priced_distance,
@@ -1237,14 +1415,30 @@ class Ledger:
             "petrol_l_100km",
             "petrol_eur_l",
             "rated_kwh_100km",
+            "currency",
         }
+        currency = currency_code(
+            values.get("currency", self.data["preferences"]["currency"])
+        )
+        if currency != self.data["preferences"]["currency"] and any(
+            self.data["preferences"].get(key) is not None and key not in values
+            for key in ("opening_price_eur_kwh", "petrol_eur_l")
+        ):
+            raise ValueError(
+                "Enter replacement monetary preferences when changing currency"
+            )
+        updated = {}
         for key, raw in values.items():
             if key not in allowed:
                 raise ValueError("Unknown preference")
+            if key == "currency":
+                updated[key] = currency
+                continue
             value = number(raw)
             if raw is not None and (value is None or value < 0):
                 raise ValueError("Preference must be finite and nonnegative")
-            self.data["preferences"][key] = value
+            updated[key] = value
+        self.data["preferences"].update(updated)
         self.changed()
 
     def parked_periods(self, tz=UTC):
@@ -1342,6 +1536,8 @@ class Ledger:
             )
             petrol = number(pref.get("petrol_l_100km"))
             price = number(pref.get("petrol_eur_l"))
+            if pref.get("currency", "EUR") != self.currency:
+                price = None
             value["petrol_comparison_eur"] = (
                 value["distance_km"] / 100 * petrol * price
                 if petrol is not None and price is not None
@@ -1362,14 +1558,28 @@ class Ledger:
         for charge in charges:
             date = datetime.fromtimestamp(charge["end"], tz).strftime("%Y-%m-%d")
             bucket = buckets.setdefault(
-                date, {"date": date, "kwh": 0, "known_cost_eur": 0, "missing": 0}
+                date,
+                {
+                    "date": date,
+                    "kwh": 0,
+                    "known_cost_eur": 0,
+                    "missing": 0,
+                    "currency": self.currency,
+                    "currency_mismatch_count": 0,
+                },
             )
             bucket["kwh"] += charge["kwh"] if charge.get("confirmed") else 0
-            bucket["known_cost_eur"] += charge.get("cost_eur") or 0
+            matching_currency = charge.get("currency", "EUR") == self.currency
+            if charge.get("confirmed") and matching_currency:
+                bucket["known_cost_eur"] += charge.get("cost_eur") or 0
+            bucket["currency_mismatch_count"] += int(
+                charge.get("confirmed") and not matching_currency
+            )
             bucket["missing"] += int(
                 not charge.get("confirmed") or charge.get("cost_eur") is None
             )
         return {
+            "currency": self.currency,
             "revision": self.data["revision"],
             "experience_version": 1,
             "driving_segments": self.cost_segments(),

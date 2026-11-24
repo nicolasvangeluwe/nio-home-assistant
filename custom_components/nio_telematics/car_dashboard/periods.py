@@ -57,6 +57,8 @@ def period_statistics(ledger, window):
 
     pref = ledger.data["preferences"]
     petrol, price = number(pref.get("petrol_l_100km")), number(pref.get("petrol_eur_l"))
+    if pref.get("currency", "EUR") != ledger.currency:
+        price = None
     stat["petrol_comparison_eur"] = (
         stat["distance_km"] / 100 * petrol * price
         if petrol is not None and price is not None

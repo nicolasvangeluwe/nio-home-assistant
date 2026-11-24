@@ -74,3 +74,21 @@ def test_preferences_only_backup_does_not_request_history_replacement():
     assert preferences == {"language": "en"}
     assert archived is None
     assert history_summary(archived)["revision"] is None
+
+
+def test_currency_metadata_and_mixed_amounts_survive_backup_unchanged():
+    archive = history()
+    archive["preferences"] = {"currency": "EUR", "opening_price_eur_kwh": 0.3}
+    archive["charges"]["home-1"].update(currency="EUR", cost_eur=2)
+    archive["charges"]["home-2"] = {"currency": "DKK", "cost_eur": 14.92}
+    backup = make_backup(VIN, {}, archive)
+    _, restored = parse_backup(backup, VIN)
+    assert restored == archive
+
+
+@pytest.mark.parametrize("currency", [None, "dkk", "EUR<script>", 123])
+def test_invalid_explicit_history_currency_is_rejected(currency):
+    archive = history()
+    archive["charges"]["home-1"]["currency"] = currency
+    with pytest.raises(ValueError, match="currency"):
+        make_backup(VIN, {}, archive)
