@@ -194,13 +194,6 @@
     "model": {
       "options": {
         "auto": "Automaticky",
-        "ET5": "ET5",
-        "ET5 Touring": "ET5 Touring",
-        "ET7": "ET7",
-        "EL6": "EL6",
-        "EL7": "EL7",
-        "EL8": "EL8",
-        "ES8": "ES8",
         "other": "Jiný model"
       }
     },

@@ -27,13 +27,14 @@ test('all native locale messages are complete with valid variables, links and en
 });
 
 test('native model and language pickers have readable labels without changing saved identifiers',()=>{
- const models=['auto','ET5','ET5 Touring','ET7','EL6','EL7','EL8','ES8','other'];
  for(const locale of locales){
   const catalogue=read(locale);
-  assert.deepEqual(Object.keys(catalogue.selector.model.options).sort(),models.sort(),locale+' model ids');
+  // Model names are stable saved values and already readable. HA translation
+  // keys cannot contain uppercase letters/spaces; missing keys retain the label.
+  assert.deepEqual(Object.keys(catalogue.selector.model.options).sort(),['auto','other'],locale+' translated model choices');
   assert.deepEqual(Object.keys(catalogue.selector.language.options).sort(),['auto',...locales].sort(),locale+' language ids');
   assert.equal(catalogue.selector.language.options.auto,catalogue.selector.paint.options.auto,locale+' automatic');
-  for(const model of models.filter(id=>!['auto','other'].includes(id)))assert.equal(catalogue.selector.model.options[model],model);
+  for(const selector of Object.values(catalogue.selector))for(const key of Object.keys(selector.options))assert.match(key,/^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/,locale+' legal HA selector translation key');
   for(const code of locales)assert.notEqual(catalogue.selector.language.options[code],code,locale+' readable '+code);
  }
 });
