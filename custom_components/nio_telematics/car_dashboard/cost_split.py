@@ -76,7 +76,16 @@ def split_session(charge, sources, progress=None):
         return result
 
     start, end, final_energy = charge["start"], charge["end"], charge["kwh"]
+    currency = charge.get("currency", "EUR")
+    for key in ("total_cost", "grid_price", "export_price"):
+        rows = sorted(sources.get(key, []), key=lambda row: row["t"])
+        prefix = [row for row in rows if row["t"] <= start]
+        relevant = prefix[-1:] + [row for row in rows if start < row["t"] <= end + 1]
+        if any(row.get("currency", currency) != currency for row in relevant):
+            return {"status": "currency_mismatch"}, None
     prior = progress if progress and progress.get("version") == VERSION else None
+    if prior and prior.get("currency", "EUR") != currency:
+        prior = None
     if prior and (prior["start"] != start or prior["energy"] > final_energy + 0.025):
         prior = None
     checkpoint = (
@@ -84,6 +93,7 @@ def split_session(charge, sources, progress=None):
         if prior
         else {
             "version": VERSION,
+            "currency": currency,
             "start": start,
             "t": start,
             "energy": 0.0,
@@ -158,6 +168,7 @@ def split_session(charge, sources, progress=None):
     return {
         "status": "complete",
         "version": VERSION,
+        "currency": currency,
         "grid_cost_eur": checkpoint["grid_cost"],
         "foregone_export_eur": total - checkpoint["grid_cost"],
         "grid_kwh": final_energy - checkpoint["solar_energy"],

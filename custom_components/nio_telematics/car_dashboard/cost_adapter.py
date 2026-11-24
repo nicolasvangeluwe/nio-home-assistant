@@ -8,6 +8,7 @@ from homeassistant.components.recorder.history import get_significant_states
 from homeassistant.util import dt as dt_util
 
 from .cost_split import SOURCE_KEYS, VERSION, numeric, split_session
+from .ledger import source_currency
 
 
 class CostRecorder:
@@ -24,15 +25,26 @@ class CostRecorder:
         results = data.setdefault("cost_split_results", {})
         progress = data.setdefault("cost_split_progress", {})
         tracks = data.setdefault("cost_tracks", {})
-        profile = tuple(mapping[k] for k in SOURCE_KEYS)
+        currency = owner.ledger.currency
+        profile = (*tuple(mapping[k] for k in SOURCE_KEYS), currency)
 
         def signature(c):
-            return [VERSION, c["start"], c["end"], c["kwh"], c.get("cost_eur")]
+            return [
+                VERSION,
+                c["start"],
+                c["end"],
+                c["kwh"],
+                c.get("cost_eur"),
+                c.get("currency", "EUR"),
+            ]
 
         charges = [
             c
             for c in data["charges"].values()
-            if c["kind"] == "home" and not c.get("ongoing") and not c.get("manual_cost")
+            if c["kind"] == "home"
+            and not c.get("ongoing")
+            and not c.get("manual_cost")
+            and c.get("currency", "EUR") == currency
         ]
         pending = [
             c
@@ -47,11 +59,30 @@ class CostRecorder:
         states = {
             k: owner.hass.states.get(entity_id) for k, entity_id in mapping.items()
         }
+        # Missing unit metadata uses the configured-currency input contract;
+        # explicit incompatible units must never be treated as that currency.
+        for key, suffix in (
+            ("total_cost", ""),
+            ("grid_price", "/kWh"),
+            ("export_price", "/kWh"),
+        ):
+            state = states[key]
+            try:
+                if (
+                    state
+                    and source_currency(
+                        state.attributes, currency, per_kwh=bool(suffix)
+                    )
+                    != currency
+                ):
+                    return
+            except ValueError:
+                return
         current_energy = numeric(states["energy"].state) if states["energy"] else None
         current_total = (
             numeric(states["total_cost"].state) if states["total_cost"] else None
         )
-        live_signature = [current_energy, current_total]
+        live_signature = [current_energy, current_total, currency]
         previous_live = data.get("cost_live_signature")
         if (
             not pending
@@ -85,12 +116,24 @@ class CostRecorder:
                 include_start_time_state=True,
                 significant_changes_only=True,
                 minimal_response=False,
-                no_attributes=True,
+                no_attributes=False,
             )
         )
         sources = {
             k: [
-                {"t": s.last_updated.timestamp(), "v": numeric(s.state)}
+                {
+                    "t": s.last_updated.timestamp(),
+                    "v": numeric(s.state),
+                    **(
+                        {
+                            "currency": source_currency(
+                                s.attributes, currency, per_kwh=k.endswith("price")
+                            )
+                        }
+                        if k in ("total_cost", "grid_price", "export_price")
+                        else {}
+                    ),
+                }
                 for s in rows.get(entity_id, [])
             ]
             for k, entity_id in mapping.items()
@@ -100,7 +143,21 @@ class CostRecorder:
         for k, state in states.items():
             if state:
                 sources[k].append(
-                    {"t": state.last_updated.timestamp(), "v": numeric(state.state)}
+                    {
+                        "t": state.last_updated.timestamp(),
+                        "v": numeric(state.state),
+                        **(
+                            {
+                                "currency": source_currency(
+                                    state.attributes,
+                                    currency,
+                                    per_kwh=k.endswith("price"),
+                                )
+                            }
+                            if k in ("total_cost", "grid_price", "export_price")
+                            else {}
+                        ),
+                    }
                 )
         self.last_query = now
         before = deepcopy(
@@ -155,6 +212,7 @@ class CostRecorder:
                     "end": now,
                     "kwh": current_energy,
                     "cost_eur": current_total,
+                    "currency": currency,
                 }
                 result, checkpoint = await owner.hass.async_add_executor_job(
                     split_session, live, sources, seed
@@ -174,6 +232,7 @@ class CostRecorder:
                         now,
                         current_energy,
                         current_total,
+                        currency,
                     ]
                     results["home-" + str(active_id)] = result
         data["cost_live_signature"] = live_signature
@@ -191,6 +250,7 @@ class CostRecorder:
                 and not charge.get("manual_cost")
                 and charge.get("kwh") is not None
                 and charge.get("cost_eur") is not None
+                and result.get("currency", "EUR") == charge.get("currency", "EUR")
                 and abs(result["cost_split_kwh"] - charge["kwh"]) <= 0.0011
                 and abs(result["cost_split_total_eur"] - charge["cost_eur"]) <= 0.00001
             ):
@@ -202,7 +262,12 @@ class CostRecorder:
                     }
                 )
         active = snapshot.get("active_home_charge")
-        if active and results.get(active["id"], {}).get("status") == "complete":
+        if (
+            active
+            and results.get(active["id"], {}).get("status") == "complete"
+            and results[active["id"]].get("currency", "EUR")
+            == active.get("currency", "EUR")
+        ):
             active.update(
                 {
                     k: v

@@ -37,6 +37,37 @@ Settings groups the existing controls into **Appearance & language**, **Vehicle 
 
 Disabling the managed page preserves recorded history, entities and other dashboards. Existing embedded `NIO Vehicle Dashboard` and compact `NIO Vehicle` cards remain supported; their manual resource setup is only needed when embedding a card yourself. To reuse an existing dashboard URL, first back up and explicitly remove that old dashboard through HA, then choose its free path in NIO options. The integration never silently adopts or deletes a foreign dashboard.
 
+## Costs, currencies and data gaps
+
+New charging records default to Home Assistant's configured currency; an explicit
+source or manual currency takes precedence. Each recorded session keeps its own
+currency, even if the instance currency later changes.
+Existing records retain their earlier EUR meaning; the integration does not
+convert amounts or add different currencies into one monetary total. Monetary
+inputs and manual charging entries show their currency explicitly. Changing an
+input's currency clears its amounts so you can enter values in the new unit.
+
+If you previously converted DKK to EUR in a session sensor as a workaround, supply
+actual DKK amounts for new sessions after this update. Previously imported EUR
+records keep their original numbers and currency. A currency conflict during
+reimport preserves the existing recorded amount instead of silently replacing it.
+For API consumers, historical `*_eur` field names remain for compatibility;
+the accompanying currency metadata identifies the amount's unit.
+
+A missing driving interval is marked and skipped. It does not create an external
+charging session or erase an already recorded battery price. Later valid readings
+continue using the recorded weighted price when its basis remains valid. Missing
+gap energy and expense are not filled in. Detected charging without a price and
+missing opening prices retain their own price checks. Raw archived records are
+preserved, including a bounded display correction for old post-gap overlap.
+
+**Unaccounted usage** lists those intervals separately. In a trip's details you
+can complete a gap with known energy and an optional actual cost, or ignore it.
+Both choices can be undone. Manual entries are identified, do not create a
+charging session, and do not change the original readings. Observed battery
+change is shown separately and is not assumed to be driving consumption. Use
+**Add charge** for a known charging receipt, including holiday charging.
+
 ## Polling
 
 In the vehicle integration's **Configure** form, you can set the normal polling

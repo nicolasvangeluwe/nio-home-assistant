@@ -74,3 +74,64 @@ def test_preferences_only_backup_does_not_request_history_replacement():
     assert preferences == {"language": "en"}
     assert archived is None
     assert history_summary(archived)["revision"] is None
+
+
+def test_currency_metadata_and_mixed_amounts_survive_backup_unchanged():
+    archive = history()
+    archive["preferences"] = {"currency": "EUR", "opening_price_eur_kwh": 0.3}
+    archive["charges"]["home-1"].update(currency="EUR", cost_eur=2)
+    archive["charges"]["home-2"] = {"currency": "DKK", "cost_eur": 14.92}
+    backup = make_backup(VIN, {}, archive)
+    _, restored = parse_backup(backup, VIN)
+    assert restored == archive
+
+
+@pytest.mark.parametrize("currency", [None, "dkk", "EUR<script>", 123])
+def test_invalid_explicit_history_currency_is_rejected(currency):
+    archive = history()
+    archive["charges"]["home-1"]["currency"] = currency
+    with pytest.raises(ValueError, match="currency"):
+        make_backup(VIN, {}, archive)
+
+
+def test_manual_and_ignored_gap_overlays_round_trip_without_archive_changes():
+    archive = history()
+    archive["gap_resolutions"] = {
+        "gap-" + "a" * 24: {
+            "fingerprint": "b" * 64,
+            "status": "manual",
+            "energy_kwh": 12,
+            "cost": -0.6,
+            "currency": "DKK",
+        },
+        "gap-" + "c" * 24: {"fingerprint": "d" * 64, "status": "ignored"},
+    }
+    _, restored = parse_backup(make_backup(VIN, {}, archive), VIN)
+    assert restored == archive
+
+
+@pytest.mark.parametrize(
+    "update",
+    [
+        {"energy_kwh": -1},
+        {"energy_kwh": True},
+        {"cost": float("inf")},
+        {"status": "open"},
+        {"fingerprint": "stale"},
+        {"currency": "dkk"},
+    ],
+)
+def test_malformed_gap_overlay_is_rejected_before_restore(update):
+    archive = history()
+    archive["gap_resolutions"] = {
+        "gap-" + "a" * 24: {
+            "fingerprint": "b" * 64,
+            "status": "manual",
+            "energy_kwh": 12,
+            "cost": 3.6,
+            "currency": "DKK",
+            **update,
+        }
+    }
+    with pytest.raises(ValueError, match="gap"):
+        make_backup(VIN, {}, archive)

@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.0-dev.6
+
+Development release — experimental.
+
+- Record and display charging costs in their own currency, using Home Assistant's
+  configured currency by default for new data. Preserve existing EUR amounts, protect
+  same-session reimports and backup restores, and never combine unlike currencies
+  or perform automatic exchange-rate conversion (#27).
+- Skip and mark missing driving intervals without erasing a valid recorded
+  battery-price basis. Rebase the native energy anchor after a gap so its missing
+  energy cannot spill into the next trip; exclude the exact legacy overlap from
+  derived views while preserving the raw archive. Actual unpriced charging,
+  missing opening prices and incompatible source/currency boundaries retain their
+  separate guards. No missing trip energy, gap expense or estimated rate is filled
+  in automatically (#28).
+- Show unaccounted usage separately, with optional manual completion, Ignore and
+  Undo in the trip details. Preserve original readings and distinguish manual
+  usage from native consumption and charging receipts.
+- Cover currency units, mixed histories, edits, backups, pricing caches and
+  post-gap continuation with backend and actual-renderer regressions.
+
 ## 0.7.0-dev.5
 
 Development release — experimental.

@@ -17,7 +17,13 @@ from homeassistant.util import dt as dt_util
 
 from .const import DEFAULTS, DOMAIN
 from .cost_adapter import CostRecorder
-from .ledger import Ledger, number, provisional_home_charge
+from .ledger import (
+    Ledger,
+    currency_code,
+    number,
+    provisional_home_charge,
+    source_currency,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,7 +32,11 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, entry):
         super().__init__(hass, _LOGGER, name=DOMAIN)
         self.entry = entry
-        self.settings = {**DEFAULTS, **entry.data}
+        self.settings = {
+            **DEFAULTS,
+            **entry.data,
+            "currency": currency_code(hass.config.currency),
+        }
         self.store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}", atomic_writes=True)
         self.lock = asyncio.Lock()
         self.unsub = []
@@ -40,7 +50,7 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
         self.ledger = Ledger(self.settings, await self.store.async_load())
         before = self.ledger.data["revision"]
         self.ledger.classify_recorded_intervals()
-        if self.ledger.data["revision"] != before:
+        if self.ledger.currency_migrated or self.ledger.data["revision"] != before:
             await self.store.async_save(deepcopy(self.ledger.data))
         entities = [
             self.settings[k]
@@ -70,6 +80,7 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
 
     async def sample(self):
         async with self.lock:
+            self.sync_currency()
             before = self.ledger.data["revision"]
             now = dt_util.utcnow().timestamp()
             history = self.hass.states.get(self.settings["home_history"])
@@ -84,10 +95,20 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
                     history.attributes["active_session_id"]
                 )
             if history:
-                self.ledger.import_home(
-                    history.attributes.get("sessions", []),
-                    active_session_id=history.attributes.get("active_session_id"),
-                )
+                try:
+                    history_currency = source_currency(
+                        history.attributes, self.ledger.currency, monetary=False
+                    )
+                except ValueError:
+                    _LOGGER.warning(
+                        "Car charging history has invalid currency metadata"
+                    )
+                else:
+                    self.ledger.import_home(
+                        history.attributes.get("sessions", []),
+                        active_session_id=history.attributes.get("active_session_id"),
+                        currency=history_currency,
+                    )
             if (
                 self.active_home_id
                 and not (history and history.attributes.get("active_session_id"))
@@ -182,7 +203,14 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
                 {"revision": self.ledger.data["revision"], "status": self.source_status}
             )
 
+    def sync_currency(self):
+        """Apply HA's current accounting unit without relabelling saved amounts."""
+        currency = currency_code(self.hass.config.currency)
+        self.ledger.currency = currency
+        self.settings["currency"] = currency
+
     def snapshot(self):
+        self.sync_currency()
         now = dt_util.utcnow().timestamp()
         result = self.ledger.snapshot(
             now, dt_util.get_time_zone(self.hass.config.time_zone)
@@ -209,13 +237,30 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
                     )
                     return number(state.state) if state else None
 
+                total_state = self.hass.states.get(sources.get("total_cost", ""))
+                try:
+                    history = self.hass.states.get(self.settings["home_history"])
+                    history_currency = source_currency(
+                        history.attributes if history else {},
+                        self.ledger.currency,
+                        monetary=False,
+                    )
+                    live_currency = source_currency(
+                        total_state.attributes if total_state else {},
+                        history_currency,
+                        per_kwh=False,
+                    )
+                    live_cost = live_value("total_cost")
+                except ValueError:
+                    live_currency, live_cost = self.ledger.currency, None
                 active = provisional_home_charge(
                     self.active_home_id,
                     start,
                     now,
                     live_value("energy"),
-                    live_value("total_cost"),
+                    live_cost,
                     live_value("solar"),
+                    live_currency,
                 )
                 result["active_home_charge"] = active
                 result["charges"].insert(0, active)
@@ -225,6 +270,7 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
 
     async def mutate(self, action, values):
         async with self.lock:
+            self.sync_currency()
             saved = deepcopy(self.ledger.data)
             now = dt_util.utcnow().timestamp()
             try:
