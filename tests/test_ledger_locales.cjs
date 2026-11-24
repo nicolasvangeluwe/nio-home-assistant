@@ -168,6 +168,11 @@ test('actual ongoing home-charge history row localizes its live label and solar-
   }
 });
 
+test('Luxembourgish ledger copy does not regress to the observed English and German draft phrases', () => {
+  const copy=JSON.stringify([Object.values(translations.lb),dynamic.lb]);
+  assert.doesNotMatch(copy,/Charging profit|Trip Ledger|Avg\.|Fahrtenzähler|Ladekosten|virausgesot Export/);
+});
+
 test('localize skips user-supplied names but still translates surrounding static labels', () => {
   const instance = card('en');
   const marked = { textContent: 'Laden', parentElement: { closest: selector => selector.includes('data-user-content') ? {} : null } };
