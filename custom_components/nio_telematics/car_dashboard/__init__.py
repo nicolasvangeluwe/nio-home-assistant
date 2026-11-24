@@ -105,6 +105,7 @@ async def websocket_get(hass, connection, msg):
                 "preferences",
                 "recover_history",
                 "repair_native_trip",
+                "resolve_gap",
             ]
         ),
         vol.Optional("values", default={}): dict,

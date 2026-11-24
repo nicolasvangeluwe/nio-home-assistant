@@ -67,13 +67,16 @@ class CostRecorder:
             ("export_price", "/kWh"),
         ):
             state = states[key]
-            if state and source_currency(state.attributes, currency) != currency:
-                return
-            unit = state.attributes.get("unit_of_measurement") if state else None
-            allowed_units = {currency + suffix}
-            if currency == "EUR":
-                allowed_units.add("€" + suffix)
-            if unit and unit not in allowed_units:
+            try:
+                if (
+                    state
+                    and source_currency(
+                        state.attributes, currency, per_kwh=bool(suffix)
+                    )
+                    != currency
+                ):
+                    return
+            except ValueError:
                 return
         current_energy = numeric(states["energy"].state) if states["energy"] else None
         current_total = (
@@ -122,7 +125,11 @@ class CostRecorder:
                     "t": s.last_updated.timestamp(),
                     "v": numeric(s.state),
                     **(
-                        {"currency": source_currency(s.attributes, currency)}
+                        {
+                            "currency": source_currency(
+                                s.attributes, currency, per_kwh=k.endswith("price")
+                            )
+                        }
                         if k in ("total_cost", "grid_price", "export_price")
                         else {}
                     ),
@@ -140,7 +147,13 @@ class CostRecorder:
                         "t": state.last_updated.timestamp(),
                         "v": numeric(state.state),
                         **(
-                            {"currency": source_currency(state.attributes, currency)}
+                            {
+                                "currency": source_currency(
+                                    state.attributes,
+                                    currency,
+                                    per_kwh=k.endswith("price"),
+                                )
+                            }
                             if k in ("total_cost", "grid_price", "export_price")
                             else {}
                         ),

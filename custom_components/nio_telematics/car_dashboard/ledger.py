@@ -5,8 +5,24 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from hashlib import sha256
 from math import isfinite
-from re import fullmatch
+from re import IGNORECASE, fullmatch, match
 from uuid import uuid4
+
+# Recognized ISO 4217 units, including retained historical currencies. Source
+# parsing is deliberately conservative: unsupported units never acquire HA's
+# configured currency. Keep this local; operating the ledger needs no lookup.
+SOURCE_CURRENCIES = frozenset(
+    "AED AFN ALL AMD ANG AOA ARS AUD AWG AZN BAM BBD BDT BGN BHD BIF BMD BND BOB "
+    "BOV BRL BSD BTN BWP BYN BZD CAD CDF CHE CHF CHW CLF CLP CNY COP COU CRC CUC "
+    "CUP CVE CZK DJF DKK DOP DZD EGP ERN ETB EUR FJD FKP GBP GEL GHS GIP GMD GNF "
+    "GTQ GYD HKD HNL HRK HTG HUF IDR ILS INR IQD IRR ISK JMD JOD JPY KES KGS KHR "
+    "KMF KPW KRW KWD KYD KZT LAK LBP LKR LRD LSL LYD MAD MDL MGA MKD MMK MNT "
+    "MOP MRU MUR MVR MWK MXN MXV MYR MZN NAD NGN NIO NOK NPR NZD OMR PAB PEN "
+    "PGK PHP PKR PLN PYG QAR RON RSD RUB RWF SAR SBD SCR SDG SEK SGD SHP SLE SLL "
+    "SOS SRD SSP STN SVC SYP SZL THB TJS TMT TND TOP TRY TTD TWD TZS UAH UGX USD "
+    "USN UYI UYU UYW UZS VED VES VND VUV WST XAF XAG XAU XBA XBB XBC XBD XCD "
+    "XCG XDR XOF XPD XPF XPT XSU XTS XUA XXX YER ZAR ZMW ZWG ZWL".split()
+)
 
 
 def number(value):
@@ -26,16 +42,52 @@ def currency_code(value):
     return value
 
 
-def source_currency(attributes, fallback):
+def source_currency(attributes, fallback, *, monetary=True, per_kwh=None):
     """Honor explicit source units; HA's currency is only the no-metadata default."""
     unit = attributes.get("unit_of_measurement")
     unit_currency = None
-    if unit in ("€", "€/kWh"):
-        unit_currency = "EUR"
-    elif isinstance(unit, str) and fullmatch(r"[A-Z]{3}(?:/kWh)?", unit):
-        unit_currency = unit.split("/")[0]
+    if unit not in (None, ""):
+        if not isinstance(unit, str):
+            raise ValueError("Unsupported monetary source unit")
+        unit = unit.strip()
+        # A session-history sensor can expose energy or a record count. Those
+        # units say nothing about the monetary columns in its session records.
+        quantity = unit.lower() in {"kwh", "wh", "mwh", "count", "sessions", "session"}
+        parsed = (
+            None
+            if quantity
+            else fullmatch(r"([a-z]{3}|€)(\s*/\s*kwh)?", unit, flags=IGNORECASE)
+        )
+        if parsed:
+            candidate = "EUR" if parsed[1] == "€" else parsed[1].upper()
+            if candidate not in SOURCE_CURRENCIES:
+                raise ValueError("Unsupported monetary source unit")
+            if per_kwh is not None and bool(parsed[2]) != per_kwh:
+                raise ValueError("Monetary source unit has the wrong price basis")
+            unit_currency = candidate
+        else:
+            prefix = match(r"[a-z]{3}", unit, flags=IGNORECASE)
+            money_looking = (
+                any(char in unit for char in "$€£¥¤₹₽₩₺₪₫₴₦฿₱")
+                or unit.lower()
+                in {
+                    "kr",
+                    "fr",
+                    "zł",
+                    "руб",
+                    "cents",
+                    "rs",
+                    "rs.",
+                }
+                or (prefix is not None and prefix[0].upper() in SOURCE_CURRENCIES)
+            )
+            if monetary or (money_looking and not quantity):
+                raise ValueError("Unsupported monetary source unit")
     if attributes.get("currency") is not None:
-        declared = currency_code(attributes["currency"])
+        raw = attributes["currency"]
+        declared = currency_code(raw.strip().upper() if isinstance(raw, str) else raw)
+        if declared not in SOURCE_CURRENCIES:
+            raise ValueError("Unsupported source currency")
         if unit_currency is not None and declared != unit_currency:
             raise ValueError("Source currency metadata conflicts with its unit")
         return declared
@@ -93,6 +145,7 @@ class Ledger:
         self.data.setdefault("initial_capacity_kwh", self.settings["capacity_kwh"])
         self.data.setdefault("pending_epoch", None)
         self.data.setdefault("native_replays", {})
+        self.data.setdefault("gap_resolutions", {})
         self.currency_migrated = False
         for charge in self.data["charges"].values():
             if "currency" not in charge:
@@ -896,13 +949,15 @@ class Ledger:
             [self.data["active"]] if self.data["active"] else []
         )
 
-    def accounting_segments(self, trip):
+    def accounting_segments(self, trip, apply_resolutions=True):
         """Exclude a proven legacy gap-anchor overlap without changing archives."""
         rows = deepcopy(trip["segments"])
-        if trip.get("native_alignment_version", 0) < 1:
-            return rows
         for previous, row in zip(rows, rows[1:], strict=False):
-            if previous.get("invalid_reason") != "gap" or row.get("kwh") is None:
+            if (
+                trip.get("native_alignment_version", 0) < 1
+                or previous.get("invalid_reason") != "gap"
+                or row.get("kwh") is None
+            ):
                 continue
             before, after, end = map(
                 number,
@@ -923,7 +978,140 @@ class Ledger:
                 row.update(
                     kwh=None, complete=False, invalid_reason="legacy_gap_overlap"
                 )
+        for original, row in zip(trip["segments"], rows, strict=True):
+            if row.get("invalid_reason") not in ("gap", "legacy_gap_overlap"):
+                continue
+            ident = (
+                "gap-"
+                + sha256(
+                    json.dumps([trip["id"], row["start"], row["end"]]).encode()
+                ).hexdigest()[:24]
+            )
+            fingerprint = sha256(
+                json.dumps(
+                    {
+                        "trip_id": trip["id"],
+                        "segment": original,
+                        "source": trip.get("source"),
+                        "native_alignment_version": trip.get(
+                            "native_alignment_version"
+                        ),
+                        "capacity_kwh": self.data["initial_capacity_kwh"],
+                        "transitions": [
+                            t
+                            for t in self.data["source_transitions"]
+                            if t["t"] <= row["end"]
+                        ],
+                    },
+                    sort_keys=True,
+                ).encode()
+            ).hexdigest()
+            saved = self.data["gap_resolutions"].get(ident)
+            resolution = (
+                (saved["status"] if saved["fingerprint"] == fingerprint else "stale")
+                if saved
+                else "open"
+            )
+            row.update(
+                gap_id=ident,
+                gap_fingerprint=fingerprint,
+                gap_resolution=resolution,
+                raw_trip_id=trip["id"],
+            )
+            if resolution == "manual":
+                row.update(
+                    gap_energy_kwh=saved["energy_kwh"],
+                    gap_cost=saved.get("cost"),
+                    gap_currency=saved["currency"],
+                )
+                if apply_resolutions:
+                    row.update(
+                        kwh=saved["energy_kwh"],
+                        complete=True,
+                        manual_gap_reconciled=True,
+                        energy_basis="manual_gap",
+                    )
         return rows
+
+    def unaccounted_intervals(self):
+        """Expose original gap identities and user choices, never inferred usage."""
+        result = []
+        for trip in self.all_trips():
+            for row in self.accounting_segments(trip, apply_resolutions=False):
+                if "gap_id" not in row:
+                    continue
+                start, end = (
+                    number(row.get("start_energy")),
+                    number(row.get("end_energy")),
+                )
+                result.append(
+                    {
+                        "id": row["gap_id"],
+                        "fingerprint": row["gap_fingerprint"],
+                        "trip_id": trip["id"],
+                        "start": row["start"],
+                        "end": row["end"],
+                        "km": row["km"],
+                        "start_energy": start,
+                        "end_energy": end,
+                        "battery_change_kwh": end - start
+                        if None not in (start, end)
+                        else None,
+                        "resolution": row["gap_resolution"],
+                        "energy_kwh": row.get("gap_energy_kwh"),
+                        "cost": row.get("gap_cost"),
+                        "currency": row.get("gap_currency", self.currency),
+                    }
+                )
+        return result
+
+    def resolve_gap(
+        self, ident, fingerprint, status, energy_kwh=None, cost=None, currency=None
+    ):
+        """Replace one reversible user overlay; raw evidence and charges stay intact."""
+        interval = next(
+            (r for r in self.unaccounted_intervals() if r["id"] == ident), None
+        )
+        saved = self.data["gap_resolutions"].get(ident)
+        if (
+            status == "open"
+            and interval is None
+            and saved
+            and saved["fingerprint"] == fingerprint
+        ):
+            self.data["gap_resolutions"].pop(ident)
+            self.changed()
+            return
+        if interval is None or interval["fingerprint"] != fingerprint:
+            raise ValueError("The gap changed; refresh before saving")
+        if status not in ("manual", "ignored", "open"):
+            raise ValueError("Unknown gap resolution")
+        if status != "manual" and any(
+            v is not None for v in (energy_kwh, cost, currency)
+        ):
+            raise ValueError("Only manual completion accepts usage or cost")
+        record = {"fingerprint": fingerprint, "status": status}
+        if status == "manual":
+            energy = number(energy_kwh)
+            actual_cost = number(cost)
+            if (
+                energy is None
+                or energy < 0
+                or (cost is not None and actual_cost is None)
+            ):
+                raise ValueError(
+                    "Enter finite nonnegative usage and an optional finite cost"
+                )
+            record.update(
+                energy_kwh=energy,
+                cost=actual_cost,
+                currency=currency_code(self.currency if currency is None else currency),
+            )
+        if status == "open":
+            self.data["gap_resolutions"].pop(ident, None)
+        else:
+            self.data["gap_resolutions"][ident] = record
+        self.changed()
 
     def cost_segments(self):
         """Replay booked battery value; missing trip allocation is never a charge.
@@ -952,7 +1140,7 @@ class Ledger:
             ):
                 events.append((charge["end"], 0, "charge", charge))
         for trip in self.all_trips():
-            for segment in self.accounting_segments(trip):
+            for segment in self.accounting_segments(trip, apply_resolutions=False):
                 events.append((segment["end"], 1, "trip", segment))
         for loss in self.data["parked_losses"]:
             events.append((loss["end"], 1, "parked", loss))
@@ -990,34 +1178,68 @@ class Ledger:
                     and energy <= stock + 1e-6
                 )
                 price = value / stock if stock > 0 else None
+                start_energy = number(row.get("start_energy"))
+                end_energy = number(row.get("end_energy"))
+                can_carry = (
+                    energy is None
+                    and row.get("invalid_reason") in ("gap", "legacy_gap_overlap")
+                    and None not in (start_energy, end_energy)
+                    and 0 <= end_energy <= start_energy <= capacity
+                    # Endpoint reconciliation can remove booked stock, never
+                    # introduce unrecorded energy with an invented known price.
+                    and start_energy <= stock + 1e-6
+                    and end_energy <= stock + 1e-6
+                    and stock > 0
+                    and known_energy >= stock - 1e-6
+                    and not any(
+                        c["kind"] != "dismissed"
+                        and c["start"] < row["end"]
+                        and c["end"] > row["start"]
+                        for c in self.data["charges"].values()
+                    )
+                    and not any(
+                        row["start"] <= t["t"] <= row["end"]
+                        for t in self.data["source_transitions"]
+                    )
+                )
                 if kind == "trip":
-                    result.append(
-                        {
-                            **row,
-                            "cost_eur": energy * price if complete else None,
-                            "currency": self.currency,
-                        }
-                    )
+                    projected = {
+                        **row,
+                        "cost_eur": energy * price if complete else None,
+                        "currency": self.currency,
+                    }
+                    if row.get("gap_resolution") == "manual":
+                        manual_energy, actual_cost = (
+                            row["gap_energy_kwh"],
+                            row["gap_cost"],
+                        )
+                        own_currency = row["gap_currency"]
+                        booked = (
+                            manual_energy * price
+                            if can_carry
+                            and manual_energy <= start_energy - end_energy + 1e-6
+                            and manual_energy <= stock + 1e-6
+                            else None
+                        )
+                        projected.update(
+                            kwh=manual_energy,
+                            complete=True,
+                            manual_gap_reconciled=True,
+                            energy_basis="manual_gap",
+                            cost_eur=(
+                                actual_cost if own_currency == self.currency else None
+                            )
+                            if actual_cost is not None
+                            else booked,
+                            currency=own_currency
+                            if actual_cost is not None
+                            else self.currency,
+                        )
+                    result.append(projected)
                 if energy is None:
-                    start_energy = number(row.get("start_energy"))
-                    end_energy = number(row.get("end_energy"))
-                    can_carry = (
-                        row.get("invalid_reason") in ("gap", "legacy_gap_overlap")
-                        and None not in (start_energy, end_energy)
-                        and 0 <= end_energy <= start_energy <= capacity
-                        and stock > 0
-                        and known_energy >= stock - 1e-6
-                        and not any(
-                            c["kind"] != "dismissed"
-                            and c["start"] < row["end"]
-                            and c["end"] > row["start"]
-                            for c in self.data["charges"].values()
-                        )
-                        and not any(
-                            row["start"] <= t["t"] <= row["end"]
-                            for t in self.data["source_transitions"]
-                        )
-                    )
+                    # Reconcile ORIGINAL gap stock exactly once. Manual usage
+                    # and cost allocate the interval; neither is a new purchase
+                    # or a second battery depletion.
                     stock = end_energy if end_energy is not None else capacity
                     if can_carry:
                         known_energy = stock
@@ -1052,6 +1274,7 @@ class Ledger:
                 not start <= row["end"] <= end
                 or (selected is not None and key[:2] not in selected)
                 or (native_segments is not None and key not in native_segments)
+                or (native_only and row.get("manual_gap_reconciled"))
                 or key in seen
             ):
                 continue
@@ -1065,6 +1288,7 @@ class Ledger:
                 and (
                     not row.get("invalid_reason")
                     or row.get("native_correction_resolved")
+                    or row.get("manual_gap_reconciled")
                 )
                 and km is not None
                 and km > 0
@@ -1093,6 +1317,17 @@ class Ledger:
                 )
                 remaining -= portion
             segments = list(reversed(result))
+        gaps = [r for r in segments if "gap_id" in r]
+        unaccounted = [r for r in gaps if r["gap_resolution"] != "manual"]
+        changes = [
+            (number(r.get("start_energy")), number(r.get("end_energy")))
+            for r in unaccounted
+        ]
+        unaccounted_change = (
+            sum(b - a for a, b in changes)
+            if all(None not in pair for pair in changes)
+            else None
+        )
         distance = sum(r["km"] for r in segments)
         known = [r for r in segments if valid_energy(r)]
         known_distance = sum(r["km"] for r in known)
@@ -1112,6 +1347,12 @@ class Ledger:
         confirmed = [c for c in charges if c.get("confirmed")]
         compatible = [c for c in confirmed if c.get("currency", "EUR") == self.currency]
         mismatches = sum(c.get("currency", "EUR") != self.currency for c in confirmed)
+        mismatches += sum(
+            r.get("manual_gap_reconciled", False)
+            and r.get("gap_cost") is not None
+            and r.get("gap_currency") != self.currency
+            for r in segments
+        )
         charged = sum(c["kwh"] for c in confirmed)
         known_spend = sum(
             c["cost_eur"] for c in compatible if c.get("cost_eur") is not None
@@ -1147,6 +1388,11 @@ class Ledger:
         return {
             "currency": self.currency,
             "currency_mismatch_count": mismatches,
+            "unaccounted_distance_km": sum(r["km"] for r in unaccounted),
+            "unaccounted_battery_change_kwh": unaccounted_change,
+            "unaccounted_intervals": len(unaccounted),
+            "ignored_gap_count": sum(r["gap_resolution"] == "ignored" for r in gaps),
+            "manual_gap_count": sum(r["gap_resolution"] == "manual" for r in gaps),
             "distance_km": distance,
             "consumption_distance_km": known_distance,
             "cost_distance_km": priced_distance,
@@ -1576,11 +1822,20 @@ class Ledger:
                 charge.get("confirmed") and not matching_currency
             )
             bucket["missing"] += int(
-                not charge.get("confirmed") or charge.get("cost_eur") is None
+                not charge.get("confirmed")
+                or charge.get("cost_eur") is None
+                or not matching_currency
             )
+        intervals = self.unaccounted_intervals()
+        interval_ids = {r["id"] for r in intervals}
         return {
             "currency": self.currency,
             "revision": self.data["revision"],
+            "unaccounted_intervals": intervals,
+            "stale_gap_resolution_count": sum(
+                r["resolution"] == "stale" for r in intervals
+            )
+            + sum(ident not in interval_ids for ident in self.data["gap_resolutions"]),
             "experience_version": 1,
             "driving_segments": self.cost_segments(),
             "battery_timeline": [

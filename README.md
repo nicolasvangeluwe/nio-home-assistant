@@ -39,8 +39,9 @@ Disabling the managed page preserves recorded history, entities and other dashbo
 
 ## Costs, currencies and data gaps
 
-New charging records use Home Assistant's configured currency. Each recorded
-session keeps its own currency, even if the instance currency later changes.
+New charging records default to Home Assistant's configured currency; an explicit
+source or manual currency takes precedence. Each recorded session keeps its own
+currency, even if the instance currency later changes.
 Existing records retain their earlier EUR meaning; the integration does not
 convert amounts or add different currencies into one monetary total. Monetary
 inputs and manual charging entries show their currency explicitly. Changing an
@@ -59,6 +60,13 @@ continue using the recorded weighted price when its basis remains valid. Missing
 gap energy and expense are not filled in. Detected charging without a price and
 missing opening prices retain their own price checks. Raw archived records are
 preserved, including a bounded display correction for old post-gap overlap.
+
+**Unaccounted usage** lists those intervals separately. In a trip's details you
+can complete a gap with known energy and an optional actual cost, or ignore it.
+Both choices can be undone. Manual entries are identified, do not create a
+charging session, and do not change the original readings. Observed battery
+change is shown separately and is not assumed to be driving consumption. Use
+**Add charge** for a known charging receipt, including holiday charging.
 
 ## Polling
 

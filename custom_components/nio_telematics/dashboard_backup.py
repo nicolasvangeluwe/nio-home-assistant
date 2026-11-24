@@ -6,6 +6,7 @@ import json
 from copy import deepcopy
 from datetime import UTC, datetime
 from hashlib import sha256
+from math import isfinite
 from re import fullmatch
 
 FORMAT = "nio-telematics-dashboard"
@@ -78,6 +79,43 @@ def validate_history(history: object) -> dict | None:
             or not fullmatch(r"[A-Z]{3}", row["currency"])
         ):
             raise ValueError("History currency is invalid")
+    resolutions = history.get("gap_resolutions", {})
+    if not isinstance(resolutions, dict):
+        raise ValueError("Gap resolutions must be an object")
+    for ident, row in resolutions.items():
+        if (
+            not isinstance(ident, str)
+            or not fullmatch(r"gap-[a-f0-9]{24}", ident)
+            or not isinstance(row, dict)
+            or not isinstance(row.get("fingerprint"), str)
+            or not fullmatch(r"[a-f0-9]{64}", row["fingerprint"])
+            or row.get("status") not in ("manual", "ignored")
+        ):
+            raise ValueError("Invalid gap resolution")
+        if row["status"] == "ignored":
+            if set(row) != {"fingerprint", "status"}:
+                raise ValueError("Ignored gap cannot contain manual usage")
+            continue
+        if set(row) != {"fingerprint", "status", "energy_kwh", "cost", "currency"}:
+            raise ValueError("Invalid manual gap resolution")
+        energy, cost = row["energy_kwh"], row["cost"]
+        if (
+            isinstance(energy, bool)
+            or not isinstance(energy, (int, float))
+            or not isfinite(energy)
+            or energy < 0
+            or (
+                cost is not None
+                and (
+                    isinstance(cost, bool)
+                    or not isinstance(cost, (int, float))
+                    or not isfinite(cost)
+                )
+            )
+            or not isinstance(row["currency"], str)
+            or not fullmatch(r"[A-Z]{3}", row["currency"])
+        ):
+            raise ValueError("Invalid manual gap amount or currency")
     _check_safe(history)
     return deepcopy(history)
 

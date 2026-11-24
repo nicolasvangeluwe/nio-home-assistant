@@ -97,7 +97,7 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
             if history:
                 try:
                     history_currency = source_currency(
-                        history.attributes, self.ledger.currency
+                        history.attributes, self.ledger.currency, monetary=False
                     )
                 except ValueError:
                     _LOGGER.warning(
@@ -241,11 +241,14 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
                 try:
                     history = self.hass.states.get(self.settings["home_history"])
                     history_currency = source_currency(
-                        history.attributes if history else {}, self.ledger.currency
+                        history.attributes if history else {},
+                        self.ledger.currency,
+                        monetary=False,
                     )
                     live_currency = source_currency(
                         total_state.attributes if total_state else {},
                         history_currency,
+                        per_kwh=False,
                     )
                     live_cost = live_value("total_cost")
                 except ValueError:

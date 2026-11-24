@@ -37,7 +37,7 @@ export function periodLabel(meta,locale='en'){
 }
 
 export class NioDashboardHistory extends CarLedgerCard{
- constructor(){super();this.scope='month';this.anchor=null;this.full=true;this.pageSize=36;this._requestId=0;this.filters={location:'all',basis:'all',price:false};}
+ constructor(){super();this.scope='month';this.anchor=null;this.full=true;this.pageSize=36;this._requestId=0;this._contextId=0;this._mutationId=0;this._notifiedMutationId=0;this._pendingWrites=0;this._savedRefreshPending=false;this.filters={location:'all',basis:'all',price:false};}
  get displayLocale(){return this.config?.language||this._hass?.language||'en';}
  translate(value){
   const text=String(value),used=text.match(/^(\s*)Verbruikt ([\d.,\s−-]+) (kWh)(\s*)$/);
@@ -51,33 +51,50 @@ export class NioDashboardHistory extends CarLedgerCard{
  setConfig(config){
   const changed=this.config?.entry_id!==config.entry_id;this.config={...config};
   this.setAttribute?.('lang',this.displayLocale);
-  if(changed){this._requestId++;this.snapshot=null;this.fullSnapshot=null;this.anchor=null;this.scope='month';this.filters={location:'all',basis:'all',price:false};}
+  if(changed){this._requestId++;this._contextId++;this._savedRefreshPending=false;this.snapshot=null;this.fullSnapshot=null;this.anchor=null;this.scope='month';this.filters={location:'all',basis:'all',price:false};}
   this.render();if(this._hass&&this.isConnected)this.refresh();
  }
  set hass(hass){
   this._hass=hass;
-  if(this.isConnected&&!this.loading&&(!this.fullSnapshot||Date.now()-(this._lastRefresh||0)>30000))this.refresh();
+  if(this.isConnected&&!this.loading&&!this._pendingWrites&&(!this.fullSnapshot||Date.now()-(this._lastRefresh||0)>30000))this.refresh();
  }
- disconnectedCallback(){super.disconnectedCallback();this._requestId++;this.loading=false;}
- async refresh(){
-  if(!this._hass||!this.config?.entry_id)return;
+ disconnectedCallback(){super.disconnectedCallback();this._requestId++;this._contextId++;this._savedRefreshPending=false;this.loading=false;}
+ async refresh(afterSave=false){
+  if(!this._hass||!this.config?.entry_id){if(afterSave||this._savedRefreshPending){this.error=this.savedRefreshCopy();this.refreshState();return 'failed';}return 'skipped';}
   const request=++this._requestId;this.loading=true;this.refreshState();
   try{
    const query={type:'nio_telematics/car_dashboard/get',entry_id:this.config.entry_id,period:this.scope};if(this.anchor)query.date=this.anchor;
-   const raw=await this._hass.callWS(query);if(request!==this._requestId)return;
+   const raw=await this._hass.callWS(query);if(request!==this._requestId)return 'superseded';
    if(!raw.selected_period||!raw.statistics?.selected)throw new Error(this.translate('Rittenregistratie nog niet beschikbaar'));
-   this.fullSnapshot=this.prepareSnapshot(raw);this.anchor=raw.selected_period.date;this._calendar=raw.selected_period;this._lastRefresh=Date.now();this.error='';
+   this.fullSnapshot=this.prepareSnapshot(raw);this.anchor=raw.selected_period.date;this._calendar=raw.selected_period;this._lastRefresh=Date.now();this.error='';this._savedRefreshPending=false;
    this.applyView();
    this.dispatchEvent(new CustomEvent('nio-history-updated',{bubbles:true,composed:true,detail:{entry_id:this.config.entry_id,snapshot:this.fullSnapshot}}));
    if(this.shadowRoot.querySelector('dialog[open]')){this._deferredRender=true;this.refreshState();}else this.render();
-  }catch(error){if(request===this._requestId){this.error=this.localizeError(error,this.ui.loading);if(!this.snapshot)this.render();else this.refreshState();}}
+   return 'updated';
+  }catch(error){if(request!==this._requestId)return 'superseded';this.error=afterSave||this._savedRefreshPending?this.savedRefreshCopy():this.localizeError(error,this.ui.loading);if(!this.snapshot)this.render();else this.refreshState();return 'failed';}
   finally{if(request===this._requestId){this.loading=false;this.refreshState();}}
+ }
+ async update(action,values){
+  const entryId=this.config.entry_id,context=this._contextId,mutation=++this._mutationId;
+  // A read started before this write must not replace the newly saved state.
+  this._requestId++;this.loading=false;this.refreshState();
+  this._pendingWrites++;
+  try{
+   const raw=await this._hass.callWS({type:'nio_telematics/car_dashboard/update',entry_id:entryId,action,values});
+   if(context!==this._contextId||entryId!==this.config?.entry_id)return {saved:true,refreshed:false};
+   this._savedRefreshPending=true;
+   // UPDATE returns an ordinary snapshot. Car can consume it immediately, but
+   // History needs a selected-period GET before applying its calendar filters.
+   if(mutation>this._notifiedMutationId){this._notifiedMutationId=mutation;if(raw?.statistics)this.dispatchEvent(new CustomEvent('nio-history-updated',{bubbles:true,composed:true,detail:{entry_id:entryId,snapshot:raw}}));}
+   const status=await this.refresh(true);
+   return {saved:true,refreshed:status==='updated'};
+  }finally{this._pendingWrites--;}
  }
  applyView(){
   if(!this.fullSnapshot)return;
   const data=JSON.parse(JSON.stringify(this.fullSnapshot)),p=data.selected_period;
   const inside=r=>Number.isFinite(r.end)&&r.end>=p.start&&r.end<p.end&&r.end<=p.effective_end;
-  data.charges=data.charges.filter(inside);data.trips=data.trips.filter(inside);data.parked_periods=data.parked_periods.filter(inside);
+  data.charges=data.charges.filter(inside);data.trips=data.trips.filter(inside);data.parked_periods=data.parked_periods.filter(inside);data.unaccounted_intervals=(data.unaccounted_intervals||[]).filter(inside);
   data.charging_daily=data.charging_daily.filter(r=>r.date>=p.start_date&&r.date<p.end_date);
   if(this.filters.location!=='all')data.charges=data.charges.filter(r=>r.category===this.filters.location);
   if(this.filters.price)data.charges=data.charges.filter(r=>r.cost_eur==null||!r.confirmed);
@@ -122,14 +139,15 @@ export class NioDashboardHistory extends CarLedgerCard{
  }
  summaryGrids(){
   const labels={charging:['Geladen','Laadkosten','Vergoeding','Laadvoordeel'],trips:['Afstand','Gem. verbruik','Ritten'],parked:['Verbruikt','Batterij']}[this.tab];if(!labels)return;
-  const units={charging:['kWh','€','€','€'],trips:['km','kWh/100 km',''],parked:['kWh','%']}[this.tab];
+  const units={charging:['kWh',this.moneyUnit(this.currencyCode(this.snapshot.currency||'EUR')),this.moneyUnit(this.currencyCode(this.snapshot.currency||'EUR')),this.moneyUnit(this.currencyCode(this.snapshot.currency||'EUR'))],trips:['km','kWh/100 km',''],parked:['kWh','%']}[this.tab];
   for(const p of this.shadowRoot.querySelectorAll('.month p')){
+   if(p.classList?.contains('currency-notice'))continue;
    const values=p.textContent.split(' · ');if(values.length>labels.length)continue;
    const grid=document.createElement('div');grid.className=`period-summary cols${values.length}`;
    for(let i=0;i<values.length;i++){
     const item=document.createElement('div'),label=document.createElement('small'),value=document.createElement('strong');label.textContent=this.translate(labels[i]);
-    const text=values[i].trim(),match=text.match(/^([\d.,\s−—-]+)\s*(.*)$/);value.textContent=match?match[1].trim():text;
-    if(match&&units[i]){const unit=document.createElement('span');unit.className='unit';unit.textContent=' '+units[i];value.append(unit);}
+    const text=values[i].trim(),match=text.match(/^([\d.,\s−—-]+)\s*(.*)$/),currency=text.match(/(?:€|\b[A-Z]{3}\b)/)?.[0];value.textContent=match?match[1].trim():text;
+    if(match&&units[i]){const unit=document.createElement('span');unit.className='unit';unit.textContent=' '+(i>0&&i<4&&currency?currency:units[i]);value.append(unit);}
     item.append(label,value);grid.append(item);
    }p.replaceWith(grid);
   }
@@ -138,9 +156,9 @@ export class NioDashboardHistory extends CarLedgerCard{
   // Base graph already has the established known/unknown cost semantics. Its date
   // filter must see the selected calendar, not the browser's current month.
   const rows=this.snapshot.charging_daily;if(!rows.length)return '';
-  const cost=this.graphUnit==='eur',max=Math.max(1,...rows.map(r=>cost?r.known_cost_eur:r.kwh));
-  const bars=rows.map((r,i)=>{const w=300/rows.length,v=cost?r.known_cost_eur:r.kwh;return `<rect x="${i*w}" y="${95-v/max*80}" width="${Math.max(1,w-3)}" height="${v/max*80}" rx="2" opacity="${cost&&r.missing?.4:.9}"><title>${this.esc(r.date)}: ${this.n(v,2)} ${cost?'€':'kWh'}</title></rect>`;}).join('');
-  return `<div class="panel"><div class="row"><h3>${this.esc(this.ui.charging)}</h3><div class="segmented compact"><button data-unit="kwh" class="${cost?'':'selected'}">kWh</button><button data-unit="eur" class="${cost?'selected':''}">€</button></div></div><div class="chart"><svg viewBox="0 0 300 100" role="img" aria-label="${this.esc(this.ui.charging)}"><g fill="var(--car-accent)">${bars}</g></svg><div class="row muted"><span>${this.esc(rows[0].date)}</span><span>${this.esc(rows.at(-1).date)}</span></div></div></div>`;
+  const cost=this.graphUnit==='eur',mismatch=Number(this.snapshot.statistics?.selected?.currency_mismatch_count)>0,currency=this.currencyCode(this.snapshot.currency||'EUR'),max=Math.max(1,...rows.map(r=>cost?r.known_cost_eur:r.kwh));
+  const bars=rows.map((r,i)=>{const w=300/rows.length,v=cost?(mismatch||Number(r.currency_mismatch_count)>0?null:r.known_cost_eur):r.kwh;return `<rect x="${i*w}" y="${95-(v||0)/max*80}" width="${Math.max(1,w-3)}" height="${(v||0)/max*80}" rx="2" opacity="${cost&&r.missing?.4:.9}"><title>${this.esc(r.date)}: ${cost?this.money(v,currency):`${this.n(v,2)} kWh`}</title></rect>`;}).join('');
+  return `<div class="panel"><div class="row"><h3>${this.esc(this.ui.charging)}</h3><div class="segmented compact"><button data-unit="kwh" class="${cost?'':'selected'}">kWh</button><button data-unit="eur" class="${cost?'selected':''}">${this.esc(this.moneyUnit(currency))}</button></div></div>${cost&&mismatch?`<p class="muted">${this.currencyNotice('mixed')}</p>`:''}<div class="chart"><svg viewBox="0 0 300 100" role="img" aria-label="${this.esc(this.ui.charging)}"><g fill="var(--car-accent)">${bars}</g></svg><div class="row muted"><span>${this.esc(rows[0].date)}</span><span>${this.esc(rows.at(-1).date)}</span></div></div></div>`;
  }
  tripCard(t){const cap=this.snapshot.settings.capacity_kwh;return super.tripCard(t).replace(`${this.n(t.start_energy/cap*100,0)}% → ${this.n(t.end_energy/cap*100,0)}%`,`${this.n(t.start_energy/cap*100,1)}% → ${this.n(t.end_energy/cap*100,1)}%`);}
  dialog(...args){
@@ -155,7 +173,7 @@ export class NioDashboardHistory extends CarLedgerCard{
   if(b.hasAttribute('data-today')){this.pageSize=36;this.anchor=null;await this.refresh();return;}
   if(b.hasAttribute('data-calendar')){this.dateDialog();return;}
   if(b.hasAttribute('data-filter')){this.filterDialog();return;}
-  if(b.dataset.showCounter){const c=this.snapshot.counters.find(c=>c.id===b.dataset.showCounter);if(c)this.dialog(c.name,`<div class="metrics three">${this.value('Afstand',c.statistics.distance_km,'km')}${this.value('Gem. verbruik',c.statistics.consumption_kwh_100km,'kWh/100 km')}${this.value('Rijkosten',c.statistics.cost_eur_100km,'€/100 km',2)}</div><button class="text" data-reset="${this.esc(c.id)}">${this.esc(this.translate('Reset'))}</button>`);return;}
+  if(b.dataset.showCounter){const c=this.snapshot.counters.find(c=>c.id===b.dataset.showCounter),stat=c?.statistics,currency=this.currencyCode(stat?.currency||this.snapshot.currency||'EUR');if(c)this.dialog(c.name,`<div class="metrics three">${this.value('Afstand',stat.distance_km,'km')}${this.value('Gem. verbruik',stat.consumption_kwh_100km,'kWh/100 km')}${this.value('Rijkosten',Number(stat.currency_mismatch_count)>0?null:stat.cost_eur_100km,`${this.moneyUnit(currency)}/100 km`,2)}</div>${Number(stat.currency_mismatch_count)>0?`<p class="muted">${this.currencyNotice('mixed')}</p>`:''}<button class="text" data-reset="${this.esc(c.id)}">${this.esc(this.translate('Reset'))}</button>`);return;}
   return super.click(e);
  }
  shift(step){
