@@ -335,8 +335,8 @@ const LEDGER_TRANSLATIONS = {
     "__dynamic_trip": "Kilometerzähler {start} → {end} km. Die Zeiten richten sich nach den erhaltenen Messwerten. Der Verbrauch wird anhand der Batteriewerte unter Verwendung der nutzbaren Kapazität {capacity} kWh geschätzt. Ein Batterieverlust ohne Änderung des Kilometerstands wird gesondert als Verlust im Stand gezählt.{unknown}"
   },
   "nb": {
-    "Laden": "Lader",
-    "Ritten": "turer",
+    "Laden": "Lading",
+    "Ritten": "Turer",
     "Verbruik": "Forbruk",
     "Stilstand": "Parkert",
     "Lopende sessie": "Pågående økt",
@@ -1232,7 +1232,7 @@ const LEDGER_TRANSLATIONS = {
   },
   "pt": {
     "Laden": "Carregamento",
-    "Ritten": "Deslocações",
+    "Ritten": "Viagens",
     "Verbruik": "Consumo",
     "Stilstand": "Estacionado",
     "Lopende sessie": "Sessão em andamento",
