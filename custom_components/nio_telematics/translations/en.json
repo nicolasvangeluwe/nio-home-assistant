@@ -92,11 +92,11 @@
     "step": {
       "init": {
         "title": "Vehicle settings",
-        "description": "Optional vehicle and household sources. Leave a vehicle source empty to use its NIO entity automatically; connection and power can come from any HA charger, and EVCC is not required. History session import requires the EVCC-compatible format. Only Companion polling changes Home Assistant cache-read timing; it does not change upstream NIO polling.",
+        "description": "Optional vehicle and household data sources. Leave a vehicle source empty to use its NIO entity. Charger connection and power can come from any Home Assistant charger; EVCC is optional. Importing charging sessions requires the EVCC-compatible format. For Companion connections, polling changes how often Home Assistant reads the cache; it does not change how often Companion collects NIO data.",
         "data": {
-          "model": "Car model for local artwork",
-          "paint": "Car colour (automatic keeps the existing ET5 Touring image)",
-          "language": "Dashboard language (auto follows each viewer's Home Assistant language)",
+          "model": "Vehicle model for the dashboard image",
+          "paint": "Vehicle colour (Automatic uses the model’s default image)",
+          "language": "Dashboard language (Automatic follows each viewer’s Home Assistant language)",
           "soc_entity": "State of charge entity (optional NIO override)",
           "range_entity": "Remaining range entity (optional NIO override)",
           "odometer_entity": "Odometer entity (optional NIO override)",
@@ -104,7 +104,7 @@
           "charge_limit_entity": "Charge limit entity (optional NIO override)",
           "cost_energy": "Recorded charging energy entity (cumulative kWh)",
           "cost_solar": "Recorded solar charging energy entity (cumulative kWh)",
-          "cost_total_cost": "Recorded charging cost entity (cumulative currency)",
+          "cost_total_cost": "Recorded charging cost entity (cumulative amount)",
           "cost_grid_price": "Grid import price entity (currency/kWh)",
           "cost_export_price": "Solar export price entity (currency/kWh)",
           "evcc_connected": "Charger connected entity (EVCC or other HA source)",
@@ -113,7 +113,7 @@
           "electricity_price": "Electricity price entity",
           "reimbursement_rate": "Reimbursement rate entity",
           "battery_capacity_kwh": "Usable battery capacity (kWh)",
-          "full_range_km": "Range at full charge (km; ledger fallback)",
+          "full_range_km": "Range at full charge (km; fallback for history calculations)",
           "ledger_enabled": "Enable trip and charging history",
           "interval_seconds": "Polling interval (seconds)",
           "idle_interval_seconds": "Idle polling interval (seconds)",
@@ -141,7 +141,7 @@
       "incomplete_cost_sources": "Set all five recorded-cost sources or leave them empty.",
       "invalid_paint_for_model": "Choose a colour available for this car model.",
       "invalid_polling_interval": "Polling interval must be valid for this connection.",
-      "invalid_polling_sources": "Adaptive polling requires a connected entity and at least one charging or power entity.",
+      "invalid_polling_sources": "Adaptive polling requires a charger connection entity and at least one entity for active charging or charging power.",
       "invalid_dashboard_path": "Enter a lowercase URL slug using letters, numbers, hyphens or underscores."
     }
   },
@@ -189,6 +189,31 @@
         "sunrise-beige": "Sunrise Beige",
         "new-moon-silver": "New Moon Silver",
         "nebula-green": "Nebula Green"
+      }
+    },
+    "model": {
+      "options": {
+        "auto": "Automatic",
+        "other": "Other model"
+      }
+    },
+    "language": {
+      "options": {
+        "auto": "Automatic",
+        "en": "English",
+        "nl": "Nederlands",
+        "fr": "Français",
+        "de": "Deutsch",
+        "nb": "Norsk bokmål",
+        "sv": "Svenska",
+        "da": "Dansk",
+        "cs": "Čeština",
+        "el": "Ελληνικά",
+        "hu": "Magyar",
+        "lb": "Lëtzebuergesch",
+        "pl": "Polski",
+        "pt": "Português",
+        "ro": "Română"
       }
     }
   }

@@ -5,26 +5,26 @@
         "title": "Kjøretøytilkobling",
         "description": "For normal bruk av Home Assistant, velg Direct NIO. Companion er eksperimentell og beregnet på testere med en eksisterende Companion-konto, en tilkoblet bil og en separat Home Assistant-kobling.",
         "menu_options": {
-          "direct": "Direkte NIO (anbefalt)",
-          "companion": "Følgekonto (testing)",
+          "direct": "Direct NIO (anbefalt)",
+          "companion": "Companion-konto (testing)",
           "change_connection": "Endre tilkobling for et eksisterende kjøretøy"
         }
       },
       "reconfigure": {
         "title": "Kjøretøytilkobling",
-        "description": "For vanlig bruk av Home Assistant, velg Direct NIO. Companion forblir tilgjengelig for testere med en eksisterende Companion-konto, en tilkoblet bil og en separat Home Assistant-kobling. Din nåværende tilkobling forblir på plass til du bekrefter en endring.",
+        "description": "For vanlig bruk av Home Assistant velger du Direct NIO. Companion er fortsatt tilgjengelig for testere med en eksisterende Companion-konto, en tilkoblet bil og en separat Home Assistant-tilkobling. Den nåværende tilkoblingen beholdes til du bekrefter en endring.",
         "menu_options": {
-          "direct": "Direkte NIO / endre applikasjonslegitimasjon",
-          "companion": "Følgekonto (testing)"
+          "direct": "Direct NIO / endre applikasjonslegitimasjon",
+          "companion": "Companion-konto (testing)"
         }
       },
       "companion": {
-        "title": "Connect Companion",
-        "description": "Companion er eksperimentell og beregnet på testere; for vanlig bruk av hjemmeassistent velger du Direct NIO. Hvis du tester Companion, oppretter du en vedvarende Home Assistant-kobling på [Companion-tilkoblingssiden]({connections_url}), og limer deretter inn HA-legitimasjonen her. Den tilknyttede bilen må ha nyere ladetilstand, rekkevidde og kilometertellerdata. Companion leverer for øyeblikket kun kjernedata for kjøretøy; ekstra Direct NIO-sensorer vil være utilgjengelige.",
+        "title": "Koble til Companion",
+        "description": "Companion er eksperimentell og beregnet på testere. For vanlig bruk av Home Assistant velger du Direct NIO. Hvis du tester Companion, oppretter du en vedvarende Home Assistant-tilkobling på [Companion-tilkoblingssiden]({connections_url}) og limer deretter inn HA-legitimasjonen her. Den tilknyttede bilen må ha ferske målinger av ladenivå, rekkevidde og kilometerteller. Companion leverer foreløpig bare grunnleggende kjøretøydata; ekstra Direct NIO-sensorer er ikke tilgjengelige.",
         "data": {
           "vehicle_name": "Kjøretøynavn",
           "vin": "VIN",
-          "companion_credential": "Persistent Home Assistant-legitimasjon"
+          "companion_credential": "Vedvarende Home Assistant-legitimasjon"
         }
       },
       "confirm_source": {
@@ -58,12 +58,12 @@
     "error": {
       "invalid_vin": "Angi et gyldig VIN-nummer på 17 tegn.",
       "persistent_credential_required": "Bruk en vedvarende Companion HA-legitimasjon, ikke et midlertidig bevistoken.",
-      "consumer_reauthentication_required": "Denne HA-legitimasjonen ble avvist. Opprett en ny HA-kobling på siden for ledsagertilkoblinger.",
-      "upstream_reauthorization_required": "Koble til NIO på nytt på siden Companion connections; behold din eksisterende HA-legitimasjon.",
-      "source_disconnected": "Koble til NIO-kilden på nytt på siden Companion-tilkoblinger.",
+      "consumer_reauthentication_required": "Denne Companion-legitimasjonen for HA ble avvist. Opprett en ny HA-tilkobling på Companion-tilkoblingssiden.",
+      "upstream_reauthorization_required": "Koble NIO til på nytt på Companion-tilkoblingssiden. Behold den eksisterende HA-legitimasjonen.",
+      "source_disconnected": "Koble NIO-kilden til på nytt på Companion-tilkoblingssiden.",
       "retry_later": "Companion er midlertidig utilgjengelig. Prøv igjen senere.",
       "invalid_response": "Companion returnerte et ugyldig svar.",
-      "identity_mismatch": "Denne følgekoblingen tilhører et annet kjøretøy.",
+      "identity_mismatch": "Denne Companion-tilkoblingen tilhører et annet kjøretøy.",
       "insufficient_coverage": "Companion trenger nyere, verifiserte ladetilstand, rekkevidde og kilometertellerdata før denne bryteren.",
       "source_unload_failed": "Den eksisterende tilkoblingen kunne ikke stoppe. Prøv igjen senere.",
       "source_switch_failed": "Bryteren mislyktes. Den forrige konfigurasjonen ble gjenopprettet.",
@@ -73,8 +73,8 @@
   },
   "issues": {
     "companion_source_reconnect": {
-      "title": "Koble til NIO i Companion",
-      "description": "Oppstrøms NIO-tilkoblingen trenger oppmerksomhet. Åpne [Companion connections-siden]({connections_url}) og koble til NIO på nytt. Behold den eksisterende Home Assistant-koblingen: legitimasjonen forblir gyldig. Home Assistant vil gjenoppta bufrede lesinger automatisk når kilden gjenopprettes."
+      "title": "Koble NIO til på nytt i Companion",
+      "description": "NIO-kilden trenger oppfølging. Åpne [Companion-tilkoblingssiden]({connections_url}) og koble NIO til på nytt. Behold den eksisterende Home Assistant-tilkoblingen; legitimasjonen er fortsatt gyldig. Home Assistant fortsetter automatisk å lese bufrede data når kilden er gjenopprettet."
     },
     "managed_dashboard_route_collision": {
       "title": "NIO-dashbordbanen er opptatt",
@@ -94,14 +94,14 @@
         "title": "Kjøretøyinnstillinger",
         "description": "Valgfrie kjøretøy- og husholdningskilder. La en kjøretøykilde være tom for å bruke dens NIO-enhet automatisk; tilkobling og strøm kan komme fra hvilken som helst HA-lader, og EVCC er ikke nødvendig. Import av historikkøkter krever det EVCC-kompatible formatet. Bare for Companion endres hvor ofte Home Assistant leser hurtigbufferen, ikke innhentingen fra NIO.",
         "data": {
-          "model": "Bilmodell for lokale kunstverk",
-          "paint": "Bilfarge (automatisk beholder eksisterende ET5 Touring-bilde)",
-          "language": "Dashboard-språk (autofølger hver seers Home Assistant-språk)",
-          "soc_entity": "ladetilstand (valgfri NIO-overstyring)",
-          "range_entity": "Gjenværende rekkevidde (valgfri NIO-overstyring)",
-          "odometer_entity": "Kilometertellerenhet (valgfri NIO-overstyring)",
-          "charging_state_entity": "Ladestatusenhet (valgfri NIO-overstyring)",
-          "charge_limit_entity": "Ladegrenseenhet (valgfri NIO-overstyring)",
+          "model": "Bilmodell for dashbordbildet",
+          "paint": "Bilfarge (Automatisk bruker bilmodellens standardbilde)",
+          "language": "Dashboardspråk (Automatisk følger Home Assistant-språket til hver seer)",
+          "soc_entity": "Sensor for batteriets ladenivå (valgfri NIO-overstyring)",
+          "range_entity": "Sensor for gjenværende rekkevidde (valgfri NIO-overstyring)",
+          "odometer_entity": "Kilometertellersensor (valgfri NIO-overstyring)",
+          "charging_state_entity": "Sensor for ladestatus (valgfri NIO-overstyring)",
+          "charge_limit_entity": "Sensor for ladegrense (valgfri NIO-overstyring)",
           "cost_energy": "Registrert ladeenergienhet (kumulativ kWh)",
           "cost_solar": "Registrert solenergi-enhet (kumulativ kWh)",
           "cost_total_cost": "Registrert kostnadsenhet (kumulativ valuta)",
@@ -113,11 +113,11 @@
           "electricity_price": "Strømprisenhet",
           "reimbursement_rate": "Refusjonssatsenhet",
           "battery_capacity_kwh": "Brukbar batterikapasitet (kWh)",
-          "full_range_km": "Rekkevidde ved full lading (km; reservebok)",
+          "full_range_km": "Rekkevidde ved full lading (km; reserveverdi)",
           "ledger_enabled": "Aktiver tur- og ladehistorikk",
-          "interval_seconds": "Pollingintervall (sekunder)",
-          "idle_interval_seconds": "Hvileintervall for polling (sekunder)",
-          "adaptive": "Adaptiv polling",
+          "interval_seconds": "Oppdateringsintervall (sekunder)",
+          "idle_interval_seconds": "Oppdateringsintervall når bilen står stille (sekunder)",
+          "adaptive": "Adaptivt oppdateringsintervall",
           "connected_entity": "Entitet for ladertilkobling",
           "charging_entity": "Entitet for aktiv lading",
           "power_entity": "Laderens effektentitet",
@@ -125,7 +125,7 @@
           "nio_dashboard_path": "URL-bane for dashbordet"
         },
         "data_description": {
-          "interval_seconds": "Intervall for normal polling. Standard er 15 sekunder for Direct NIO og 30 sekunder for Companion.",
+          "interval_seconds": "Intervall for normal oppdatering. Standard: 15 sekunder for Direct NIO og 30 sekunder for Companion.",
           "idle_interval_seconds": "Intervall når bilen er inaktiv; kan ikke være kortere enn normalintervallet.",
           "adaptive": "Når aktivert velger laderstatus normal- eller hvileintervall. Uavhengig av kjøretøydashbord og EVCC.",
           "connected_entity": "Laderens tilkoblingsstatus; påkrevd når adaptiv polling er aktivert.",
@@ -137,8 +137,8 @@
       }
     },
     "error": {
-      "ledger_calibration_required": "Angi brukbar batterikapasitet og full laderekkevidde før du aktiverer historikk.",
-      "incomplete_cost_sources": "Still inn alle fem registrerte kostnadskilder eller la dem stå tomme.",
+      "ledger_calibration_required": "Angi brukbar batterikapasitet og rekkevidde ved full lading før du aktiverer historikken.",
+      "incomplete_cost_sources": "Angi alle de fem registrerte kostnadskildene, eller la dem stå tomme.",
       "invalid_paint_for_model": "Velg en farge tilgjengelig for denne bilmodellen.",
       "invalid_polling_interval": "Ugyldig intervall for denne tilkoblingen.",
       "invalid_polling_sources": "Adaptiv polling krever en tilkoblingsentitet og minst én lade- eller effektentitet.",
@@ -148,22 +148,22 @@
   "entity": {
     "sensor": {
       "battery_state_of_charge": {
-        "name": "Batteriets ladetilstand"
+        "name": "Batteriets ladenivå"
       },
       "remaining_range": {
         "name": "Gjenværende rekkevidde"
       },
       "charging_state": {
-        "name": "Ladetilstand"
+        "name": "Ladestatus"
       },
       "charging_target": {
         "name": "Lademål"
       },
       "maximum_soc": {
-        "name": "Maksimal ladetilstand"
+        "name": "Maksimalt ladenivå"
       },
       "high_voltage_battery_current": {
-        "name": "Høyspent batteristrøm"
+        "name": "Høyvoltsbatteristrøm"
       },
       "data_timestamp": {
         "name": "Datatidsstempel"
@@ -189,6 +189,31 @@
         "sunrise-beige": "Sunrise Beige",
         "new-moon-silver": "New Moon Silver",
         "nebula-green": "Nebula Green"
+      }
+    },
+    "model": {
+      "options": {
+        "auto": "Automatisk",
+        "other": "Annen modell"
+      }
+    },
+    "language": {
+      "options": {
+        "auto": "Automatisk",
+        "en": "English",
+        "nl": "Nederlands",
+        "fr": "Français",
+        "de": "Deutsch",
+        "nb": "Norsk bokmål",
+        "sv": "Svenska",
+        "da": "Dansk",
+        "cs": "Čeština",
+        "el": "Ελληνικά",
+        "hu": "Magyar",
+        "lb": "Lëtzebuergesch",
+        "pl": "Polski",
+        "pt": "Português",
+        "ro": "Română"
       }
     }
   }

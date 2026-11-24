@@ -3,33 +3,33 @@
     "step": {
       "user": {
         "title": "Járműcsatlakozás",
-        "description": "A Home Assistant normál használatához válassza a Közvetlen NIO lehetőséget. A Companion kísérleti jellegű, és meglévő Companion-fiókkal, csatlakoztatott autóval és külön Home Assistant hivatkozással rendelkező tesztelőknek készült.",
+        "description": "A Home Assistant szokásos használatához válassza a Direct NIO-t. A Companion kísérleti megoldás, meglévő Companion-fiókkal, csatlakoztatott járművel és külön Home Assistant-kapcsolattal rendelkező tesztelőknek.",
         "menu_options": {
-          "direct": "Közvetlen NIO (ajánlott)",
-          "companion": "Kísérőfiók (tesztelés)",
+          "direct": "Direct NIO (ajánlott)",
+          "companion": "Companion-fiók (tesztelés)",
           "change_connection": "Csatlakozás módosítása meglévő járműhöz"
         }
       },
       "reconfigure": {
         "title": "Járműcsatlakozás",
-        "description": "A Home Assistant normál használatához válassza a Közvetlen NIO lehetőséget. A Companion továbbra is elérhető marad azon tesztelők számára, akik már rendelkeznek Companion-fiókkal, csatlakoztatott autóval és külön Home Assistant hivatkozással. A jelenlegi kapcsolat mindaddig érvényben marad, amíg meg nem erősíti a változtatást.",
+        "description": "A Home Assistant szokásos használatához válassza a Direct NIO-t. A Companion továbbra is elérhető a meglévő Companion-fiókkal, csatlakoztatott járművel és külön Home Assistant-kapcsolattal rendelkező tesztelőknek. A jelenlegi kapcsolat a módosítás jóváhagyásáig érvényben marad.",
         "menu_options": {
-          "direct": "Közvetlen NIO / alkalmazás hitelesítő adatainak módosítása",
-          "companion": "Kísérőfiók (tesztelés)"
+          "direct": "Direct NIO / az alkalmazás hitelesítési adatainak módosítása",
+          "companion": "Companion-fiók (tesztelés)"
         }
       },
       "companion": {
-        "title": "Connect Companion",
-        "description": "A Companion kísérleti jellegű, és tesztelőknek készült; a Home Assistant normál használatához válassza a Közvetlen NIO lehetőséget. Ha teszteli a Companiont, hozzon létre egy állandó Home Assistant hivatkozást a [Companion kapcsolatok oldalán] ({connections_url}), majd illessze be ide a HA hitelesítő adatait. A kapcsolt autónak rendelkeznie kell a legutóbbi töltöttségi állapottal, hatótávolsággal és kilométer-számláló adataival. A Companion jelenleg csak a jármű alapvető adatait szolgáltatja; további Direct NIO érzékelők nem lesznek elérhetők.",
+        "title": "Companion-fiók csatlakoztatása",
+        "description": "A Companion kísérleti megoldás, tesztelőknek készült. A Home Assistant szokásos használatához válassza a Direct NIO-t. Ha teszteli a Companiont, hozzon létre állandó Home Assistant-kapcsolatot a [Companion-kapcsolatok oldalán]({connections_url}), majd illessze be ide a HA-hitelesítő adatot. A csatlakoztatott járműnek friss töltöttségi, hatótáv- és kilométeróra-adatokkal kell rendelkeznie. A Companion jelenleg csak alapvető járműadatokat biztosít; a Direct NIO további érzékelői nem lesznek elérhetők.",
         "data": {
           "vehicle_name": "Jármű neve",
           "vin": "VIN",
-          "companion_credential": "Állandó Otthoni asszisztens hitelesítési adat"
+          "companion_credential": "Állandó Home Assistant hitelesítési adat"
         }
       },
       "confirm_source": {
-        "title": "Lecseréli ezt a járművet Companionre?",
-        "description": "Őrizze meg a jármű entitásait, a műszerfal beállításait és előzményeit, és olvassa be a Companion alapvető telemetriáját. A csak közvetlen érzékelők elérhetetlenné válnak. A korábbi konfiguráció visszaáll, ha az új forrás nem tölthető be. A szüneteltetett bejegyzés csak az érvényesítés után engedélyezi a Companion alkalmazást. A Direct NIO-hoz való visszatéréshez ismét NIO-engedélyre lehet szükség."
+        "title": "Átváltja ezt a járművet Companion-adatforrásra?",
+        "description": "Őrizze meg a jármű entitásait, a műszerfal beállításait és az előzményeket, miközben a jármű alapvető telemetriáját a Companion szolgáltatja. A kizárólag Direct NIO-n keresztül elérhető érzékelők nem lesznek használhatók. Ha az új adatforrás nem tölthető be, visszaáll a korábbi konfiguráció. A szüneteltetett bejegyzés csak ellenőrzés után engedélyezi a Companiont. A Direct NIO-ra váltáshoz új NIO-hitelesítésre lehet szükség."
       },
       "vehicle": {
         "title": "Adja hozzá NIO járművét",
@@ -57,13 +57,13 @@
     },
     "error": {
       "invalid_vin": "Adjon meg egy érvényes, 17 karakteres VIN-t.",
-      "persistent_credential_required": "Állandó Companion HA-hitelesítési adatokat használjon, ne ideiglenes proof tokent.",
-      "consumer_reauthentication_required": "Ezt a HA hitelesítő adatot elutasították. Hozzon létre egy új HA hivatkozást a Companion kapcsolatok oldalon.",
-      "upstream_reauthorization_required": "Csatlakoztassa újra a NIO-t a Companion connections oldalon; tartsa meg meglévő HA hitelesítő adatait.",
-      "source_disconnected": "Csatlakoztassa újra a NIO-forrást a Companion Connections oldalon.",
+      "persistent_credential_required": "Állandó Companion-hozzáférési adatot használjon a Home Assistanthoz, ne ideiglenes teszttokent.",
+      "consumer_reauthentication_required": "A HA-hozzáférési adatot a rendszer elutasította. Hozzon létre új HA-kapcsolatot a Companion kapcsolatok oldalán.",
+      "upstream_reauthorization_required": "Csatlakoztassa újra a NIO-t a Companion kapcsolatok oldalán, és tartsa meg a meglévő HA-hozzáférési adatot.",
+      "source_disconnected": "Csatlakoztassa újra a NIO-adatforrást a Companion kapcsolatok oldalán.",
       "retry_later": "A Companion átmenetileg nem érhető el. Próbálja újra később.",
       "invalid_response": "A Companion érvénytelen választ adott vissza.",
-      "identity_mismatch": "Ez a kísérő hivatkozás egy másik járműhöz tartozik.",
+      "identity_mismatch": "Ez a Companion-kapcsolat egy másik járműhöz tartozik.",
       "insufficient_coverage": "A váltás előtt a Companionnek friss, ellenőrzött töltöttségi állapotra, hatótávolságra és kilométer-számlálóra van szüksége.",
       "source_unload_failed": "A meglévő kapcsolatot nem lehetett leállítani. Próbálja újra később.",
       "source_switch_failed": "A váltás nem sikerült. A korábbi konfiguráció visszaállításra került.",
@@ -73,8 +73,8 @@
   },
   "issues": {
     "companion_source_reconnect": {
-      "title": "Csatlakoztassa újra a NIO-t a Companionben",
-      "description": "Az upstream NIO kapcsolata figyelmet igényel. Nyissa meg a [Kísérő kapcsolatok oldalt] ({connections_url}), és csatlakoztassa újra a NIO-t. Tartsa meg a meglévő Otthoni asszisztens hivatkozást: a hitelesítési adatai érvényben maradnak. A Home Assistant automatikusan folytatja a gyorsítótárazott olvasást, amikor a forrás helyreáll."
+      "title": "Csatlakoztassa újra a NIO-t a Companionon keresztül",
+      "description": "A NIO és a Companion közötti kapcsolat figyelmet igényel. Nyissa meg a [Companion-kapcsolatok oldalát]({connections_url}), majd csatlakoztassa újra a NIO-t. A meglévő Home Assistant-kapcsolatot tartsa meg; a hitelesítő adatai továbbra is érvényesek. A Home Assistant a forrás helyreállása után automatikusan folytatja a gyorsítótárból történő adatolvasást."
     },
     "managed_dashboard_route_collision": {
       "title": "Az NIO-irányítópult útvonala foglalt",
@@ -86,7 +86,7 @@
     }
   },
   "application_credentials": {
-    "description": "Hozza létre vagy nyissa meg személyes alkalmazását a [NIO Open Telematics fejlesztői konzolban] ({console_url}), állítsa be az OAuth átirányítási URI-t pontosan a [{redirect_url}]({redirect_url}) értékre, majd adja meg az ügyfél-azonosítót és az ügyféltitkot."
+    "description": "Hozza létre vagy nyissa meg személyes alkalmazását a [NIO Open Telematics fejlesztői konzolban]({console_url}), állítsa be az OAuth átirányítási URI-t pontosan a [{redirect_url}]({redirect_url}) értékre, majd adja meg az ügyfél-azonosítót és az ügyféltitkot."
   },
   "options": {
     "step": {
@@ -94,27 +94,27 @@
         "title": "Járműbeállítások",
         "description": "Opcionális jármű- és háztartási források. Hagyja üresen a járműforrást a NIO entitás automatikus használatához; A csatlakozás és a tápellátás bármely HA töltőről származhat, és nincs szükség EVCC-re. Az előzmények munkamenet-importálása EVCC-kompatibilis formátumot igényel. Csak Companion esetén változik a Home Assistant gyorsítótár-lekérdezési ideje, az NIO-adatok gyűjtése nem.",
         "data": {
-          "model": "Autómodell helyi műalkotásokhoz",
-          "paint": "Autószín (automatikus megtartja a meglévő ET5 Touring képet)",
-          "language": "Irányítópult nyelve (automatikusan követi az egyes nézők Otthoni asszisztens nyelvét)",
-          "soc_entity": "Töltési állapot entitás (opcionális NIO felülírás)",
-          "range_entity": "Fennmaradó tartomány entitás (opcionális NIO felülírás)",
+          "model": "Járműmodell a műszerfal képéhez",
+          "paint": "Járműszín (Automatikus esetén a modell alapértelmezett képe jelenik meg)",
+          "language": "A műszerfal nyelve (Automatikusan minden felhasználó Home Assistant-nyelvét követi)",
+          "soc_entity": "Töltöttségi szint entitás (opcionális NIO-forrás felülírása)",
+          "range_entity": "Hatótáv entitás (opcionális NIO-forrás felülírása)",
           "odometer_entity": "Kilométerszámláló entitás (opcionális NIO felülírás)",
           "charging_state_entity": "Töltési állapot entitás (opcionális NIO felülírás)",
-          "charge_limit_entity": "Díjkorlát entitás (opcionális NIO felülírás)",
-          "cost_energy": "Rögzített töltési energia entitás (halmozott kWh)",
-          "cost_solar": "Feljegyzett szoláris töltési energia entitás (halmozott kWh)",
-          "cost_total_cost": "Rögzített terhelési költség entitás (halmozott pénznem)",
-          "cost_grid_price": "Hálózati importár entitás (valuta/kWh)",
-          "cost_export_price": "Napelem exportár entitás (valuta/kWh)",
-          "evcc_connected": "Töltőhöz csatlakoztatott entitás (EVCC vagy más HA forrás)",
-          "evcc_power": "Töltő tápegység (EVCC vagy más HA-forrás)",
-          "evcc_history": "EVCC-kompatibilis töltési munkamenetek entitás",
+          "charge_limit_entity": "Töltési korlát entitás (opcionális NIO-forrás felülírása)",
+          "cost_energy": "Kumulatív töltési energia (kWh)",
+          "cost_solar": "Kumulatív napenergiával történő töltés (kWh)",
+          "cost_total_cost": "Töltési összköltség (kumulatív pénznem)",
+          "cost_grid_price": "Hálózati vételezési ár (pénznem/kWh)",
+          "cost_export_price": "Napelemes betáplálási ár (pénznem/kWh)",
+          "evcc_connected": "Töltő csatlakozási entitás (EVCC vagy más Home Assistant-forrás)",
+          "evcc_power": "Töltő teljesítményének entitása (EVCC vagy más Home Assistant-forrás)",
+          "evcc_history": "EVCC-kompatibilis töltési munkamenetek előzményeinek entitása",
           "electricity_price": "Villamosenergia-ár entitás",
-          "reimbursement_rate": "Visszatérítési ráta entitás",
+          "reimbursement_rate": "Töltési költségtérítési díj entitása",
           "battery_capacity_kwh": "Használható akkumulátorkapacitás (kWh)",
-          "full_range_km": "Hatótáv teljes feltöltéssel (km; főkönyvi tartalék)",
-          "ledger_enabled": "Utazási és töltési előzmények engedélyezése",
+          "full_range_km": "Hatótáv teljes töltöttségnél (km; tartalékérték az előzményekhez)",
+          "ledger_enabled": "Utak és töltések előzményeinek engedélyezése",
           "interval_seconds": "Lekérdezési időköz (másodperc)",
           "idle_interval_seconds": "Tétlen lekérdezési időköz (másodperc)",
           "adaptive": "Adaptív lekérdezés",
@@ -131,15 +131,15 @@
           "connected_entity": "A töltő csatlakozási állapota; adaptív lekérdezés esetén kötelező.",
           "charging_entity": "Opcionális bináris érzékelő vagy érzékelő az aktív töltés jelzésére.",
           "power_entity": "Opcionális teljesítményérzékelő W vagy kW egységben; adaptív módhoz töltési vagy teljesítményjelző szükséges.",
-          "nio_dashboard_enabled": "Egy közös NIO-irányítópultot ad a Home Assistant oldalsávjához. Minden bekapcsolt, ezt választó NIO-jármű megjelenik rajta.",
+          "nio_dashboard_enabled": "Egy közös NIO-panelt ad a Home Assistant oldalsávjához. Az összes engedélyezett, ennél a járműbeállításnál bekapcsolt NIO-jármű megjelenik rajta.",
           "nio_dashboard_path": "Csak egy URL-útvonal, például nio. A közös irányítópultot használó járműveknek ugyanazt az útvonalat kell használniuk."
         }
       }
     },
     "error": {
-      "ledger_calibration_required": "Az előzmények engedélyezése előtt állítsa be az akkumulátor használható kapacitását és a teljes töltési tartományt.",
+      "ledger_calibration_required": "A történet rögzítésének engedélyezése előtt adja meg a használható akkumulátorkapacitást és a teljes töltöttségnél elérhető hatótávot.",
       "incomplete_cost_sources": "Állítsa be mind az öt rögzített költségforrást, vagy hagyja üresen.",
-      "invalid_paint_for_model": "Válasszon egy színt ehhez az autómodellhez.",
+      "invalid_paint_for_model": "Válasszon a járműmodellhez elérhető színt.",
       "invalid_polling_interval": "Érvénytelen időköz ehhez a kapcsolathoz.",
       "invalid_polling_sources": "Az adaptív módhoz csatlakozási entitás és legalább egy töltési vagy teljesítményentitás szükséges.",
       "invalid_dashboard_path": "Kisbetűkből, számokból, kötőjelekből vagy aláhúzásjelekből álló URL-útvonalat adjon meg."
@@ -151,7 +151,7 @@
         "name": "Az akkumulátor töltöttségi állapota"
       },
       "remaining_range": {
-        "name": "Fennmaradó tartomány"
+        "name": "Hátralévő hatótáv"
       },
       "charging_state": {
         "name": "Töltési állapot"
@@ -189,6 +189,31 @@
         "sunrise-beige": "Sunrise Beige",
         "new-moon-silver": "New Moon Silver",
         "nebula-green": "Nebula Green"
+      }
+    },
+    "model": {
+      "options": {
+        "auto": "Automatikus",
+        "other": "Más modell"
+      }
+    },
+    "language": {
+      "options": {
+        "auto": "Automatikus",
+        "en": "English",
+        "nl": "Nederlands",
+        "fr": "Français",
+        "de": "Deutsch",
+        "nb": "Norsk bokmål",
+        "sv": "Svenska",
+        "da": "Dansk",
+        "cs": "Čeština",
+        "el": "Ελληνικά",
+        "hu": "Magyar",
+        "lb": "Lëtzebuergesch",
+        "pl": "Polski",
+        "pt": "Português",
+        "ro": "Română"
       }
     }
   }

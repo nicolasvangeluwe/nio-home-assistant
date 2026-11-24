@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.0-dev.4
+
+Development release — experimental.
+
+- Review and correct all 14 supported interface languages across the vehicle
+  dashboard, history, settings, help, backup and native integration forms.
+  Correct charging, vehicle range, credential and backup terminology, retain
+  product names, and give model/language choices readable localized labels.
+- Protect the integration's translated interface from a second DOM translation
+  pass. Keep complete messages and dynamic values intact instead of translating
+  arbitrary substrings, user-entered names or identifiers.
+- Localize request failures, accessible help, retry actions and panel status
+  updates. Preserve regional language tags and the current interface language.
+- Expand localization regressions beyond matching dictionary keys to cover
+  actual messages, placeholders, links, formatting and language ownership.
+
 ## 0.7.0-dev.3
 
 Development release — experimental.

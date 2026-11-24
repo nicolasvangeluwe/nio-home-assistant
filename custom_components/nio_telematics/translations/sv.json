@@ -5,26 +5,26 @@
         "title": "Fordonsanslutning",
         "description": "För normal användning av Home Assistant, välj Direct NIO. Companion är experimentell och avsedd för testare med ett befintligt Companion-konto, en ansluten bil och en separat Home Assistant-länk.",
         "menu_options": {
-          "direct": "Direkt NIO (rekommenderas)",
-          "companion": "Kompletterande konto (testning)",
+          "direct": "Direct NIO (rekommenderas)",
+          "companion": "Companion-konto (testning)",
           "change_connection": "Ändra anslutning för ett befintligt fordon"
         }
       },
       "reconfigure": {
         "title": "Fordonsanslutning",
-        "description": "För normal användning av Home Assistant, välj Direct NIO. Companion förblir tillgänglig för testare med ett befintligt Companion-konto, en ansluten bil och en separat Home Assistant-länk. Din nuvarande anslutning förblir på plats tills du bekräftar en ändring.",
+        "description": "För normal användning av Home Assistant väljer du Direct NIO. Companion finns kvar för testare med ett befintligt Companion-konto, en ansluten bil och en separat Home Assistant-anslutning. Den nuvarande anslutningen behålls tills du bekräftar en ändring.",
         "menu_options": {
-          "direct": "Direkt NIO / ändra applikationsuppgifter",
-          "companion": "Kompletterande konto (testning)"
+          "direct": "Direct NIO / ändra applikationsuppgifter",
+          "companion": "Companion-konto (testning)"
         }
       },
       "companion": {
-        "title": "Connect Companion",
-        "description": "Companion är experimentell och avsedd för testare; för normal användning av Home Assistant, välj Direct NIO. Om du testar Companion, skapa en beständig Home Assistant-länk på din [Companion-anslutningar-sida]({connections_url}) och klistra sedan in dess HA-inloggningsuppgifter här. Den länkade bilen måste ha senaste laddningstillstånd, räckvidd och vägmätardata. Companion tillhandahåller för närvarande endast kärnfordonsdata; ytterligare Direct NIO-sensorer kommer inte att vara tillgängliga.",
+        "title": "Anslut Companion",
+        "description": "Companion är experimentell och avsedd för testare. För normal användning av Home Assistant väljer du Direct NIO. Om du testar Companion skapar du en beständig Home Assistant-anslutning på [Companion-anslutningssidan]({connections_url}) och klistrar sedan in HA-behörigheten här. Den länkade bilen måste ha färska mätvärden för laddningsnivå, räckvidd och vägmätare. Companion tillhandahåller för närvarande bara grundläggande fordonsdata; ytterligare Direct NIO-sensorer är inte tillgängliga.",
         "data": {
           "vehicle_name": "Fordonsnamn",
           "vin": "VIN",
-          "companion_credential": "Autentiseringsuppgifter för Persistent Home Assistant"
+          "companion_credential": "Beständig Home Assistant-behörighet"
         }
       },
       "confirm_source": {
@@ -59,8 +59,8 @@
       "invalid_vin": "Ange ett giltigt 17-teckens VIN.",
       "persistent_credential_required": "Använd en beständig Companion HA-referens, inte ett temporärt bevis.",
       "consumer_reauthentication_required": "Denna HA-inloggningsinformation avvisades. Skapa en ny HA-länk på sidan Companion-anslutningar.",
-      "upstream_reauthorization_required": "Återanslut NIO på sidan Companion-anslutningar; behåll din befintliga HA-legitimation.",
-      "source_disconnected": "Anslut din NIO-källa igen på sidan Companion-anslutningar.",
+      "upstream_reauthorization_required": "Anslut NIO igen på Companion-anslutningssidan. Behåll den befintliga HA-behörigheten.",
+      "source_disconnected": "Anslut NIO-källan igen på Companion-anslutningssidan.",
       "retry_later": "Companion är inte tillgängligt för tillfället. Försök igen senare.",
       "invalid_response": "Companion returnerade ett ogiltigt svar.",
       "identity_mismatch": "Denna Companion-länk tillhör ett annat fordon.",
@@ -73,8 +73,8 @@
   },
   "issues": {
     "companion_source_reconnect": {
-      "title": "Återanslut NIO i Companion",
-      "description": "Din uppströms NIO-anslutning behöver åtgärdas. Öppna sidan [Companion connections]({connections_url}) och anslut NIO igen. Behåll den befintliga Home Assistant-länken: dess autentiseringsuppgifter förblir giltiga. Home Assistant återupptar cachad läsning automatiskt när källan återställs."
+      "title": "Anslut NIO igen i Companion",
+      "description": "NIO-källan behöver åtgärdas. Öppna [Companion-anslutningssidan]({connections_url}) och anslut NIO igen. Behåll den befintliga Home Assistant-anslutningen; dess behörighet är fortfarande giltig. Home Assistant återupptar automatiskt läsningen av cachade värden när källan har återställts."
     },
     "managed_dashboard_route_collision": {
       "title": "NIO-instrumentpanelens sökväg används",
@@ -94,30 +94,30 @@
         "title": "Fordonsinställningar",
         "description": "Valfria fordon och hushållskällor. Lämna en fordonskälla tom för att använda dess NIO-enhet automatiskt; anslutning och ström kan komma från vilken HA-laddare som helst, och EVCC krävs inte. Import av historiksession kräver det EVCC-kompatibla formatet. Endast för Companion ändras hur ofta Home Assistant läser cachen, inte hämtningen från NIO.",
         "data": {
-          "model": "Bilmodell för lokala konstverk",
-          "paint": "Bilfärg (automatisk behåller den befintliga ET5 Touring-bilden)",
-          "language": "Dashboard-språk (automatiskt följer varje tittares språk för Home Assistant)",
-          "soc_entity": "Laddningsenhet (valfri NIO-överstyrning)",
-          "range_entity": "Återstående räckviddsenhet (valfri NIO-överstyrning)",
-          "odometer_entity": "Vägmätarenhet (valfri NIO-överstyrning)",
-          "charging_state_entity": "Entitet för laddningstillstånd (valfri NIO-överstyrning)",
-          "charge_limit_entity": "Debiteringsgränsenhet (valfri NIO-överstyrning)",
-          "cost_energy": "Registrerad laddningsenergienhet (kumulativ kWh)",
-          "cost_solar": "Registrerad solenergienhet (kumulativ kWh)",
-          "cost_total_cost": "Registrerad debiteringskostnadsenhet (ackumulerad valuta)",
-          "cost_grid_price": "Nätimportprisenhet (valuta/kWh)",
-          "cost_export_price": "Solenergi exportprisenhet (valuta/kWh)",
-          "evcc_connected": "Laddare ansluten enhet (EVCC eller annan HA-källa)",
-          "evcc_power": "Laddningsenhet (EVCC eller annan HA-källa)",
-          "evcc_history": "EVCC-kompatibel enhet för laddningssessioner",
+          "model": "Bilmodell för instrumentpanelens bild",
+          "paint": "Bilfärg (Automatisk använder bilmodellens standardbild)",
+          "language": "Instrumentpanelens språk (Automatisk följer varje betraktares Home Assistant-språk)",
+          "soc_entity": "Sensor för batteriets laddningsnivå (valfri NIO-överskridning)",
+          "range_entity": "Sensor för återstående räckvidd (valfri NIO-överskridning)",
+          "odometer_entity": "Vägmätarsensor (valfri NIO-överskridning)",
+          "charging_state_entity": "Sensor för laddningsstatus (valfri NIO-överskridning)",
+          "charge_limit_entity": "Sensor för laddningsgräns (valfri NIO-överskridning)",
+          "cost_energy": "Sensor för registrerad laddningsenergi (ackumulerad kWh)",
+          "cost_solar": "Sensor för registrerad solenergi till laddning (ackumulerad kWh)",
+          "cost_total_cost": "Sensor för registrerad laddningskostnad (ackumulerad valuta)",
+          "cost_grid_price": "Sensor för importpris från elnätet (valuta/kWh)",
+          "cost_export_price": "Sensor för exportpris på solel (valuta/kWh)",
+          "evcc_connected": "Sensor för laddaranslutning (EVCC eller annan HA-källa)",
+          "evcc_power": "Sensor för laddeffekt (EVCC eller annan HA-källa)",
+          "evcc_history": "Sensor för laddningssessioner i EVCC-format",
           "electricity_price": "Elprisenhet",
           "reimbursement_rate": "Entitet för ersättningsgrad",
           "battery_capacity_kwh": "Användbar batterikapacitet (kWh)",
-          "full_range_km": "Räckvidd vid full laddning (km; reservbok)",
+          "full_range_km": "Räckvidd vid full laddning (km; reservvärde)",
           "ledger_enabled": "Aktivera tripp- och laddningshistorik",
-          "interval_seconds": "Pollingintervall (sekunder)",
-          "idle_interval_seconds": "Vilointervall för polling (sekunder)",
-          "adaptive": "Adaptiv polling",
+          "interval_seconds": "Uppdateringsintervall (sekunder)",
+          "idle_interval_seconds": "Uppdateringsintervall när bilen står stilla (sekunder)",
+          "adaptive": "Adaptivt uppdateringsintervall",
           "connected_entity": "Entitet för laddaranslutning",
           "charging_entity": "Entitet för aktiv laddning",
           "power_entity": "Laddarens effektentitet",
@@ -125,7 +125,7 @@
           "nio_dashboard_path": "URL-sökväg för instrumentpanelen"
         },
         "data_description": {
-          "interval_seconds": "Intervall för normal polling. Standard är 15 sekunder för Direct NIO och 30 sekunder för Companion.",
+          "interval_seconds": "Intervall för normal uppdatering. Standard: 15 sekunder för Direct NIO och 30 sekunder för Companion.",
           "idle_interval_seconds": "Intervall när bilen är inaktiv; får inte vara kortare än normalintervallet.",
           "adaptive": "När det aktiveras väljer laddarstatus normal- eller vilointervall. Oberoende av fordonsöversikten och EVCC.",
           "connected_entity": "Laddarens anslutningsstatus; krävs när adaptiv hämtning är aktiverad.",
@@ -137,8 +137,8 @@
       }
     },
     "error": {
-      "ledger_calibration_required": "Ställ in användbar batterikapacitet och full laddningsområde innan historik aktiveras.",
-      "incomplete_cost_sources": "Ställ in alla fem registrerade kostnadskällor eller lämna dem tomma.",
+      "ledger_calibration_required": "Ange användbar batterikapacitet och räckvidd vid full laddning innan du aktiverar historiken.",
+      "incomplete_cost_sources": "Ange alla fem registrerade kostnadskällor eller lämna dem tomma.",
       "invalid_paint_for_model": "Välj en färg tillgänglig för denna bilmodell.",
       "invalid_polling_interval": "Ogiltigt intervall för den här anslutningen.",
       "invalid_polling_sources": "Adaptiv polling kräver en anslutningsentitet och minst en laddnings- eller effektentitet.",
@@ -148,25 +148,25 @@
   "entity": {
     "sensor": {
       "battery_state_of_charge": {
-        "name": "Batteriets laddningstillstånd"
+        "name": "Batteriets laddningsnivå"
       },
       "remaining_range": {
         "name": "Återstående räckvidd"
       },
       "charging_state": {
-        "name": "Laddningstillstånd"
+        "name": "Laddningsstatus"
       },
       "charging_target": {
         "name": "Laddningsmål"
       },
       "maximum_soc": {
-        "name": "Maximalt laddningstillstånd"
+        "name": "Maximal laddningsnivå"
       },
       "high_voltage_battery_current": {
-        "name": "Högspänningsbatteriström"
+        "name": "Högvoltsbatteriets ström"
       },
       "data_timestamp": {
-        "name": "Datatidsstämpel"
+        "name": "Tidpunkt för datamätning"
       }
     }
   },
@@ -189,6 +189,31 @@
         "sunrise-beige": "Sunrise Beige",
         "new-moon-silver": "New Moon Silver",
         "nebula-green": "Nebula Green"
+      }
+    },
+    "model": {
+      "options": {
+        "auto": "Automatiskt",
+        "other": "Annan modell"
+      }
+    },
+    "language": {
+      "options": {
+        "auto": "Automatiskt",
+        "en": "English",
+        "nl": "Nederlands",
+        "fr": "Français",
+        "de": "Deutsch",
+        "nb": "Norsk bokmål",
+        "sv": "Svenska",
+        "da": "Dansk",
+        "cs": "Čeština",
+        "el": "Ελληνικά",
+        "hu": "Magyar",
+        "lb": "Lëtzebuergesch",
+        "pl": "Polski",
+        "pt": "Português",
+        "ro": "Română"
       }
     }
   }

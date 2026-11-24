@@ -64,6 +64,7 @@ function setup({
   ]);
   class FakeHTMLElement {
     constructor() {
+      this.attributes = {};
       this.isConnected = true;
       this.shadowRoot = {
         innerHTML: '',
@@ -71,6 +72,7 @@ function setup({
       };
     }
     attachShadow() { return this.shadowRoot; }
+    setAttribute(name, value) { this.attributes[name] = value; }
   }
   const customElements = {
     get: (name) => elements.get(name),
@@ -201,7 +203,7 @@ test('single vehicle has no redundant selector and uses a safe fallback name', a
   await tick();
 
   assert.equal(state.selector.hidden, true);
-  assert.equal(state.select.children[0].textContent, 'NIO vehicle 1');
+  assert.equal(state.select.children[0].textContent, 'NIO · Vehicle 1');
   assert.equal(state.cardHost.children[0].config.entry_id, 'car-1');
 });
 
@@ -240,4 +242,33 @@ test('detaching the panel invalidates an in-flight response', async () => {
   await tick();
 
   assert.equal(state.cardHost.children.length, 0);
+});
+
+test('panel language changes refresh errors and retry copy without another vehicle request', async () => {
+  const state = setup({ importFails: true });
+  await tick();
+  for (const language of ['en', 'nl-BE', 'fr', 'de', 'nb', 'sv', 'da', 'cs', 'el', 'hu', 'lb', 'pl', 'pt', 'ro']) {
+    state.panel.hass = { ...state.hass, language };
+    const words = state.panel._words();
+    assert.equal(state.status.children[0].textContent, words.failed, language);
+    assert.equal(state.status.children.at(-1).textContent, words.retry, language);
+    assert.equal(state.menu.attributes['aria-label'], words.openMenu, language);
+    assert.equal(state.panel.attributes.translate, 'no');
+    assert.equal(state.panel.attributes['data-i18n-ignore'], '');
+    assert.ok(Object.values(words).every(value => typeof value === 'string' && value.trim()), language);
+  }
+  assert.equal(state.wsCalls, 1);
+});
+
+test('localized unnamed vehicles update while real vehicle names stay untouched', async () => {
+  const state = setup({ vehicles: [{ entry_id: 'car-1', name: '' }, { entry_id: 'car-2', name: 'Home Range Auto' }] });
+  await tick();
+  state.panel.hass = { ...state.hass, language: 'nl_BE' };
+  assert.equal(state.select.children[0].textContent, 'NIO · Auto 1');
+  assert.equal(state.select.children[1].textContent, 'Home Range Auto');
+  assert.equal(state.panel.attributes.lang, 'nl');
+  state.panel.hass = { ...state.hass, language: 'no-NO' };
+  assert.equal(state.panel.attributes.lang, 'nb');
+  state.panel.hass = { ...state.hass, language: 'es' };
+  assert.equal(state.panel.attributes.lang, 'en');
 });

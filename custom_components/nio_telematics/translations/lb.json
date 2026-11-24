@@ -5,31 +5,31 @@
         "title": "Gefier Verbindung",
         "description": "Fir normal Home Assistant benotzen, wielt Direct NIO. Companion ass experimentell a geduecht fir Tester mat engem existente Companion Kont, engem verbonne Auto an engem separaten Home Assistant Link.",
         "menu_options": {
-          "direct": "Direkt NIO (recommandéiert)",
-          "companion": "Begleeder Kont (Test)",
+          "direct": "Direct NIO (recommandéiert)",
+          "companion": "Companion-Kont (Test)",
           "change_connection": "Ännere Verbindung fir en existent Gefier"
         }
       },
       "reconfigure": {
         "title": "Gefier Verbindung",
-        "description": "Fir normal Home Assistant benotzen, wielt Direct NIO. Begleeder bleift verfügbar fir Tester mat engem existente Begleeder Kont, engem verbonne Auto an engem separaten Home Assistant Link. Är aktuell Verbindung bleift op der Plaz bis Dir eng Ännerung confirméiert.",
+        "description": "Fir Home Assistant normal ze benotzen, wielt Direct NIO. Companion bleift verfügbar fir Tester mat engem existente Companion-Kont, engem verbonne Auto an enger separater Home Assistant-Verbindung. Är aktuell Verbindung bleift bestoen, bis Dir eng Ännerung confirméiert.",
         "menu_options": {
-          "direct": "Direkt NIO / Applikatioun Umeldungsinformatioun änneren",
-          "companion": "Begleeder Kont (Test)"
+          "direct": "Direct NIO / Applikatiouns-Zougangsdonnéeën änneren",
+          "companion": "Companion-Kont (Test)"
         }
       },
       "companion": {
-        "title": "Connect Companion",
-        "description": "Begleeder ass experimentell a fir Tester geduecht; fir normal Home Assistant benotzen, wielt Direct NIO. Wann Dir Companion testt, erstellt e persistent Home Assistant Link op Ärer [Companion Connections Säit]({connections_url}), da paste seng HA Umeldungsinformatioun hei. De verlinkte Auto muss rezent Ladungszoustand, Gamme an Kilometerzähler Daten hunn. Begleeder liwwert momentan Kär Gefier Daten nëmmen; zousätzlech Direct NIO Sensoren wäerten net verfügbar sinn.",
+        "title": "Mat Companion verbannen",
+        "description": "Companion ass experimentell a fir Tester geduecht. Fir Home Assistant normal ze benotzen, wielt Direct NIO. Wann Dir Companion test, erstellt eng dauerhaft Home Assistant-Verbindung op der [Companion-Verbindungsäit]({connections_url}) a pecht dann hei d’HA-Zougangsdonnée an. Den Auto muss rezent Miessunge vum Ladestand, der Reechwäit an dem Kilometerstand hunn. Companion liwwert de Moment nëmme Basisdaten zum Gefier; zousätzlech Direct NIO-Sensore sinn net verfügbar.",
         "data": {
           "vehicle_name": "Gefier Numm",
           "vin": "VIN",
-          "companion_credential": "Persistent Home Assistant Umeldungsinformatioun"
+          "companion_credential": "Dauerhaft Home Assistant-Zougangsdonnée"
         }
       },
       "confirm_source": {
-        "title": "Dëst Gefier op Begleeder wiesselen?",
-        "description": "Halt dëst Gefier Entitéiten, Dashboard Astellungen a Geschicht, a liest seng Kär Telemetrie vum Companion. Direkt-nëmmen Sensoren ginn net verfügbar. Déi viregt Konfiguratioun gëtt restauréiert wann déi nei Quell net luede kann. Eng pauséiert Entrée aktivéiert Begleeder nëmmen no der Validatioun. E Retour op Direct NIO kann nees NIO Autorisatioun verlaangen."
+        "title": "Dëst Gefier op Companion wiesselen?",
+        "description": "Behalt d’Entitéiten, d’Dashboardastellungen an d’Historik vun dësem Gefier a lies déi Basis-Telemetrie vu Companion. Sensoren, déi nëmmen a Direct NIO disponibel sinn, ginn net méi disponibel. Déi viregt Konfiguratioun gëtt restauréiert, wann déi nei Quell net geluede ka ginn. Eng temporär deaktivéiert Entrée aktivéiert Companion eréischt no der Validatioun. De Wiessel zeréck op Direct NIO kann eng nei NIO-Autorisatioun verlaangen."
       },
       "vehicle": {
         "title": "Fügt Ären NIO Gefier",
@@ -57,14 +57,14 @@
     },
     "error": {
       "invalid_vin": "Gitt eng valabel 17-Charakter VIN.",
-      "persistent_credential_required": "Benotzt eng persistent Begleeder HA Umeldungsinformatioun, net eng temporär Beweis Token.",
-      "consumer_reauthentication_required": "Dës HA Umeldungsinformatioun gouf refuséiert. Erstellt en neien HA Link op der Companion Connections Säit.",
-      "upstream_reauthorization_required": "Reconnect NIO op der Companion Verbindungen Säit; halen Är bestehend HA Umeldungsinformatioune.",
-      "source_disconnected": "Reconnect Är NIO Quell op der Companion Verbindungen Säit.",
-      "retry_later": "Begleeder ass temporär net verfügbar. Probéiert méi spéit nach eng Kéier.",
-      "invalid_response": "Begleeder huet eng ongëlteg Äntwert zréck.",
-      "identity_mismatch": "Dëse Begleeder Link gehéiert zu engem anere Gefier.",
-      "insufficient_coverage": "Begleeder brauch rezent, verifizéiert Staat vun charge, Beräich an Kilometerzähler Daten virun dësem Schalter.",
+      "persistent_credential_required": "Benotzt eng dauerhaft Companion-HA-Zougangsdonnée, keen temporäre Beweistroken.",
+      "consumer_reauthentication_required": "Dës Companion-HA-Zougangsdonnée gouf refuséiert. Erstellt eng nei HA-Verbindung op der Companion-Verbindungsäit.",
+      "upstream_reauthorization_required": "Verbannt NIO op der Companion-Verbindungsäit nei. Behält déi bestehend HA-Zougangsdonnéeën.",
+      "source_disconnected": "Verbannt d’NIO-Quell op der Companion-Verbindungsäit nei.",
+      "retry_later": "Companion ass temporär net disponibel. Probéiert et méi spéit nach eng Kéier.",
+      "invalid_response": "Companion huet eng ongëlteg Äntwert zeréckginn.",
+      "identity_mismatch": "Dës Companion-Verbindung gehéiert zu engem anere Gefier.",
+      "insufficient_coverage": "Companion brauch rezent, iwwerpréift Miessunge vum Ladestand, der Reechwäit an dem Kilometerstand, ier dëse Wiessel méiglech ass.",
       "source_unload_failed": "Déi bestehend Verbindung konnt net ophalen. Probéiert méi spéit nach eng Kéier.",
       "source_switch_failed": "De Schalter huet gescheitert. Déi viregt Konfiguratioun gouf restauréiert.",
       "source_rollback_failed": "Déi viregt Configuratioun gouf restauréiert, awer konnt net lueden. Kontrolléiert d'Integratioun ier Dir erëm probéiert.",
@@ -73,8 +73,8 @@
   },
   "issues": {
     "companion_source_reconnect": {
-      "title": "Reconnect NIO in Companion",
-      "description": "Är Upstream NIO Verbindung brauch Opmierksamkeet. Öffnen d'Säit [Companion Connections]({connections_url}) a verbënnt den NIO erëm. Halt déi existent Home Assistant Link: seng Umeldungsinformatioun bleift valabel. Home Assistant wäert d'Cache-Liesen automatesch erëmfannen wann d'Quell sech erholl."
+      "title": "NIO nees mat Companion verbannen",
+      "description": "Déi verbonne NIO-Quell brauch Är Opmierksamkeet. Maacht d’[Companion-Verbindungsäit]({connections_url}) op a verbënnt NIO nei. Behält déi bestehend Home Assistant-Verbindung; hir Zougangsdonnéeë bleiwen valabel. Home Assistant setzt d’Liese vun de Cache-Wäerter automatesch fort, wann d’Quell nees disponibel ass."
     },
     "managed_dashboard_route_collision": {
       "title": "Den NIO-Dashboard-Pfad ass besat",
@@ -94,30 +94,30 @@
         "title": "Gefierastellungen",
         "description": "Fakultativ Gefier an Stot Quellen. Loosst e Gefierquell eidel fir seng NIO Entitéit automatesch ze benotzen; Verbindung a Kraaft kënnen aus all HA Ladegeräter kommen, an EVCC ass net erfuerderlech. Geschicht Sessioun Import erfuerdert den EVCC-kompatibele Format. Nëmme bei Companion ännert sech wéi dacks Home Assistant de Cache liest, net d’Ofro bei NIO.",
         "data": {
-          "model": "Automodell fir lokal Konschtwierker",
-          "paint": "Auto Faarf (automatesch hält déi bestehend ET5 Touring Bild)",
-          "language": "Dashboard Sprooch (auto follegt all Betrachter seng Home Assistant Sprooch)",
-          "soc_entity": "Staat vun Charge Entitéit (optional NIO iwwerdribblen)",
-          "range_entity": "Rescht Gamme Entitéit (optional NIO iwwerdribblen)",
-          "odometer_entity": "Kilometerzähler Entitéit (optional NIO iwwerdribblen)",
-          "charging_state_entity": "Opluedstatioun Entitéit (optional NIO iwwerdribblen)",
-          "charge_limit_entity": "Charge Limit Entity (optional NIO Iwwerschreiden)",
-          "cost_energy": "Opgeholl Ladeenergie Entitéit (kumulative kWh)",
-          "cost_solar": "Opgeholl Solar Laden Energie Entitéit (kumulative kWh)",
-          "cost_total_cost": "Opgeholl Charge kascht Entitéit (kumulativ Währung)",
-          "cost_grid_price": "Netimportpräis Entitéit (Währung/kWh)",
-          "cost_export_price": "Solar Exportpräis Entitéit (Währung/kWh)",
-          "evcc_connected": "Chargeur verbonne Entitéit (EVCC oder aner HA Quell)",
-          "evcc_power": "Ladekraaft Entitéit (EVCC oder aner HA Quell)",
-          "evcc_history": "EVCC-kompatibel Opluedsession Entitéit",
+          "model": "Automodell fir d’Dashboardbild",
+          "paint": "Autofaarf (Automatesch benotzt d’Standardbild vum Automodell)",
+          "language": "Dashboardsprooch (Automatesch iwwerhëlt d’Home Assistant-Sprooch vun all Benotzer)",
+          "soc_entity": "Sensor fir de Ladestand vun der Batterie (optional NIO-Iwwerschreiwung)",
+          "range_entity": "Sensor fir déi reschtlech Reechwäit (optional NIO-Iwwerschreiwung)",
+          "odometer_entity": "Kilometerstandsensor (optional NIO-Iwwerschreiwung)",
+          "charging_state_entity": "Sensor fir de Luedstatus (optional NIO-Iwwerschreiwung)",
+          "charge_limit_entity": "Sensor fir d’Luedlimit (optional NIO-Iwwerschreiwung)",
+          "cost_energy": "Sensor fir registréiert Luedenergie (kumulativ kWh)",
+          "cost_solar": "Sensor fir registréiert Solarenergie beim Lueden (kumulativ kWh)",
+          "cost_total_cost": "Sensor fir registréiert Luedkäschten (kumulativ Währung)",
+          "cost_grid_price": "Sensor fir de Stroumnetz-Importpräis (Währung/kWh)",
+          "cost_export_price": "Sensor fir den Exportpräis vu Solarstroum (Währung/kWh)",
+          "evcc_connected": "Sensor fir d’Verbindung mat der Luedstatioun (EVCC oder aner HA-Quell)",
+          "evcc_power": "Sensor fir d’Luedleeschtung (EVCC oder aner HA-Quell)",
+          "evcc_history": "Sensor fir Luedesessiounen am EVCC-Format",
           "electricity_price": "Stroumpräis Entitéit",
           "reimbursement_rate": "Remboursement Taux Entitéit",
           "battery_capacity_kwh": "Benotzbar Batteriekapazitéit (kWh)",
-          "full_range_km": "Range bei voller Ladung (km; Ledger Fallback)",
+          "full_range_km": "Reechwäit mat voller Batterie (km; Reservewäert)",
           "ledger_enabled": "Rees- an Opluedgeschicht aktivéieren",
-          "interval_seconds": "Polling-Intervall (Sekonnen)",
-          "idle_interval_seconds": "Polling-Intervall am Roustand (Sekonnen)",
-          "adaptive": "Adaptivt Polling",
+          "interval_seconds": "Intervall fir d’Aktualiséierung (Sekonnen)",
+          "idle_interval_seconds": "Intervall fir d’Aktualiséierung, wann den Auto steet (Sekonnen)",
+          "adaptive": "Adaptivt Aktualiséierungsintervall",
           "connected_entity": "Entitéit fir d’Luederverbindung",
           "charging_entity": "Entitéit fir aktivt Laden",
           "power_entity": "Leeschtungsentitéit vum Ladegerät",
@@ -125,20 +125,20 @@
           "nio_dashboard_path": "Dashboard-URL-Pfad"
         },
         "data_description": {
-          "interval_seconds": "Intervall fir normal Polling. Standard: 15 Sekonne fir Direct NIO an 30 Sekonne fir Companion.",
-          "idle_interval_seconds": "Intervall wann de Gefier roueg ass; et däerf net méi kuerz si wéi dat normaalt Intervall.",
-          "adaptive": "Wann aktivéiert, wielt de Lade-Status dat normaalt oder Rou-Intervall. Onofhängeg vum Gefier-Dashboard an EVCC.",
-          "connected_entity": "Verbindungszoustand vum Lueder; obligatoresch wann adaptivt Ofruffen aktivéiert ass.",
+          "interval_seconds": "Intervall fir déi normal Aktualiséierung. Standard: 15 Sekonne fir Direct NIO an 30 Sekonne fir Companion.",
+          "idle_interval_seconds": "Intervall, wann den Auto net aktiv ass. Et däerf net méi kuerz si wéi dat normalt Intervall.",
+          "adaptive": "Wann aktiv, wielt de Luedstatus dat normalt oder d’Rouintervall. Onofhängeg vum Gefierdashboard an EVCC.",
+          "connected_entity": "Verbindungsstatus vun der Luedstatioun. Néideg, wann dat adaptivt Aktualiséierungsintervall aktiv ass.",
           "charging_entity": "Optionalen Binärsensor oder Sensor fir aktivt Laden.",
-          "power_entity": "Optionalen Leeschtungssensor a W oder kW; adaptivt Polling erfuerdert eng Lade- oder Leeschtungsentitéit.",
+          "power_entity": "Optionalen Leeschtungssensor a W oder kW. Dat adaptivt Aktualiséierungsintervall verlaangt e Sensor fir Lueden oder Leeschtung.",
           "nio_dashboard_enabled": "Füügt ee gemeinsamen NIO-Dashboard an d’Sidebar vun Home Assistant. Et enthält all aktivéiert NIO-Gefierer, déi dës Optioun ausgewielt hunn.",
           "nio_dashboard_path": "Nëmmen en URL-Pfad, z. B. nio. Gefierer am gemeinsame Dashboard mussen dee selwechte Pfad benotzen."
         }
       }
     },
     "error": {
-      "ledger_calibration_required": "Setzt benotzbar Batteriekapazitéit a Vollladungsbereich ier Dir d'Geschicht aktivéiert.",
-      "incomplete_cost_sources": "Set all fënnef opgeholl-Käschte Quellen oder verloossen se eidel.",
+      "ledger_calibration_required": "Gitt déi benotzbar Batteriekapazitéit an d’Reechwäit bei voller Ladung un, ier Dir d’Historik aktivéiert.",
+      "incomplete_cost_sources": "Gitt all fënnef registréiert Käschtequelle un oder loosst se eidel.",
       "invalid_paint_for_model": "Wielt eng Faarf verfügbar fir dësen Autosmodell.",
       "invalid_polling_interval": "Ongëltegt Intervall fir dës Verbindung.",
       "invalid_polling_sources": "Adaptivt Polling erfuerdert eng Verbindungsentitéit an op d’mannst eng Lade- oder Leeschtungsentitéit.",
@@ -148,25 +148,25 @@
   "entity": {
     "sensor": {
       "battery_state_of_charge": {
-        "name": "Batterie Zoustand"
+        "name": "Ladestand vun der Batterie"
       },
       "remaining_range": {
-        "name": "Rescht Gamme"
+        "name": "Reschtlech Reechwäit"
       },
       "charging_state": {
-        "name": "Opluedstatioun"
+        "name": "Luedstatus"
       },
       "charging_target": {
         "name": "Ladeziel"
       },
       "maximum_soc": {
-        "name": "Maximum Staat vun charge"
+        "name": "Maximale Ladestand"
       },
       "high_voltage_battery_current": {
-        "name": "Héichspannung Batterie Stroum"
+        "name": "Stroum vun der Héichspannungsbatterie"
       },
       "data_timestamp": {
-        "name": "Daten Zäitstempel"
+        "name": "Zäitpunkt vun der Date-Miessung"
       }
     }
   },
@@ -189,6 +189,31 @@
         "sunrise-beige": "Sunrise Beige",
         "new-moon-silver": "New Moon Silver",
         "nebula-green": "Nebula Green"
+      }
+    },
+    "model": {
+      "options": {
+        "auto": "Automatesch",
+        "other": "Anere Modell"
+      }
+    },
+    "language": {
+      "options": {
+        "auto": "Automatesch",
+        "en": "English",
+        "nl": "Nederlands",
+        "fr": "Français",
+        "de": "Deutsch",
+        "nb": "Norsk bokmål",
+        "sv": "Svenska",
+        "da": "Dansk",
+        "cs": "Čeština",
+        "el": "Ελληνικά",
+        "hu": "Magyar",
+        "lb": "Lëtzebuergesch",
+        "pl": "Polski",
+        "pt": "Português",
+        "ro": "Română"
       }
     }
   }

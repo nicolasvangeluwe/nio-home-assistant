@@ -39,13 +39,18 @@ export function periodLabel(meta,locale='en'){
 export class NioDashboardHistory extends CarLedgerCard{
  constructor(){super();this.scope='month';this.anchor=null;this.full=true;this.pageSize=36;this._requestId=0;this.filters={location:'all',basis:'all',price:false};}
  get displayLocale(){return this.config?.language||this._hass?.language||'en';}
- translate(value){return super.translate(String(value).replace(/\bVerbruikt\b/g,'Verbruik'));}
+ translate(value){
+  const text=String(value),used=text.match(/^(\s*)Verbruikt ([\d.,\s−-]+) (kWh)(\s*)$/);
+  if(used)return `${used[1]}${super.translate('Verbruikt')} ${used[2]} ${used[3]}${used[4]}`;
+  return super.translate(text);
+ }
  date(ts,options={day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}){return ts?new Date(ts*1000).toLocaleString(this.displayLocale,{hour12:false,...options,timeZone:this._hass?.config?.time_zone||'UTC'}):'—';}
  monthKey(ts){return new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',timeZone:this._hass?.config?.time_zone||'UTC'}).format(new Date(ts*1000));}
  get ui(){const code=this.displayLocale.toLowerCase().split(/[-_]/)[0];return Object.fromEntries(UI_KEYS.map((key,i)=>[key,(UI_ROWS[code]||UI_ROWS.en)[i]]));}
  get emptyPeriodLabel(){const filtered=this.tab==='charging'&&(this.filters.location!=='all'||this.filters.price)||this.tab==='trips'&&this.filters.basis!=='all';const labels=filtered?EMPTY_FILTERS:EMPTY_PERIOD;return labels[this.displayLocale.toLowerCase().split(/[-_]/)[0]]||labels.en;}
  setConfig(config){
   const changed=this.config?.entry_id!==config.entry_id;this.config={...config};
+  this.setAttribute?.('lang',this.displayLocale);
   if(changed){this._requestId++;this.snapshot=null;this.fullSnapshot=null;this.anchor=null;this.scope='month';this.filters={location:'all',basis:'all',price:false};}
   this.render();if(this._hass&&this.isConnected)this.refresh();
  }
@@ -65,7 +70,7 @@ export class NioDashboardHistory extends CarLedgerCard{
    this.applyView();
    this.dispatchEvent(new CustomEvent('nio-history-updated',{bubbles:true,composed:true,detail:{entry_id:this.config.entry_id,snapshot:this.fullSnapshot}}));
    if(this.shadowRoot.querySelector('dialog[open]')){this._deferredRender=true;this.refreshState();}else this.render();
-  }catch(error){if(request===this._requestId){this.error=error.message||this.ui.loading;if(!this.snapshot)this.render();else this.refreshState();}}
+  }catch(error){if(request===this._requestId){this.error=this.localizeError(error,this.ui.loading);if(!this.snapshot)this.render();else this.refreshState();}}
   finally{if(request===this._requestId){this.loading=false;this.refreshState();}}
  }
  applyView(){
@@ -84,7 +89,7 @@ export class NioDashboardHistory extends CarLedgerCard{
   if(!this.config)return;
   if(!this.snapshot){
    const u=this.ui;
-   this.shadowRoot.innerHTML=`<style>${CarLedgerCard.styles}${HISTORY_STYLE}</style><ha-card><div class="history-context"><div class="top"><nav class="main-tabs" aria-label="${this.esc(this.translate('Autohistoriek'))}">${[['charging',u.charging],['trips',u.trips],['insight',u.energy],['parked',u.parked]].map(([key,label])=>`<button type="button" data-tab="${key}" class="${this.tab===key?'selected':''}" aria-pressed="${this.tab===key}">${this.esc(label)}</button>`).join('')}</nav></div><nav class="history-scopes periods" style="--period-count:4" aria-label="${this.esc(this.ui.date)}">${['day','week','month','year'].map(key=>`<button type="button" data-scope="${key}" class="${this.scope===key?'selected':''}" aria-pressed="${this.scope===key}">${this.esc(u[key])}</button>`).join('')}</nav></div><p class="empty" role="status">${this.esc(this.error||u.loading)}</p><button type="button" data-action="refresh" class="text">${this.esc(u.refresh)}</button></ha-card>`;
+   this.shadowRoot.innerHTML=`<style>${CarLedgerCard.styles}${HISTORY_STYLE}</style><ha-card><div class="history-context"><div class="top"><nav class="main-tabs" aria-label="${this.esc(this.translate('Autohistoriek'))}">${[['charging',u.charging],['trips',u.trips],['insight',u.energy],['parked',u.parked]].map(([key,label])=>`<button type="button" data-tab="${key}" class="${this.tab===key?'selected':''}" aria-pressed="${this.tab===key}">${this.esc(label)}</button>`).join('')}</nav></div><nav class="history-scopes periods" style="--period-count:4" aria-label="${this.esc(this.ui.date)}">${['day','week','month','year'].map(key=>`<button type="button" data-scope="${key}" class="${this.scope===key?'selected':''}" aria-pressed="${this.scope===key}">${this.esc(u[key])}</button>`).join('')}</nav></div><p class="empty" role="status">${this.esc(this.translate(this.error||u.loading))}</p><button type="button" data-action="refresh" class="text">${this.esc(u.refresh)}</button></ha-card>`;
    this.shadowRoot.addEventListener('click',this._clickHandler ||= e=>this.click(e));this.refreshState();return;
   }
   this.applyView();this.full=true;super.render();
