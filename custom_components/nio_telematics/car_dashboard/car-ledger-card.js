@@ -1701,6 +1701,27 @@ class CarLedgerCard extends HTMLElement {
     pt:{mixed:'Os custos em moedas diferentes permanecem separados; não é apresentado um total convertido.',conflict:'Este valor guardado usa outra moeda. O valor e a moeda originais são mantidos.'},
     ro:{mixed:'Costurile în monede diferite rămân separate; nu este afișat un total convertit.',conflict:'Această sumă salvată folosește altă monedă. Suma și moneda originale sunt păstrate.'}
   };return (copy[lang]||copy.en)[kind];}
+  historyCurrencyWarning(warning){
+    if(warning?.code!=='history_currency_assumed')return '';
+    const lang=(this.displayLocale||'en').toLowerCase().split(/[-_]/)[0],copy={
+      en:'Check history currency. {source} does not declare its currency. New costs use {current}; earlier imported records use {previous}. Declare the source’s actual currency before relying on these amounts.',
+      nl:'Controleer de historiekvaluta. {source} vermeldt geen valuta. Nieuwe kosten gebruiken {current}; eerder geïmporteerde records gebruiken {previous}. Stel de werkelijke valuta van de bron in voordat je op deze bedragen vertrouwt.',
+      fr:'Vérifiez la devise de l’historique. {source} ne déclare aucune devise. Les nouveaux coûts utilisent {current} ; les anciens enregistrements importés utilisent {previous}. Déclarez la devise réelle de la source avant de vous fier à ces montants.',
+      de:'Prüfen Sie die Währung des Verlaufs. {source} gibt keine Währung an. Neue Kosten verwenden {current}; ältere importierte Einträge verwenden {previous}. Legen Sie die tatsächliche Währung der Quelle fest, bevor Sie sich auf diese Beträge verlassen.',
+      nb:'Kontroller valutaen i historikken. {source} oppgir ikke valuta. Nye kostnader bruker {current}; eldre importerte oppføringer bruker {previous}. Angi kildens faktiske valuta før du stoler på beløpene.',
+      sv:'Kontrollera historikens valuta. {source} anger ingen valuta. Nya kostnader använder {current}; äldre importerade poster använder {previous}. Ange källans faktiska valuta innan du förlitar dig på beloppen.',
+      da:'Kontrollér historikkens valuta. {source} angiver ingen valuta. Nye omkostninger bruger {current}; ældre importerede poster bruger {previous}. Angiv kildens faktiske valuta, før du stoler på beløbene.',
+      cs:'Zkontrolujte měnu historie. {source} měnu neuvádí. Nové náklady používají {current}; starší importované záznamy používají {previous}. Před spoléháním na tyto částky nastavte skutečnou měnu zdroje.',
+      el:'Ελέγξτε το νόμισμα του ιστορικού. Το {source} δεν δηλώνει νόμισμα. Τα νέα κόστη χρησιμοποιούν {current}· οι παλαιότερες εισαγόμενες εγγραφές χρησιμοποιούν {previous}. Δηλώστε το πραγματικό νόμισμα της πηγής πριν βασιστείτε σε αυτά τα ποσά.',
+      hu:'Ellenőrizze az előzmények pénznemét. A(z) {source} nem ad meg pénznemet. Az új költségek pénzneme {current}; a korábban importált bejegyzéseké {previous}. Az összegek használata előtt adja meg a forrás tényleges pénznemét.',
+      lb:'Kontrolléiert d’Währung vun der Historik. {source} gëtt keng Währung un. Nei Käschte benotzen {current}; méi al importéiert Entréeë benotzen {previous}. Gitt déi tatsächlech Währung vun der Quell un, ier Dir Iech op dës Beträg verloosst.',
+      pl:'Sprawdź walutę historii. {source} nie określa waluty. Nowe koszty używają {current}; starsze zaimportowane wpisy używają {previous}. Podaj rzeczywistą walutę źródła, zanim oprzesz się na tych kwotach.',
+      pt:'Verifique a moeda do histórico. {source} não declara uma moeda. Os novos custos usam {current}; os registos importados mais antigos usam {previous}. Indique a moeda real da origem antes de confiar nestes valores.',
+      ro:'Verificați moneda istoricului. {source} nu declară moneda. Costurile noi folosesc {current}; înregistrările importate mai vechi folosesc {previous}. Declarați moneda reală a sursei înainte de a vă baza pe aceste sume.'
+    };
+    const values={source:String(warning.source||''),current:String(warning.currency||''),previous:Array.isArray(warning.previous_currencies)?warning.previous_currencies.join(', '):''};
+    return (copy[lang]||copy.en).replace(/\{(source|current|previous)\}/g,(_match,key)=>values[key]);
+  }
   gapCopy(key){const lang=(this.displayLocale||'en').toLowerCase().split(/[-_]/)[0],base=(LEDGER_GAP_COPY[lang]||LEDGER_GAP_COPY.en)[key];return base??(LEDGER_GAP_EXTRA[lang]||LEDGER_GAP_EXTRA.en)[key];}
   savedRefreshCopy(){const lang=(this.displayLocale||'en').toLowerCase().split(/[-_]/)[0];return ({en:'Saved. Refresh history to see the update.',nl:'Opgeslagen. Vernieuw de historiek om de wijziging te zien.',fr:'Enregistré. Actualisez l’historique pour voir la modification.',de:'Gespeichert. Aktualisieren Sie den Verlauf, um die Änderung zu sehen.',nb:'Lagret. Oppdater historikken for å se endringen.',sv:'Sparat. Uppdatera historiken för att se ändringen.',da:'Gemt. Opdater historikken for at se ændringen.',cs:'Uloženo. Aktualizujte historii, abyste viděli změnu.',el:'Αποθηκεύτηκε. Ανανεώστε το ιστορικό για να δείτε την αλλαγή.',hu:'Mentve. Frissítse az előzményeket a módosítás megtekintéséhez.',lb:'Gespäichert. Erfrëscht d’Historik fir d’Ännerung ze gesinn.',pl:'Zapisano. Odśwież historię, aby zobaczyć zmianę.',pt:'Guardado. Atualize o histórico para ver a alteração.',ro:'Salvat. Reîmprospătați istoricul pentru a vedea modificarea.'})[lang]||'Saved. Refresh history to see the update.';}
   tripCopy(){const lang=(this.displayLocale||'en').toLowerCase().split(/[-_]/)[0];return (LEDGER_TRIP_COPY[lang]||LEDGER_TRIP_COPY.en);}
@@ -1931,7 +1952,7 @@ class CarLedgerCard extends HTMLElement {
     if(b.dataset.unit){this.graphUnit=b.dataset.unit;this.render();return;}
     if(b.dataset.charge){const charge=this.snapshot.charges.find(c=>c.id===b.dataset.charge);if(charge?.ongoing)return;this.chargeDialog(charge);return;}
     if(b.dataset.trip){this.tripDialog(this.snapshot.trips.find(t=>t.id===b.dataset.trip));return;}
-    if(b.dataset.parked){const p=this.snapshot.parked_periods.find(r=>r.id===b.dataset.parked);this.dialog('Stilstand',`<p>${this.date(p.start)} → ${this.date(p.end)}</p><div class="metrics three">${this.value('Duur',(p.end-p.start)/60,'min',0)}${this.value('Verbruikt',p.kwh,'kWh',2)}${this.value('Batterij',p.soc_used_pct,'%')}</div><p class="muted">Geschatte energieafname tussen metingen met dezelfde kilometerstand. Los van rijverbruik; oorzaken zijn niet gemeten.</p>`);return;}
+    if(b.dataset.parked){const p=this.snapshot.parked_periods.find(r=>r.id===b.dataset.parked);this.parkedDialog(p);return;}
     if(b.dataset.reset){const c=this.snapshot.counters.find(c=>c.id===b.dataset.reset);this.dialog('Ritteller opnieuw starten',`<p>${this.counterResetPrompt(c.name)}</p>`,async()=>this.update('counter',{ident:c.id,name:c.name}));return;}
     switch(b.dataset.action){
       case'refresh':await this.refresh();break;
@@ -1943,6 +1964,7 @@ class CarLedgerCard extends HTMLElement {
       case'settings':this.settingsDialog();break;
     }
   }
+  parkedDialog(p){this.dialog('Stilstand',`<p>${this.date(p.start)} → ${this.date(p.end)}</p><div class="metrics three">${this.value('Duur',(p.end-p.start)/60,'min',0)}${this.value('Verbruikt',p.kwh,'kWh',2)}${this.value('Batterij',p.soc_used_pct,'%')}</div><p class="muted">Geschatte energieafname tussen metingen met dezelfde kilometerstand. Los van rijverbruik; oorzaken zijn niet gemeten.</p>`);}
   localISO(d){const local=new Date(d.getTime()-d.getTimezoneOffset()*60000);return local.toISOString().slice(0,10);}
   inputDate(t){const d=new Date(t*1000);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);}
   chargeDialog(c){
@@ -1977,7 +1999,7 @@ class CarLedgerCard extends HTMLElement {
     this.shadowRoot.append(el);el.addEventListener('close',()=>el.remove());el.querySelector('[data-close]').onclick=()=>el.close();
     this.localize(el);
     el.addEventListener('click',async e=>{if(e.target===el)el.close();if(e.target.closest('[data-dismiss]')){try{await this.update('dismiss_candidate',{ident:c.id});el.close();}catch(err){el.querySelector('.form-error').textContent=this.translate(this.localizeError(err));}}});
-    const saveForm=el.querySelector('[data-dialog-save]');if(saveForm)saveForm.onsubmit=async e=>{e.preventDefault();const button=el.querySelector('.save');button.disabled=true;try{await save(new FormData(e.target));el.close();}catch(err){el.querySelector('.form-error').textContent=this.translate(this.localizeError(err));button.disabled=false;}};el.showModal();
+    const saveForm=el.querySelector('[data-dialog-save]');if(saveForm)saveForm.onsubmit=async e=>{e.preventDefault();const button=el.querySelector('.save');button.disabled=true;try{const result=await save(new FormData(e.target));if(result===false)return;el.close();}catch(err){el.querySelector('.form-error').textContent=this.translate(this.localizeError(err));button.disabled=false;}};el.showModal();return el;
   }
   async update(action,values){this.snapshot=this.prepareSnapshot(await this._hass.callWS({type:'nio_telematics/car_dashboard/update',entry_id:this.config.entry_id,action,values}));this.render();}
   static styles=`

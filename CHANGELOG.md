@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.7.0-dev.7
+
+Development release — experimental.
+
+- Load embedded vehicle-card History independently of the optional managed
+  sidebar dashboard. Clear the unavailable message and Retry control after a
+  successful retry (#32).
+- Hold an abrupt Direct joint 0%/0km reading after a positive battery reading
+  until a later successful energy read confirms it after 60 seconds with
+  advancing source timestamps. Retain the previous readings and their clocks
+  while pending; initial and near-empty zero readings remain valid (#33).
+- Add optional, reversible measurement-error exclusions in Parked details.
+  Preserve raw readings, show excluded decisions with Undo, and only exclude a
+  paired inferred charging candidate when its matching evidence remains valid.
+  Confirmed charging receipts are protected (#33).
+- Preserve a fully known booked battery price across a charging overlap only
+  when every overlapping session is confirmed, priced and currency-compatible.
+  Keep missing energy unaccounted. Reset the next native energy anchor and
+  correct proven legacy v2 anchor spillover in derived views while preserving
+  the archive and existing Manual/Ignore decisions (#28).
+- Warn in History when an undeclared source currency meets older imported
+  records in a different currency. Declare the source's actual currency and
+  correct its amounts where needed; no exchange-rate conversion is performed.
+  Localize the new notices and correction controls in all 14 languages (#27).
+
 ## 0.7.0-dev.6
 
 Development release — experimental.

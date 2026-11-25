@@ -922,8 +922,9 @@ class NioVehicleDashboard extends NioVehicleCard {
  const host=this.shadowRoot.querySelector('[data-history]');if(!host)return;
  if(!customElements.get('nio-dashboard-history')){try{const url=this.config?.history_url||'/nio_telematics/nio-dashboard-history.js';await import(retry?`${url}${url.includes('?')?'&':'?'}retry=${Date.now()}`:url);}catch(_){this.renderHistoryUnavailable();return;}}
  if(this.vehicle?.entry_id!==entryId||!host.isConnected)return;
+ const existing=host.querySelector('nio-dashboard-history');if(existing){existing.hass=this._hass;return;}
  const history=document.createElement('nio-dashboard-history');history.setConfig({entry_id:entryId,language:this.locale(),base_url:this.config?.history_base_url});
- history.addEventListener('nio-history-updated',event=>{if(event.detail?.entry_id!==entryId)return;this._historySnapshot=event.detail.snapshot||null;this.updateDashboardDetails();});host.append(history);history.hass=this._hass;
+ history.addEventListener('nio-history-updated',event=>{if(event.detail?.entry_id!==entryId)return;this._historySnapshot=event.detail.snapshot||null;this.updateDashboardDetails();});host.replaceChildren(history);history.hass=this._hass;
 }
   updateDashboardDetails(){
  const root=this.shadowRoot?.querySelector('.dashboard[data-entry-id]');if(!root)return;const v=this.vehicle,w=this.words,ui=w.dashboardUI||NIO_DASHBOARD_UI.en,p=v?.preferences||{};

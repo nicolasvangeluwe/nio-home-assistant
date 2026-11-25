@@ -17,6 +17,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DEFAULTS, DOMAIN
 from .cost_adapter import CostRecorder
+from .currency_warnings import history_currency_warning
 from .ledger import (
     Ledger,
     currency_code,
@@ -266,6 +267,17 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
                 result["charges"].insert(0, active)
         result["source_status"] = self.source_status
         result["source_config"] = dict(self.settings)
+        history_id = self.settings.get("home_history")
+        history_state = self.hass.states.get(history_id) if history_id else None
+        result["history_currency_warning"] = (
+            history_currency_warning(
+                self.ledger,
+                history_state.attributes,
+                history_state.attributes.get("friendly_name", history_id),
+            )
+            if history_state
+            else None
+        )
         return self.cost_recorder.enrich(result)
 
     async def mutate(self, action, values):

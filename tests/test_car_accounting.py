@@ -393,21 +393,22 @@ class AccountingTests(unittest.TestCase):
                 ledger.add_charge(self.t + 1000, self.t + 2000, 1, receipt=0.3)
             self.assertIsNone(ledger.cost_segments()[-1]["cost_eur"])
 
-    def test_legacy_anchor_overlap_excluded_only_in_derived_native_view(self):
+    def test_legacy_anchor_overlap_uses_proven_v2_endpoints_without_archive_edits(self):
         ledger = self.native_gap()
         raw = ledger.data["active"]["segments"][-1]
         raw["kwh"] = 3.6  # Signature produced by the former pre-gap anchor.
         before = deepcopy(ledger.data)
         projected = ledger.snapshot(self.t + 4800)
-        self.assertEqual(
-            projected["driving_segments"][-1]["invalid_reason"], "legacy_gap_overlap"
-        )
-        self.assertIsNone(projected["driving_segments"][-1]["kwh"])
-        self.assertIsNone(projected["trips"][0]["segments"][-1]["kwh"])
+        self.assertTrue(projected["driving_segments"][-1]["native_anchor_corrected"])
+        self.assertAlmostEqual(projected["driving_segments"][-1]["kwh"], 1.8)
+        self.assertAlmostEqual(projected["trips"][0]["segments"][-1]["kwh"], 1.8)
         self.assertEqual(ledger.data, before)
         # Other native asynchrony is not a sufficient exclusion signature.
         raw["kwh"] = 2.1
         self.assertEqual(ledger.cost_segments()[-1]["kwh"], 2.1)
+        raw["kwh"] = 3.6
+        ledger.data["active"]["native_alignment_version"] = 1
+        self.assertIsNone(ledger.cost_segments()[-1]["kwh"])
 
     def test_independent_reference_gap_then_two_charges(self):
         ledger = self.ledger()

@@ -146,6 +146,7 @@ class Ledger:
         self.data.setdefault("pending_epoch", None)
         self.data.setdefault("native_replays", {})
         self.data.setdefault("gap_resolutions", {})
+        self.data.setdefault("measurement_errors", {})
         self.currency_migrated = False
         for charge in self.data["charges"].values():
             if "currency" not in charge:
@@ -667,7 +668,7 @@ class Ledger:
                     "end_energy": sample["energy"],
                 }
                 trip["segments"].append(segment)
-                if source == "native_soc" and invalid_reason == "gap":
+                if source == "native_soc" and invalid_reason in ("gap", "charging"):
                     # Resume from this observed endpoint, never price or count
                     # the unavailable gap again in the next movement window.
                     trip["energy_anchor"] = sample["energy"]
@@ -949,13 +950,135 @@ class Ledger:
             [self.data["active"]] if self.data["active"] else []
         )
 
+    def measurement_error_intervals(self):
+        """Offer raw-loss identities; only an explicit user choice excludes one."""
+        intervals = []
+        for loss in self.data["parked_losses"]:
+            ident = (
+                "loss-"
+                + sha256(json.dumps([loss["start"], loss["end"]]).encode()).hexdigest()[
+                    :24
+                ]
+            )
+            fingerprint = sha256(json.dumps(loss, sort_keys=True).encode()).hexdigest()
+            paired = [
+                c
+                for c in self.data["charges"].values()
+                if c["kind"] in ("candidate", "dismissed")
+                and not c.get("confirmed")
+                and c.get("cost_eur") is None
+                and c.get("price_eur_kwh") is None
+                and c["start"] == loss["end"]
+                and 0 < c["end"] - c["start"] <= 60
+                and abs(c["kwh"] - loss["kwh"]) <= 1e-6
+                and abs(c.get("estimated_kwh", -1) - loss["kwh"]) <= 1e-6
+                and not any(
+                    other.get("confirmed")
+                    and other["kind"] != "dismissed"
+                    and other["start"] < c["end"]
+                    and other["end"] > loss["start"]
+                    for other in self.data["charges"].values()
+                )
+                and not any(
+                    loss["start"] <= t["t"] <= c["end"]
+                    for t in self.data["source_transitions"]
+                )
+            ]
+            candidate = paired[0] if len(paired) == 1 else None
+            candidate_fingerprint = (
+                sha256(json.dumps(candidate, sort_keys=True).encode()).hexdigest()
+                if candidate
+                else None
+            )
+            saved = self.data["measurement_errors"].get(ident)
+            state = (
+                ("excluded" if saved["fingerprint"] == fingerprint else "stale")
+                if saved
+                else "open"
+            )
+            intervals.append(
+                {
+                    "id": ident,
+                    "fingerprint": fingerprint,
+                    "start": loss["start"],
+                    "end": loss["end"],
+                    "kwh": loss["kwh"],
+                    "state": state,
+                    "measurement_error": state == "excluded",
+                    "paired_candidate_id": candidate["id"] if candidate else None,
+                    "paired_candidate_kwh": candidate["kwh"] if candidate else None,
+                    "paired_candidate_fingerprint": candidate_fingerprint,
+                    "paired_candidate_excluded": bool(
+                        state == "excluded"
+                        and candidate
+                        and saved.get("paired_candidate_id") == candidate["id"]
+                        and saved.get("paired_candidate_fingerprint")
+                        == candidate_fingerprint
+                    ),
+                }
+            )
+        return intervals
+
+    def set_measurement_error(self, ident, fingerprint, excluded):
+        """Reversibly exclude a user-identified loss without editing raw evidence."""
+        if not isinstance(excluded, bool):
+            raise ValueError("Choose whether the interval is a measurement error")
+        interval = next(
+            (r for r in self.measurement_error_intervals() if r["id"] == ident), None
+        )
+        saved = self.data["measurement_errors"].get(ident)
+        if (
+            not excluded
+            and interval is None
+            and saved
+            and saved["fingerprint"] == fingerprint
+        ):
+            self.data["measurement_errors"].pop(ident)
+        elif interval is None or interval["fingerprint"] != fingerprint:
+            raise ValueError("The parked interval changed; refresh before saving")
+        elif excluded:
+            self.data["measurement_errors"][ident] = {
+                key: interval[key]
+                for key in (
+                    "fingerprint",
+                    "start",
+                    "end",
+                    "kwh",
+                    "paired_candidate_id",
+                    "paired_candidate_fingerprint",
+                )
+            }
+        else:
+            self.data["measurement_errors"].pop(ident, None)
+        self.changed()
+
+    def accounting_charges(self):
+        excluded = {
+            r["paired_candidate_id"]
+            for r in self.measurement_error_intervals()
+            if r["paired_candidate_excluded"]
+        }
+        return [c for c in self.data["charges"].values() if c["id"] not in excluded]
+
+    def accounting_parked_losses(self):
+        excluded = {
+            (r["start"], r["end"])
+            for r in self.measurement_error_intervals()
+            if r["measurement_error"]
+        }
+        return [
+            r
+            for r in self.data["parked_losses"]
+            if (r["start"], r["end"]) not in excluded
+        ]
+
     def accounting_segments(self, trip, apply_resolutions=True):
         """Exclude a proven legacy gap-anchor overlap without changing archives."""
         rows = deepcopy(trip["segments"])
         for previous, row in zip(rows, rows[1:], strict=False):
             if (
                 trip.get("native_alignment_version", 0) < 1
-                or previous.get("invalid_reason") != "gap"
+                or previous.get("invalid_reason") not in ("gap", "charging")
                 or row.get("kwh") is None
             ):
                 continue
@@ -975,11 +1098,54 @@ class Ledger:
                 and not row.get("invalid_reason")
                 and abs(row["kwh"] - (before - end)) <= 1e-6
             ):
-                row.update(
-                    kwh=None, complete=False, invalid_reason="legacy_gap_overlap"
+                independently_aligned = (
+                    trip.get("native_alignment_version", 0) >= 2
+                    and not any(
+                        c["kind"] != "dismissed"
+                        and c["start"] < row["end"]
+                        and c["end"] > row["start"]
+                        for c in self.accounting_charges()
+                    )
+                    and not any(
+                        row["start"] <= t["t"] <= row["end"]
+                        for t in self.data["source_transitions"]
+                    )
+                    and not any(
+                        loss["start"] < row["end"] and loss["end"] > row["start"]
+                        for loss in self.accounting_parked_losses()
+                    )
                 )
+                if independently_aligned:
+                    row.update(
+                        recorded_kwh=row["kwh"],
+                        kwh=after - end,
+                        native_anchor_corrected=True,
+                        energy_basis="native_soc_anchor_replay",
+                        legacy_anchor_reason=(
+                            "legacy_charging_overlap"
+                            if previous.get("invalid_reason") == "charging"
+                            else "legacy_gap_overlap"
+                        ),
+                    )
+                else:
+                    row.update(
+                        kwh=None,
+                        complete=False,
+                        invalid_reason=(
+                            "legacy_charging_overlap"
+                            if previous.get("invalid_reason") == "charging"
+                            else "legacy_gap_overlap"
+                        ),
+                    )
         for original, row in zip(trip["segments"], rows, strict=True):
-            if row.get("invalid_reason") not in ("gap", "legacy_gap_overlap"):
+            if not row.get("native_anchor_corrected") and row.get(
+                "invalid_reason"
+            ) not in (
+                "gap",
+                "legacy_gap_overlap",
+                "charging",
+                "legacy_charging_overlap",
+            ):
                 continue
             ident = (
                 "gap-"
@@ -1007,6 +1173,15 @@ class Ledger:
                 ).encode()
             ).hexdigest()
             saved = self.data["gap_resolutions"].get(ident)
+            if row.get("native_anchor_corrected"):
+                if not saved or saved["fingerprint"] != fingerprint:
+                    continue
+                # An unchanged dev.6 manual/Ignore decision has priority over
+                # the newly available native correction. Undo reveals it.
+                row.update(
+                    kwh=None, complete=False, invalid_reason=row["legacy_anchor_reason"]
+                )
+                row.pop("native_anchor_corrected", None)
             resolution = (
                 (saved["status"] if saved["fingerprint"] == fingerprint else "stale")
                 if saved
@@ -1132,7 +1307,8 @@ class Ledger:
         known_energy = stock if initial_price is not None else 0.0
         value = stock * (initial_price or 0)
         events = []
-        for charge in self.data["charges"].values():
+        charges = self.accounting_charges()
+        for charge in charges:
             if (
                 charge["kind"] != "dismissed"
                 and not charge.get("ongoing")
@@ -1142,7 +1318,7 @@ class Ledger:
         for trip in self.all_trips():
             for segment in self.accounting_segments(trip, apply_resolutions=False):
                 events.append((segment["end"], 1, "trip", segment))
-        for loss in self.data["parked_losses"]:
+        for loss in self.accounting_parked_losses():
             events.append((loss["end"], 1, "parked", loss))
         for transition in self.data["source_transitions"]:
             events.append((transition["t"], -1, "source_transition", transition))
@@ -1180,23 +1356,44 @@ class Ledger:
                 price = value / stock if stock > 0 else None
                 start_energy = number(row.get("start_energy"))
                 end_energy = number(row.get("end_energy"))
+                overlapping = [
+                    c
+                    for c in charges
+                    if c["kind"] != "dismissed"
+                    and c["start"] < row["end"]
+                    and c["end"] > row["start"]
+                ]
+                discharged = (
+                    row.get("invalid_reason")
+                    in ("gap", "legacy_gap_overlap", "legacy_charging_overlap")
+                    and not overlapping
+                    and None not in (start_energy, end_energy)
+                    and end_energy <= start_energy
+                )
+                priced_charging = (
+                    row.get("invalid_reason") == "charging"
+                    and bool(overlapping)
+                    and all(
+                        c.get("confirmed")
+                        and not c.get("ongoing")
+                        and c.get("cost_eur") is not None
+                        and c.get("currency", "EUR") == self.currency
+                        and c["end"] <= row["end"]
+                        for c in overlapping
+                    )
+                )
                 can_carry = (
                     energy is None
-                    and row.get("invalid_reason") in ("gap", "legacy_gap_overlap")
+                    and (discharged or priced_charging)
                     and None not in (start_energy, end_energy)
-                    and 0 <= end_energy <= start_energy <= capacity
+                    and 0 <= start_energy <= capacity
+                    and 0 <= end_energy <= capacity
                     # Endpoint reconciliation can remove booked stock, never
                     # introduce unrecorded energy with an invented known price.
                     and start_energy <= stock + 1e-6
                     and end_energy <= stock + 1e-6
                     and stock > 0
                     and known_energy >= stock - 1e-6
-                    and not any(
-                        c["kind"] != "dismissed"
-                        and c["start"] < row["end"]
-                        and c["end"] > row["start"]
-                        for c in self.data["charges"].values()
-                    )
                     and not any(
                         row["start"] <= t["t"] <= row["end"]
                         for t in self.data["source_transitions"]
@@ -1339,7 +1536,7 @@ class Ledger:
         cost = sum(r["cost_eur"] for r in priced) if priced else None
         charges = [
             c
-            for c in self.data["charges"].values()
+            for c in self.accounting_charges()
             if c["kind"] != "dismissed"
             and not c.get("ongoing")
             and start <= c["end"] <= end
@@ -1399,7 +1596,7 @@ class Ledger:
             "used_kwh": energy,
             "parked_loss_estimate_kwh": sum(
                 r["kwh"]
-                for r in self.data["parked_losses"]
+                for r in self.accounting_parked_losses()
                 if start <= r["end"] <= end and r["complete"]
             ),
             "soc_used_pct": energy / self.settings["capacity_kwh"] * 100
@@ -1690,7 +1887,10 @@ class Ledger:
     def parked_periods(self, tz=UTC):
         """Expose recorded stationary decreases, joining only touching intervals."""
         periods = []
-        for row in sorted(self.data["parked_losses"], key=lambda r: r["start"]):
+        raw_intervals = {
+            (r["start"], r["end"]): r for r in self.measurement_error_intervals()
+        }
+        for row in sorted(self.accounting_parked_losses(), key=lambda r: r["start"]):
             if (
                 not row.get("complete")
                 or number(row.get("kwh")) is None
@@ -1705,6 +1905,9 @@ class Ledger:
             if same_month and abs(periods[-1]["end"] - row["start"]) < 0.001:
                 periods[-1]["end"] = row["end"]
                 periods[-1]["kwh"] += row["kwh"]
+                periods[-1]["intervals"].append(
+                    raw_intervals[(row["start"], row["end"])]
+                )
             else:
                 periods.append(
                     {
@@ -1712,6 +1915,7 @@ class Ledger:
                         "start": row["start"],
                         "end": row["end"],
                         "kwh": row["kwh"],
+                        "intervals": [raw_intervals[(row["start"], row["end"])]],
                     }
                 )
         for period in periods:
@@ -1724,7 +1928,7 @@ class Ledger:
         charges = sorted(
             (
                 c
-                for c in self.data["charges"].values()
+                for c in self.accounting_charges()
                 if c["kind"] != "dismissed" and not c.get("ongoing")
             ),
             key=lambda c: c["end"],
@@ -1828,10 +2032,19 @@ class Ledger:
             )
         intervals = self.unaccounted_intervals()
         interval_ids = {r["id"] for r in intervals}
+        parked_intervals = self.measurement_error_intervals()
+        parked_ids = {r["id"] for r in parked_intervals}
         return {
             "currency": self.currency,
             "revision": self.data["revision"],
             "unaccounted_intervals": intervals,
+            "parked_intervals": parked_intervals,
+            "measurement_errors": [r for r in parked_intervals if r["state"] != "open"]
+            + [
+                {"id": ident, **record, "state": "stale", "measurement_error": False}
+                for ident, record in self.data["measurement_errors"].items()
+                if ident not in parked_ids
+            ],
             "stale_gap_resolution_count": sum(
                 r["resolution"] == "stale" for r in intervals
             )
