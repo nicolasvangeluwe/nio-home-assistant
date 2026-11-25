@@ -1726,6 +1726,39 @@ class Ledger:
         value = stock * (initial_price or 0)
         events = []
         charges = self.accounting_charges()
+
+        def fully_priced(charge):
+            return (
+                charge.get("confirmed")
+                and charge["kind"] not in ("candidate", "dismissed")
+                and not charge.get("ongoing")
+                and number(charge.get("cost_eur")) is not None
+                and (number(charge.get("kwh")) or 0) > 0
+                and charge.get("currency", "EUR") == self.currency
+            )
+
+        native_windows = set()
+
+        def native_start_after(row, settled_at):
+            """Require the START's own retained native source observation."""
+            if (row["start"], row["end"], row["km"]) not in native_windows:
+                return False
+            energy = number(row.get("start_energy"))
+            return energy is not None and any(
+                sample["t"] == row["start"]
+                and sample.get("energy_source") == "native_soc"
+                and abs(sample["energy"] - energy) <= 1e-6
+                and sample.get("capacity_kwh", self._capacity_at(sample["t"]))
+                == capacity
+                and any(
+                    settled_at <= report["t"] <= sample["t"]
+                    and sample["t"] - report["t"] <= 180
+                    and abs(report["soc"] / 100 * capacity - energy) <= 1e-6
+                    for report in self.data.get("native_soc_reports", [])
+                )
+                for sample in self.data["samples"]
+            )
+
         for charge in charges:
             if (
                 charge["kind"] != "dismissed"
@@ -1736,6 +1769,36 @@ class Ledger:
         for trip in self.all_trips():
             for segment in self.accounting_segments(trip, apply_resolutions=False):
                 events.append((segment["end"], 1, "trip", segment))
+                if trip.get("native_alignment_version") == 2:
+                    native_windows.add(
+                        (segment["start"], segment["end"], segment["km"])
+                    )
+                    if (
+                        segment["kwh"] is None
+                        and segment.get("invalid_reason") == "charging"
+                    ):
+                        overlap = [
+                            c
+                            for c in charges
+                            if c["kind"] != "dismissed"
+                            and c["start"] < segment["end"]
+                            and c["end"] > segment["start"]
+                        ]
+                        if (
+                            overlap
+                            and all(fully_priced(c) for c in overlap)
+                            and any(c["end"] > segment["end"] for c in overlap)
+                        ):
+                            # Open before receipt end events, after any preceding
+                            # movement ending at this same timestamp.
+                            events.append(
+                                (
+                                    segment["start"],
+                                    2,
+                                    "deferred_start",
+                                    (segment, overlap),
+                                )
+                            )
         for loss in self.accounting_parked_losses():
             events.append((loss["end"], 1, "parked", loss))
         for loss in self.unaccounted_parked_intervals():
@@ -1758,12 +1821,48 @@ class Ledger:
         for transition in self.data["source_transitions"]:
             events.append((transition["t"], -1, "source_transition", transition))
         result = []
+        deferred = None
         for _, _, kind, row in sorted(events, key=lambda x: (x[0], x[1])):
-            if kind == "source_transition":
+            if kind == "deferred_start":
+                segment, overlap = row
+                start = number(segment.get("start_energy"))
+                end = number(segment.get("end_energy"))
+                if deferred is not None:
+                    deferred = None
+                elif (
+                    0 < stock <= capacity + 1e-6
+                    and known_energy >= stock - 1e-6
+                    and start is not None
+                    and 0 <= start <= min(stock, capacity) + 1e-6
+                    and end is not None
+                    and 0 <= end <= capacity
+                ):
+                    # Nominal available energy/value, NOT physical battery
+                    # stock. It may exceed capacity before unknown withdrawals.
+                    deferred = {
+                        "stock": start,
+                        "value": start * value / stock,
+                        "origin": (segment["start"], segment["end"]),
+                        "settled_at": max(c["end"] for c in overlap),
+                        "remaining": {c["id"] for c in overlap},
+                        "receipts": {c["id"] for c in overlap},
+                    }
+                known_energy = value = 0.0
+            elif kind == "source_transition":
+                deferred = None
                 stock = row["energy"]
                 capacity = row["capacity_kwh"]
                 known_energy = value = 0.0
             elif kind == "charge":
+                if deferred is not None:
+                    if row["id"] in deferred["remaining"] and fully_priced(row):
+                        deferred["stock"] += row["kwh"]
+                        deferred["value"] += row["cost_eur"]
+                        deferred["remaining"].remove(row["id"])
+                        # Credit this receipt once, without clamping energy
+                        # and retaining its full cost in physical stock.
+                        continue
+                    deferred = None
                 kwh = row["kwh"]
                 # Wall-to-battery losses are unknown; allocation is approximate.
                 if stock + kwh > capacity:
@@ -1781,6 +1880,36 @@ class Ledger:
                     known_energy += kwh
                     value += cost
             else:
+                if (
+                    deferred is not None
+                    and kind == "trip"
+                    and (row["start"], row["end"]) != deferred["origin"]
+                ):
+                    quantity = number(row.get("start_energy"))
+                    if (
+                        not deferred["remaining"]
+                        and row["start"] >= deferred["settled_at"]
+                        and native_start_after(row, deferred["settled_at"])
+                        and quantity is not None
+                        and 0 <= quantity <= capacity
+                        and quantity <= deferred["stock"] + 1e-6
+                        and all(
+                            c["id"] in deferred["receipts"]
+                            for c in charges
+                            if c["kind"] != "dismissed"
+                            and c["start"] < row["start"]
+                            and c["end"] > deferred["origin"][0]
+                        )
+                    ):
+                        # Periodic weighted BOOK allocation over the missing
+                        # window. Retire the difference as unaccounted value;
+                        # never fill that window's energy or expense. Only this
+                        # later interval can use its own observed start stock.
+                        stock = known_energy = quantity
+                        value = quantity * deferred["value"] / deferred["stock"]
+                    # An intervening drive or missing START evidence cannot be
+                    # priced retrospectively from this interval's END.
+                    deferred = None
                 energy = row["kwh"]
                 complete = (
                     energy is not None

@@ -11,7 +11,7 @@ const context = {
   window: { customCards: [] },
   fetch: async () => ({ ok: true, json: async () => ({ schema_version: 1, selection: 'model_and_paint', models: [] }) }),
 };
-vm.runInNewContext(source + '\nglobalThis.__test = { NIO_SOURCE_HINT, NIO_INPUT_LABELS, NIO_EVCC_PROMPT, NIO_COST_INPUTS, NIO_FIELD_HELP, NIO_BACKUP_WORDS, NIO_EXTRA, NIO_WORDS, NIO_DASHBOARD_UI, NIO_DASHBOARD_SOLAR, NIO_DASHBOARD_SETTINGS_INTRO, NIO_DASHBOARD_HISTORY_INTRO, NIO_DASHBOARD_RETAINED, NIO_DASHBOARD_RETRY, NIO_HELP_ARIA, NIO_ERROR_FALLBACK, NIO_LANGUAGE_NAMES, NIO_OTHER_MODEL, NIO_CHARGING_UNKNOWN, NIO_CONNECTED_STATUS, NioVehicleCard, NioVehicleDashboard, NioVehicleCardEditor };', context);
+vm.runInNewContext(source + '\nglobalThis.__test = { NIO_SOURCE_HINT, NIO_INPUT_LABELS, NIO_EVCC_PROMPT, NIO_COST_INPUTS, NIO_FIELD_HELP, NIO_BACKUP_WORDS, NIO_BACKUP_TRANSPORT_ERROR, NIO_EXTRA, NIO_WORDS, NIO_DASHBOARD_UI, NIO_DASHBOARD_SOLAR, NIO_DASHBOARD_SETTINGS_INTRO, NIO_DASHBOARD_HISTORY_INTRO, NIO_DASHBOARD_RETAINED, NIO_DASHBOARD_RETRY, NIO_HELP_ARIA, NIO_ERROR_FALLBACK, NIO_LANGUAGE_NAMES, NIO_OTHER_MODEL, NIO_CHARGING_UNKNOWN, NIO_CONNECTED_STATUS, NioVehicleCard, NioVehicleDashboard, NioVehicleCardEditor };', context);
 const maps = context.__test;
 const locales = ['en', 'nl', 'de', 'fr', 'nb', 'sv', 'da', 'cs', 'el', 'hu', 'lb', 'pl', 'pt', 'ro'];
 const placeholders = value => (value.match(/\{[^{}]+\}/g) || []).sort().join('|');
@@ -35,6 +35,11 @@ test('all five setup and backup maps cover all 14 languages without English fall
       for (let i = 0; i < 11; i++) assert.notEqual(maps.NIO_BACKUP_WORDS[locale][i], maps.NIO_BACKUP_WORDS.en[i], locale + ' backup label ' + i);
     }
   }
+});
+
+test('exact-text backup transport restart guidance covers every supported language', () => {
+  assert.deepEqual(Object.keys(maps.NIO_BACKUP_TRANSPORT_ERROR).sort(), [...locales].sort());
+  for (const locale of locales) assert.ok(maps.NIO_BACKUP_TRANSPORT_ERROR[locale].length > 30, locale);
 });
 
 test('every card locale map has complete per-language coverage and the right row shape', () => {

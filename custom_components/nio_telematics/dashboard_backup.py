@@ -12,6 +12,9 @@ from re import fullmatch
 FORMAT = "nio-telematics-dashboard"
 VERSION = 1
 MAX_BYTES = 8 * 1024 * 1024
+# HA's inbound WebSocket envelope defaults to4MiB. Reserve room for action,
+# vehicle/revision and message identifiers; this is not an HTTP setting change.
+TEXT_TRANSFER_BYTES = 4 * 1024 * 1024 - 1024
 FORBIDDEN_KEYS = {
     "access_token",
     "refresh_token",
@@ -47,6 +50,51 @@ def _check_safe(value: object) -> None:
     elif isinstance(value, list):
         for item in value:
             _check_safe(item)
+    elif isinstance(value, float) and not isfinite(value):
+        raise ValueError("Backup contains a nonfinite number")
+
+
+def serialize_backup(backup: dict) -> str:
+    """Preserve numeric representations through browser download and upload."""
+    result = json.dumps(backup, ensure_ascii=False, allow_nan=False)
+    validate_backup_text_size(result)
+    return result
+
+
+def validate_backup_text_size(value: str) -> None:
+    """Bound both file bytes and quoted JSON bytes before transport or parse."""
+    if not isinstance(value, str):
+        raise ValueError("Backup text must be a string")
+    if len(value.encode("utf-8")) > MAX_BYTES:
+        raise ValueError("Backup exceeds the 8 MB transfer limit")
+    if len(json.dumps(value, ensure_ascii=False).encode("utf-8")) > TEXT_TRANSFER_BYTES:
+        raise ValueError("Backup exceeds the safe text transfer limit")
+
+
+def decode_backup_text(value: str) -> dict:
+    """Bound text before parsing; retain original JSON number types and hashes."""
+    validate_backup_text_size(value)
+
+    def object_pairs(pairs):
+        result = {}
+        for key, item in pairs:
+            if key in result:
+                raise ValueError("Backup contains duplicate object keys")
+            result[key] = item
+        return result
+
+    def invalid_constant(value):
+        raise ValueError("Backup contains a nonfinite number")
+
+    try:
+        result = json.loads(
+            value, object_pairs_hook=object_pairs, parse_constant=invalid_constant
+        )
+    except (ValueError, RecursionError) as err:
+        raise ValueError("Not a supported JSON backup") from err
+    if not isinstance(result, dict):
+        raise ValueError("Backup must be an object")
+    return result
 
 
 def validate_history(history: object) -> dict | None:
