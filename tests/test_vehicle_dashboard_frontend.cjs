@@ -6,11 +6,16 @@ const path = require('node:path');
 
 const elements = new Map();
 const source = fs.readFileSync(path.join(__dirname, '../custom_components/nio_telematics/nio-vehicle-card.js'), 'utf8');
-vm.runInNewContext(source, {
+const vehicleWindow = { customCards: [] };
+const vehicleRuntime = {
   HTMLElement: class {},
   customElements: { get: name => elements.get(name), define: (name, cls) => elements.set(name, cls) },
-  window: { customCards: [] },
-});
+  window: vehicleWindow,
+};
+vm.runInNewContext(source.replace(
+  "await import(retry?`${url}${url.includes('?')?'&':'?'}retry=${Date.now()}`:url);",
+  "await window.__loadHistory(retry?`${url}${url.includes('?')?'&':'?'}retry=${Date.now()}`:url);",
+), vehicleRuntime);
 const Dashboard = elements.get('nio-vehicle-dashboard');
 const Vehicle = elements.get('nio-vehicle-card');
 const ledgerElements = new Map();
@@ -349,6 +354,50 @@ test('calculated range and current charging summary use only current snapshot fi
   assert.equal(solar.textContent,'42%');
   assert.match(calculated.innerHTML,/320<small> km<\/small>/);
   assert.match(note.textContent,/recorded driving consumption/i);
+});
+
+test('successful History retry replaces the unavailable message and Retry button', async () => {
+  let button;
+  const host = {
+    _html: '', isConnected: true, children: [],
+    get innerHTML() { return this._html; },
+    set innerHTML(value) { this._html = String(value); button = this._html.includes('<button') ? {onclick: null} : null; },
+    querySelector(selector) { return selector === 'button' ? button : selector === 'nio-dashboard-history' ? this.children.find(child => child.tagName === selector) || null : null; },
+    replaceChildren(history) { this.children = [history]; this.innerHTML = '<nio-dashboard-history></nio-dashboard-history>'; button = null; },
+  };
+  const card = Object.create(Dashboard.prototype);
+  card.vehicles = [{entry_id: 'embedded-car', ledger_available: true}];
+  card.config = {};
+  card.words = {dashboardUI: Array(21).fill('').map((value, i) => i === 19 ? 'Set up' : i === 20 ? 'History is not available' : value), retry: 'Retry', historyOptional: 'History is optional'};
+  card.locale = () => 'en';
+  card._hass = {};
+  card.shadowRoot = {querySelector: selector => selector === '[data-history]' ? host : null};
+  vehicleRuntime.document = {
+    createElement(name) {
+      assert.equal(name, 'nio-dashboard-history');
+      return {tagName: name, setConfig(config) {this.config = config;}, addEventListener() {}};
+    },
+  };
+  let attempt = 0;
+  vehicleWindow.__loadHistory = async () => {
+    attempt++;
+    if (attempt === 1) throw new Error('temporary asset failure');
+    elements.set('nio-dashboard-history', class {});
+  };
+
+  await card.ensureLedger('embedded-car');
+  assert.match(host.innerHTML, /History is unavailable/);
+  assert.ok(button);
+  await button.onclick();
+
+  assert.equal(attempt, 2);
+  assert.equal(host.children.length, 1);
+  assert.equal(host.children[0].tagName, 'nio-dashboard-history');
+  assert.doesNotMatch(host.innerHTML, /History is unavailable|Retry/);
+  const loadedHistory = host.children[0];
+  await card.ensureLedger('embedded-car');
+  assert.equal(host.children[0], loadedHistory);
+  assert.equal(host.children.length, 1);
 });
 
 test('explicit navigation reveals its destination without changing background rendering', () => {

@@ -9,6 +9,12 @@ source=source.replace(/const baseVersion=.*?\nconst \{CarLedgerCard\}=await impo
 vm.runInContext(source+'\nglobalThis.__History=NioDashboardHistory;globalThis.__label=periodLabel;globalThis.__uiRows=UI_ROWS;globalThis.__emptyPeriod=EMPTY_PERIOD;globalThis.__emptyFilters=EMPTY_FILTERS;',context);
 const History=context.__History;
 function instance(){const h=new History();h.config={entry_id:'one',language:'en'};h.render=()=>{};h.refreshState=()=>{};return h;}
+function renderRoot(){
+  const root={children:[],_html:'',currencyWarning:null,addEventListener(){},append(node){this.children.push(node);},set innerHTML(value){this._html=value;this.currencyWarning=null;},get innerHTML(){return this._html;},querySelector(selector){return ({'.top':top,'.refresh':refresh,'.insight':insight,'.heading':heading,'ha-card':card})[selector]||null;},querySelectorAll(selector){return selector==='.month p'?[summary]:[];}};
+  const node=(tag='div')=>({tagName:tag,children:[],style:{setProperty(){}},classList:{contains:()=>false,toggle(){}},setAttribute(name,value){this[name]=value;},addEventListener(){},append(...items){this.children.push(...items);},before(){},after(item){root.currencyWarning=item;},querySelector(selector){return selector==='.date-tools'?dateTools:null;},replaceWith(item){this.replacedWith=item;}});
+  const top=node(),refresh=node('button'),insight=node(),heading=node(),card=node('ha-card'),dateTools=node(),summary=node('p');summary.textContent='1.00 kWh · 30%';
+  return {root,document:{hidden:false,addEventListener(){},removeEventListener(){},createElement:node},summary};
+}
 test('history categories and calendar scopes remain visible while loading or failed',()=>{const h=instance();for(const error of ['', 'History is temporarily unavailable']){h.error=error;History.prototype.render.call(h);assert.equal((root.innerHTML.match(/data-tab=/g)||[]).length,4);assert.equal((root.innerHTML.match(/data-scope=/g)||[]).length,4);for(const label of ['Charging','Trips','Energy','Parked','Day','Week','Month','Year'])assert.ok(root.innerHTML.includes('>'+label+'</button>'),label);}});
 function snapshot(){return {selected_period:{scope:'day',date:'2026-11-23',start_date:'2026-11-23',end_date:'2026-11-24',start:100,end:200,effective_end:180},statistics:{selected:{distance_km:10},month:{projected_range_km:172}},charges:[{id:'previous',end:99},{id:'first',end:100},{id:'now',end:180},{id:'future',end:181},{id:'next',end:200}],trips:[],parked_periods:[],charging_daily:[]};}
 test('calendar filters use half-open HA window and preserve the complete current snapshot',()=>{const h=instance();h.fullSnapshot=snapshot();const before=JSON.stringify(h.fullSnapshot);h.applyView();assert.deepEqual(Array.from(h.snapshot.charges,x=>x.id),['first','now']);assert.equal(JSON.stringify(h.fullSnapshot),before);assert.equal(h.fullSnapshot.statistics.month.projected_range_km,172);assert.equal(h.snapshot.statistics.month.distance_km,10);});
@@ -24,3 +30,88 @@ test('parked consumption translates a complete dynamic metric without replacing 
 test('visible record dates follow HA timezone',()=>{const h=instance();h._hass={config:{time_zone:'Europe/Brussels'}};const t=Date.parse('2026-11-22T23:30Z')/1000;assert.match(h.date(t,{day:'numeric',month:'long'}),/23/);});
 test('English history uses 24-hour time and localized selected-period empty copy',()=>{const h=instance();h._hass={config:{time_zone:'Europe/Brussels'}};const t=Date.parse('2026-11-22T17:30Z')/1000;assert.match(h.date(t,{hour:'2-digit',minute:'2-digit'}),/18:30/);assert.doesNotMatch(h.date(t),/AM|PM/);assert.match(h.emptyPeriodLabel,/this period/);h.config.language='nl-BE';assert.equal(h.emptyPeriodLabel,'Geen registraties in deze periode.');});
 test('a record excluded by a filter is not reported as a genuinely empty period',()=>{const h=instance();h.fullSnapshot=snapshot();h.fullSnapshot.charges=[{id:'home',category:'home',end:150}];h.filters.location='work';h.applyView();assert.equal(h.snapshot.charges.length,0);assert.match(h.emptyPeriodLabel,/match these filters/);assert.equal(h.fullSnapshot.charges.length,1);h.filters.location='all';h.applyView();assert.equal(h.snapshot.charges.length,1);assert.equal(h.emptyPeriodLabel,'No records in this period.');});
+
+test('history currency warning is fully localized and renders outside every summary grid',()=>{
+  const locales=['en','nl','fr','de','nb','sv','da','cs','el','hu','lb','pl','pt','ro'];
+  const source='Amina € <img src=x onerror=alert(1)> Home';
+  let englishWarning='';for(const locale of locales){const h=instance();h.config.language=locale;const message=h.historyCurrencyWarning({code:'history_currency_assumed',source,currency:'DKK',previous_currencies:['EUR','SEK']});assert.ok(message.length>100,locale);assert.ok(message.includes(source),locale);assert.ok(message.includes('DKK')&&message.includes('EUR, SEK'),locale);assert.doesNotMatch(message,/\{(?:source|current|previous)\}/,locale);if(locale==='en')englishWarning=message;else assert.notEqual(message,englishWarning,locale);}
+  const savedDocument=context.document,full=snapshot();full.currency='DKK';full.settings={capacity_kwh:90};full.preferences={};full.counters=[];full.parked_intervals=[];full.measurement_errors=[];full.unaccounted_intervals=[];full.charging_daily=[];full.history_currency_warning={code:'history_currency_assumed',source,currency:'DKK',previous_currencies:['EUR']};
+  context.document=renderRoot().document;
+  for(const tab of ['charging','trips','insight','parked']){
+    const h=new History(),render=renderRoot();context.document=render.document;h.shadowRoot=render.root;h.config={entry_id:'embedded',language:'en'};h._hass={language:'en',config:{time_zone:'UTC'}};h.fullSnapshot=structuredClone(full);h.snapshot=structuredClone(full);h._calendar=full.selected_period;h.scope='day';h.anchor=full.selected_period.date;h.tab=tab;h.filters={location:'all',price:false,basis:'all'};h.localize=()=>{};h.refreshState=()=>{};h.history=()=>'<section class="history-content"></section>';h.insight=()=>'<section class="insight"></section>';h.parkedHistory=()=>'<section class="parked-history"></section>';h.render();
+    const notice=render.root.currencyWarning;assert.ok(notice,tab);assert.equal(notice.className,'notice currency-notice');assert.equal(notice.translate,'no');assert.match(notice.textContent,/Amina € <img src=x onerror=alert\(1\)> Home/,tab);assert.equal(render.root.querySelectorAll('.month p').includes(notice),false,tab);
+    h.fullSnapshot.history_currency_warning=null;h.render();assert.equal(render.root.currencyWarning,null,tab);
+  }
+  context.document=savedDocument;
+});
+
+function measurementHistory(){
+  const h=instance(),save={textContent:'',disabled:false};h.tab='parked';h.full=true;h.snapshot={settings:{capacity_kwh:90},parked_periods:[],parked_intervals:[],measurement_errors:[]};h._hass={config:{time_zone:'UTC'}};h.dialog=(...args)=>{h.lastDialog=args;return {querySelector:()=>save};};h.shadowRoot={querySelector:()=>save};h.saveButton=save;return h;
+}
+const clickButton=button=>{button.hasAttribute||=()=>false;return {target:{closest:selector=>selector==='button'?button:null}};};
+test('measurement-error copy covers all fourteen locales and a grouped-period click shows exact raw intervals',async()=>{
+  const locales=['en','nl','fr','de','nb','sv','da','cs','el','hu','lb','pl','pt','ro'],keys=['intervals','mark','confirmTitle','preview','kept','linked','exclude','decisions','excluded','stale','undo','restored'];
+  const english={};for(const language of locales){const h=measurementHistory();h.config.language=language;for(const key of keys){const value=h.measurementErrorCopy(key);assert.ok(value.length>3,`${language} ${key}`);if(language==='en')english[key]=value;else assert.notEqual(value,english[key],`${language} ${key}`);}}
+  const h=measurementHistory(),first={id:'loss-one',fingerprint:'raw-fingerprint-one',start:120,end:150,kwh:1.55,state:'open',paired_candidate_id:'charge-estimate',paired_candidate_kwh:3.6,paired_candidate_excluded:false},second={id:'loss-two',fingerprint:'raw-fingerprint-two',start:150,end:180,kwh:2,state:'open',paired_candidate_id:null,paired_candidate_kwh:null,paired_candidate_excluded:false};
+  const period={id:'parked-group',start:120,end:180,kwh:3.55,soc_used_pct:3.94,intervals:[first,second]};h.snapshot.parked_periods=[period];h.snapshot.parked_intervals=[first,second];
+  await h.click(clickButton({dataset:{parked:'parked-group'}}));
+  assert.match(h.lastDialog[1],/data-measurement-preview="loss-one" data-measurement-fingerprint="raw-fingerprint-one"/);
+  assert.match(h.lastDialog[1],/data-measurement-preview="loss-two" data-measurement-fingerprint="raw-fingerprint-two"/);
+  await h.click(clickButton({dataset:{measurementPreview:'loss-one',measurementFingerprint:'raw-fingerprint-one'}}));
+  assert.match(h.lastDialog[1],/1\.55 kWh/);assert.match(h.lastDialog[1],/3\.60 kWh/);assert.match(h.lastDialog[1],/original readings/i);assert.match(h.lastDialog[1],/battery-value allocation/i);
+  assert.equal(h.lastDialog[0],'Review this interval');assert.equal(h.saveButton.textContent,'Exclude interval');
+  let payload;h.update=async(action,values)=>{payload={action,values};return {saved:true,refreshed:true};};
+  await h.lastDialog[2]();
+  assert.equal(JSON.stringify(payload),JSON.stringify({action:'set_measurement_error',values:{ident:'loss-one',fingerprint:'raw-fingerprint-one',excluded:true}}));
+  assert.equal(h._measurementFeedback,'Excluded from totals');
+});
+
+test('Parked shows Undo for excluded and stale decisions even when all loss groups disappear',()=>{
+  const h=measurementHistory();h.snapshot.parked_periods=[];h.snapshot.measurement_errors=[
+    {id:'loss-excluded',fingerprint:'excluded-fingerprint',start:120,end:150,kwh:1.55,state:'excluded'},
+    {id:'loss-stale',fingerprint:'current-stale-fingerprint',start:150,end:180,kwh:2,state:'stale'},
+  ];
+  const html=h.parkedHistory();assert.match(html,/measurement-decisions/);assert.match(html,/data-measurement-undo="loss-excluded" data-measurement-fingerprint="excluded-fingerprint"/);assert.match(html,/data-measurement-undo="loss-stale" data-measurement-fingerprint="current-stale-fingerprint"/);assert.match(html,/Source changed/);assert.equal(h.snapshot.parked_periods.length,0);
+});
+
+test('measurement-error Undo preserves current stale and saved orphan fingerprints and keeps retryable errors inline',async()=>{
+  for(const [ident,fingerprint] of [['stale-present','current-stale-fingerprint'],['orphan','saved-fingerprint']]){
+    const h=measurementHistory(),error={textContent:''},target={querySelector:()=>error};let payload;
+    const button={dataset:{measurementUndo:ident,measurementFingerprint:fingerprint},disabled:false,hasAttribute:()=>false,closest:selector=>selector==='.measurement-decision'?target:null};
+    h.update=async(action,values)=>{payload={action,values};return {saved:true,refreshed:true};};
+    await h.click(clickButton(button));
+    assert.equal(JSON.stringify(payload),JSON.stringify({action:'set_measurement_error',values:{ident,fingerprint,excluded:false}}));assert.equal(h._measurementFeedback,'Parked interval decision undone.');
+  }
+  const h=measurementHistory(),error={textContent:''},target={querySelector:()=>error},button={dataset:{measurementUndo:'stale',measurementFingerprint:'current'},disabled:false,hasAttribute:()=>false,closest:selector=>selector==='.measurement-decision'?target:null};h.update=async()=>{throw new Error('The parked interval changed; refresh before saving');};
+  await h.click(clickButton(button));assert.equal(button.disabled,false);assert.ok(error.textContent.length>0);
+});
+
+test('measurement-error decisions follow the selected period without changing full identity records',()=>{
+  const h=measurementHistory();h.fullSnapshot=snapshot();h.fullSnapshot.measurement_errors=[{id:'inside',fingerprint:'fp-in',start:110,end:150,kwh:1,state:'excluded'},{id:'outside',fingerprint:'fp-out',start:190,end:210,kwh:2,state:'stale'}];h.fullSnapshot.parked_periods=[{id:'inside-period',end:150},{id:'outside-period',end:210}];h.fullSnapshot.parked_intervals=[{id:'raw-inside',fingerprint:'raw-in',start:110,end:150,state:'open'},{id:'raw-outside',fingerprint:'raw-out',start:190,end:210,state:'open'}];const before=structuredClone(h.fullSnapshot);h.applyView();assert.deepEqual(Array.from(h.snapshot.measurement_errors,row=>row.id),['inside']);assert.deepEqual(Array.from(h.snapshot.parked_periods,row=>row.id),['inside-period']);assert.deepEqual(Array.from(h.snapshot.parked_intervals,row=>row.id),['raw-inside']);assert.deepEqual(h.fullSnapshot,before);
+});
+
+test('successful measurement-error save closes preview and stale Parked detail after refresh',async()=>{
+  const savedDocument=context.document,savedFormData=context.FormData,openDialogs=[];
+  const root={openDialogs,append(dialog){openDialogs.push(dialog);},querySelector(selector){return selector==='dialog[open]'?openDialogs.find(dialog=>dialog.open)||null:null;},querySelectorAll(){return[];},addEventListener(){},set innerHTML(_value){for(const dialog of openDialogs)dialog.removed=true;openDialogs.length=0;}};
+  context.document={...savedDocument,createElement(){const listeners={},closeButton={},saveButton={disabled:false,textContent:''},error={textContent:''},form={};const dialog={open:false,removed:false,querySelector(selector){return ({'[data-close]':closeButton,'[data-dialog-save]':form,'.save':saveButton,'.form-error':error})[selector]||null;},addEventListener(type,callback){(listeners[type]||=[]).push(callback);},showModal(){this.open=true;},close(){this.open=false;for(const callback of listeners.close||[])callback();},remove(){this.removed=true;const index=openDialogs.indexOf(this);if(index>=0)openDialogs.splice(index,1);}};return dialog;}};
+  context.FormData=class {constructor(){}};
+  const h=measurementHistory();delete h.dialog;h.shadowRoot=root;h.localize=()=>{};h.refreshState=()=>{};h.renderCount=0;h.render=()=>{h.renderCount++;root.innerHTML='fresh selected history';};
+  const parent=h.dialog('Parked details','<p>56 kWh before review</p>'),row={id:'loss-one',fingerprint:'fp-one',start:120,end:150,kwh:1.55,state:'open',paired_candidate_id:null,paired_candidate_kwh:null,paired_candidate_excluded:false};h.snapshot.parked_intervals=[row];
+  h.update=async()=>{h._deferredRender=true;return {saved:true,refreshed:true};};h.measurementErrorDialog(row);const confirmation=openDialogs[1],form=confirmation.querySelector('[data-dialog-save]');
+  await form.onsubmit({preventDefault(){},target:{}});
+  assert.equal(confirmation.open,false);assert.equal(parent.removed,true);assert.equal(root.openDialogs.length,0);assert.equal(h.renderCount,1);assert.equal(h._measurementFeedback,'Excluded from totals');
+  context.document=savedDocument;context.FormData=savedFormData;
+});
+
+test('saved measurement-error with failed read stays open, shows acknowledgement and cannot resubmit',async()=>{
+  const savedDocument=context.document,savedFormData=context.FormData,openDialogs=[];
+  const root={openDialogs,append(dialog){openDialogs.push(dialog);},querySelector(selector){return selector==='dialog[open]'?openDialogs.find(dialog=>dialog.open)||null:null;},querySelectorAll(){return[];},addEventListener(){},set innerHTML(_value){for(const dialog of openDialogs)dialog.removed=true;openDialogs.length=0;}};
+  context.document={...savedDocument,createElement(){const listeners={},closeButton={},saveButton={disabled:false,textContent:''},error={textContent:''},form={};const dialog={open:false,removed:false,querySelector(selector){return ({'[data-close]':closeButton,'[data-dialog-save]':form,'.save':saveButton,'.form-error':error})[selector]||null;},addEventListener(type,callback){(listeners[type]||=[]).push(callback);},showModal(){this.open=true;},close(){this.open=false;for(const callback of listeners.close||[])callback();},remove(){this.removed=true;const index=openDialogs.indexOf(this);if(index>=0)openDialogs.splice(index,1);}};return dialog;}};
+  context.FormData=class {constructor(){}};
+  const h=measurementHistory();delete h.dialog;h.shadowRoot=root;h.localize=()=>{};h.refreshState=()=>{};h.render=()=>{root.innerHTML='refreshed selected view';};const parent=h.dialog('Parked details','<p>Original interval detail</p>'),row={id:'loss-one',fingerprint:'fp-one',start:120,end:150,kwh:1.55,state:'open',paired_candidate_id:null,paired_candidate_kwh:null,paired_candidate_excluded:false};
+  h.update=async()=>({saved:true,refreshed:false});h.measurementErrorDialog(row);const confirmation=openDialogs[1],form=confirmation.querySelector('[data-dialog-save]'),save=confirmation.querySelector('.save'),error=confirmation.querySelector('.form-error');
+  await form.onsubmit({preventDefault(){},target:{}});
+  assert.equal(confirmation.open,true);assert.equal(parent.open,true);assert.equal(save.disabled,true);assert.equal(error.textContent,h.savedRefreshCopy());assert.equal(h._measurementPending.has('loss-one/fp-one'),true);
+  const close=confirmation.querySelector('[data-close]');close.onclick();assert.equal(parent.removed,true);assert.equal(openDialogs.length,0);
+  context.document=savedDocument;context.FormData=savedFormData;
+});

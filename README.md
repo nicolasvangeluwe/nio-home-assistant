@@ -8,7 +8,7 @@ On my EU ET5 Touring, it receives live **battery SoC, remaining range, odometer 
 
 **Native charging state:** The native NIO charging-state sensor may be unavailable for some vehicles or samples. We have observed it missing on an ET5 Touring, and an EL6 owner reported it unknown while the car was charging; the cause is not confirmed. You can select your charger’s charging-state binary sensor or W/kW power sensor in the NIO Vehicle Dashboard settings. This works with chargers integrated through Home Assistant, including ZHA; EVCC is not required.
 
-**Battery SoC:** the integration reads `soc_status/changes`. The zero in `vehicle_status/latest` can be a placeholder and is ignored; a real 0% reading from `soc_status` is still valid. This has been the source since [v0.1.1-dev.7](CHANGELOG.md#011-dev7).
+**Battery SoC:** the integration reads `soc_status/changes`. The zero in `vehicle_status/latest` can be a placeholder and is ignored; a real 0% reading from `soc_status` is still valid. This has been the source since [v0.1.1-dev.7](CHANGELOG.md#011-dev7). An abrupt Direct joint 0%/0km reading after a positive battery reading is held for confirmation: after at least 60 seconds, a successful energy read must advance both source timestamps. Retained values keep their original timestamps and are marked unfresh while pending. A repeated cached event cannot confirm itself; initial and near-empty (at most 1%) zero readings remain valid immediately.
 
 **Charge limit:** the entity labelled *Maximum state of charge* comes from NIO's `max_soc` field—the limit set in the car (90% on my test car). *Charging target* is a different API field and has reported 0% while parked; do not use that value as your saved charge limit.
 
@@ -51,6 +51,10 @@ If you previously converted DKK to EUR in a session sensor as a workaround, supp
 actual DKK amounts for new sessions after this update. Previously imported EUR
 records keep their original numbers and currency. A currency conflict during
 reimport preserves the existing recorded amount instead of silently replacing it.
+Declare the session source's actual currency in its `currency` attribute (or a
+currency-bearing unit). History shows a migration notice when an undeclared
+source meets older imported amounts in another currency. This notice cannot
+detect an old numeric conversion by itself: check the source's amounts too.
 For API consumers, historical `*_eur` field names remain for compatibility;
 the accompanying currency metadata identifies the amount's unit.
 
@@ -60,6 +64,12 @@ continue using the recorded weighted price when its basis remains valid. Missing
 gap energy and expense are not filled in. Detected charging without a price and
 missing opening prices retain their own price checks. Raw archived records are
 preserved, including a bounded display correction for old post-gap overlap.
+For a charging overlap, a fully known battery price is retained only when all
+overlapping sessions are confirmed, priced, in the same currency, and completed
+within the interval. Unknown driving energy stays unaccounted. The following
+native energy anchor restarts independently; proven older v2 anchor errors are
+corrected in derived views without rewriting the archive. Existing Manual/Ignore
+decisions keep priority until Undo.
 
 **Unaccounted usage** lists those intervals separately. In a trip's details you
 can complete a gap with known energy and an optional actual cost, or ignore it.
@@ -67,6 +77,15 @@ Both choices can be undone. Manual entries are identified, do not create a
 charging session, and do not change the original readings. Observed battery
 change is shown separately and is not assumed to be driving consumption. Use
 **Add charge** for a known charging receipt, including holiday charging.
+
+In **Parked** details, choose an individual interval and **Mark as measurement
+error** to review an optional exclusion. This removes that interval from parked
+totals and battery-value allocation while keeping its original readings.
+**Measurement-error decisions** lists exclusions with **Undo decision**, even
+when no included parked records remain. A narrowly matching inferred charging
+candidate may be included in the preview; confirmed charging receipts are never
+removed by this action. Changed source evidence makes the old decision inactive
+and visible for review. Existing false losses are not automatically guessed away.
 
 ## Polling
 

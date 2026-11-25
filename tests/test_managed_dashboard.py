@@ -126,6 +126,38 @@ async def test_native_panel_registration_uses_real_ha_api(hass: HomeAssistant) -
         await managed.async_reconcile_dashboard(hass)
 
 
+async def test_embedded_history_asset_is_served_without_managed_panel(
+    hass: HomeAssistant, hass_client, monkeypatch
+) -> None:
+    """The embedded card owns its history dependency even with its panel disabled."""
+    from custom_components.nio_telematics.vehicle_dashboard import (
+        async_setup_vehicle_dashboard,
+    )
+
+    assert await async_setup_component(hass, "frontend", {})
+    await async_setup_vehicle_dashboard(hass)
+    monkeypatch.setattr(
+        "homeassistant.components.websocket_api.async_register_command",
+        lambda *_args, **_kwargs: None,
+    )
+    await async_setup_vehicle_dashboard(hass)
+    entry = MockConfigEntry(
+        domain=managed.DOMAIN,
+        title="ET5 Touring",
+        data={"vin": "fixture"},
+        options={"nio_dashboard_enabled": False},
+    )
+    entry.add_to_hass(hass)
+    entry._async_set_state(hass, ConfigEntryState.LOADED, None)
+    await managed.async_reconcile_dashboard(hass)
+
+    assert "nio" not in hass.data[frontend.DATA_PANELS]
+    client = await hass_client(hass)
+    response = await client.get("/nio_telematics/nio-dashboard-history.js")
+    assert response.status == 200
+    assert "NioDashboardHistory" in await response.text()
+
+
 async def test_foreign_route_collision_is_not_modified(
     hass: HomeAssistant, monkeypatch
 ) -> None:

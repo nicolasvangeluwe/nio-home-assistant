@@ -135,3 +135,48 @@ def test_malformed_gap_overlay_is_rejected_before_restore(update):
     }
     with pytest.raises(ValueError, match="gap"):
         make_backup(VIN, {}, archive)
+
+
+def test_measurement_error_decision_survives_backup_without_raw_loss_edits():
+    archive = history()
+    archive["parked_losses"] = [
+        {"start": 100, "end": 200, "kwh": 54.45, "complete": True}
+    ]
+    archive["measurement_errors"] = {
+        "loss-" + "a" * 24: {
+            "fingerprint": "b" * 64,
+            "start": 100,
+            "end": 200,
+            "kwh": 54.45,
+            "paired_candidate_id": None,
+            "paired_candidate_fingerprint": None,
+        }
+    }
+    _, restored = parse_backup(make_backup(VIN, {}, archive), VIN)
+    assert restored == archive
+
+
+@pytest.mark.parametrize(
+    "update",
+    [
+        {"kwh": float("inf")},
+        {"start": True},
+        {"fingerprint": "stale"},
+        {"paired_candidate_id": "candidate", "paired_candidate_fingerprint": None},
+    ],
+)
+def test_invalid_measurement_error_backup_is_rejected(update):
+    archive = history()
+    archive["measurement_errors"] = {
+        "loss-" + "a" * 24: {
+            "fingerprint": "b" * 64,
+            "start": 100,
+            "end": 200,
+            "kwh": 54.45,
+            "paired_candidate_id": None,
+            "paired_candidate_fingerprint": None,
+            **update,
+        }
+    }
+    with pytest.raises(ValueError, match="measurement error"):
+        make_backup(VIN, {}, archive)

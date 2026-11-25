@@ -61,12 +61,13 @@ export class NioDashboardHistory extends CarLedgerCard{
  disconnectedCallback(){super.disconnectedCallback();this._requestId++;this._contextId++;this._savedRefreshPending=false;this.loading=false;}
  async refresh(afterSave=false){
   if(!this._hass||!this.config?.entry_id){if(afterSave||this._savedRefreshPending){this.error=this.savedRefreshCopy();this.refreshState();return 'failed';}return 'skipped';}
+  this._measurementFeedback='';
   const request=++this._requestId;this.loading=true;this.refreshState();
   try{
    const query={type:'nio_telematics/car_dashboard/get',entry_id:this.config.entry_id,period:this.scope};if(this.anchor)query.date=this.anchor;
    const raw=await this._hass.callWS(query);if(request!==this._requestId)return 'superseded';
    if(!raw.selected_period||!raw.statistics?.selected)throw new Error(this.translate('Rittenregistratie nog niet beschikbaar'));
-   this.fullSnapshot=this.prepareSnapshot(raw);this.anchor=raw.selected_period.date;this._calendar=raw.selected_period;this._lastRefresh=Date.now();this.error='';this._savedRefreshPending=false;
+   this.fullSnapshot=this.prepareSnapshot(raw);this._measurementPending?.clear();this.anchor=raw.selected_period.date;this._calendar=raw.selected_period;this._lastRefresh=Date.now();this.error='';this._savedRefreshPending=false;
    this.applyView();
    this.dispatchEvent(new CustomEvent('nio-history-updated',{bubbles:true,composed:true,detail:{entry_id:this.config.entry_id,snapshot:this.fullSnapshot}}));
    if(this.shadowRoot.querySelector('dialog[open]')){this._deferredRender=true;this.refreshState();}else this.render();
@@ -94,7 +95,7 @@ export class NioDashboardHistory extends CarLedgerCard{
   if(!this.fullSnapshot)return;
   const data=JSON.parse(JSON.stringify(this.fullSnapshot)),p=data.selected_period;
   const inside=r=>Number.isFinite(r.end)&&r.end>=p.start&&r.end<p.end&&r.end<=p.effective_end;
-  data.charges=data.charges.filter(inside);data.trips=data.trips.filter(inside);data.parked_periods=data.parked_periods.filter(inside);data.unaccounted_intervals=(data.unaccounted_intervals||[]).filter(inside);
+  data.charges=data.charges.filter(inside);data.trips=data.trips.filter(inside);data.parked_periods=data.parked_periods.filter(inside);data.unaccounted_intervals=(data.unaccounted_intervals||[]).filter(inside);data.parked_intervals=(data.parked_intervals||[]).filter(inside);data.measurement_errors=(data.measurement_errors||[]).filter(inside);
   data.charging_daily=data.charging_daily.filter(r=>r.date>=p.start_date&&r.date<p.end_date);
   if(this.filters.location!=='all')data.charges=data.charges.filter(r=>r.category===this.filters.location);
   if(this.filters.price)data.charges=data.charges.filter(r=>r.cost_eur==null||!r.confirmed);
@@ -121,6 +122,9 @@ export class NioDashboardHistory extends CarLedgerCard{
   const calendar=document.createElement('div');calendar.className='calendar-row';
   calendar.innerHTML=`<div class="date-group"><button class="arrow" data-shift="-1" aria-label="${this.esc(u.previous)}">${HISTORY_ICONS.left}</button><button class="date" data-calendar>${HISTORY_ICONS.calendar}<span>${this.esc(periodLabel(this._calendar,this.displayLocale))}</span></button><button class="arrow" data-shift="1" aria-label="${this.esc(u.next)}">${HISTORY_ICONS.right}</button></div><div class="date-tools"><button data-today>${this.esc(u.today)}</button>${['charging','trips'].includes(this.tab)?`<button class="arrow" data-filter aria-label="${this.esc(u.filters)}" aria-pressed="${this.filters.location!=='all'||this.filters.price||this.filters.basis!=='all'}">${HISTORY_ICONS.sliders}</button>`:''}</div>`;
   const refresh=r.querySelector('.refresh');refresh.innerHTML=HISTORY_ICONS.refresh;refresh.setAttribute('aria-label',u.refresh);calendar.querySelector('.date-tools').append(refresh);context.append(calendar);
+  const warning=this.historyCurrencyWarning(this.snapshot.history_currency_warning);
+  if(warning){const notice=document.createElement('p');notice.className='notice currency-notice';notice.setAttribute('role','status');notice.setAttribute('translate','no');notice.textContent=warning;context.after(notice);}
+  if(this._measurementFeedback){const notice=document.createElement('p');notice.className='notice currency-notice';notice.setAttribute('role','status');notice.setAttribute('translate','no');notice.textContent=this._measurementFeedback;context.after(notice);}
   const heading=r.querySelector('.heading h2');if(heading)heading.textContent=({charging:u.charging,trips:u.trips,parked:u.parked})[this.tab]||heading.textContent;
   const add=r.querySelector('[data-action=add]');if(add)add.innerHTML=HISTORY_ICONS.plus;
   if(this.tab==='trips'){
@@ -152,6 +156,52 @@ export class NioDashboardHistory extends CarLedgerCard{
    }p.replaceWith(grid);
   }
  }
+ measurementErrorCopy(key){
+  const locale=(this.displayLocale||'en').toLowerCase().split(/[-_]/)[0],copy={
+   en:{intervals:'Parked intervals',mark:'Mark as measurement error',confirmTitle:'Review this interval',preview:'This will exclude {kwh} kWh from this parked interval.',kept:'The original readings stay in history. The interval is excluded from totals and battery-value allocation.',linked:'Its linked inferred charge of {kwh} kWh will also be excluded.',exclude:'Exclude interval',decisions:'Measurement-error decisions',excluded:'Excluded from totals',stale:'Source changed',undo:'Undo decision',restored:'Parked interval decision undone.'},
+   nl:{intervals:'Stilstandsintervallen',mark:'Markeren als meetfout',confirmTitle:'Controleer dit interval',preview:'Dit sluit {kwh} kWh van dit stilstandsinterval uit.',kept:'De oorspronkelijke metingen blijven in de historiek. Het interval telt niet mee in totalen en de waardetoewijzing van de batterij.',linked:'De gekoppelde berekende laadsessie van {kwh} kWh wordt ook uitgesloten.',exclude:'Interval uitsluiten',decisions:'Meetfoutbeslissingen',excluded:'Uitgesloten van totalen',stale:'Bron gewijzigd',undo:'Beslissing ongedaan maken',restored:'Beslissing over stilstandsinterval ongedaan gemaakt.'},
+   fr:{intervals:'Intervalles à l’arrêt',mark:'Signaler comme erreur de mesure',confirmTitle:'Vérifier cet intervalle',preview:'Cette action exclura {kwh} kWh de cet intervalle à l’arrêt.',kept:'Les mesures d’origine restent dans l’historique. L’intervalle est exclu des totaux et de l’allocation de valeur de la batterie.',linked:'La recharge estimée associée de {kwh} kWh sera également exclue.',exclude:'Exclure l’intervalle',decisions:'Décisions d’erreur de mesure',excluded:'Exclu des totaux',stale:'Source modifiée',undo:'Annuler la décision',restored:'Décision sur l’intervalle à l’arrêt annulée.'},
+   de:{intervals:'Standintervalle',mark:'Als Messfehler markieren',confirmTitle:'Dieses Intervall prüfen',preview:'Dadurch werden {kwh} kWh dieses Standintervalls ausgeschlossen.',kept:'Die ursprünglichen Messwerte bleiben im Verlauf. Das Intervall wird von Summen und der Wertzuordnung der Batterie ausgeschlossen.',linked:'Der zugehörige geschätzte Ladevorgang mit {kwh} kWh wird ebenfalls ausgeschlossen.',exclude:'Intervall ausschließen',decisions:'Messfehlerentscheidungen',excluded:'Von Summen ausgeschlossen',stale:'Quelle geändert',undo:'Entscheidung rückgängig machen',restored:'Entscheidung zum Standintervall rückgängig gemacht.'},
+   nb:{intervals:'Parkeringsintervaller',mark:'Merk som målefeil',confirmTitle:'Kontroller dette intervallet',preview:'Dette utelukker {kwh} kWh fra dette parkeringsintervallet.',kept:'De opprinnelige målingene beholdes i historikken. Intervallet utelates fra summer og verdifordeling for batteriet.',linked:'Den tilknyttede beregnede ladingen på {kwh} kWh utelukkes også.',exclude:'Utelukk intervallet',decisions:'Målefeilbeslutninger',excluded:'Utelatt fra summer',stale:'Kilden er endret',undo:'Angre beslutning',restored:'Beslutningen for parkeringsintervallet er angret.'},
+   sv:{intervals:'Parkeringsintervall',mark:'Markera som mätfel',confirmTitle:'Granska det här intervallet',preview:'Detta utesluter {kwh} kWh från parkeringsintervallet.',kept:'De ursprungliga mätvärdena behålls i historiken. Intervallet utesluts från summor och batteriets värdefördelning.',linked:'Den länkade uppskattade laddningen på {kwh} kWh utesluts också.',exclude:'Uteslut intervallet',decisions:'Beslut om mätfel',excluded:'Uteslutet från summor',stale:'Källan har ändrats',undo:'Ångra beslutet',restored:'Beslutet för parkeringsintervallet har ångrats.'},
+   da:{intervals:'Parkeringsintervaller',mark:'Markér som målefejl',confirmTitle:'Gennemgå dette interval',preview:'Dette udelukker {kwh} kWh fra parkeringsintervallet.',kept:'De oprindelige målinger bevares i historikken. Intervallet udelukkes fra totaler og batteriets værdifordeling.',linked:'Den tilknyttede beregnede opladning på {kwh} kWh udelukkes også.',exclude:'Udeluk intervallet',decisions:'Beslutninger om målefejl',excluded:'Udelukket fra totaler',stale:'Kilden er ændret',undo:'Fortryd beslutningen',restored:'Beslutningen for parkeringsintervallet er fortrudt.'},
+   cs:{intervals:'Intervaly stání',mark:'Označit jako chybu měření',confirmTitle:'Zkontrolujte tento interval',preview:'Tím se z tohoto intervalu stání vyloučí {kwh} kWh.',kept:'Původní měření zůstávají v historii. Interval se nezapočítá do součtů ani rozdělení hodnoty baterie.',linked:'Související odhadované nabíjení {kwh} kWh bude také vyloučeno.',exclude:'Vyloučit interval',decisions:'Rozhodnutí o chybách měření',excluded:'Vyloučeno ze součtů',stale:'Zdroj se změnil',undo:'Vrátit rozhodnutí',restored:'Rozhodnutí o intervalu stání bylo vráceno.'},
+   el:{intervals:'Διαστήματα στάθμευσης',mark:'Σήμανση ως σφάλμα μέτρησης',confirmTitle:'Ελέγξτε αυτό το διάστημα',preview:'Αυτό θα εξαιρέσει {kwh} kWh από το διάστημα στάθμευσης.',kept:'Οι αρχικές μετρήσεις παραμένουν στο ιστορικό. Το διάστημα εξαιρείται από τα σύνολα και την κατανομή αξίας της μπαταρίας.',linked:'Η συνδεδεμένη εκτιμώμενη φόρτιση των {kwh} kWh θα εξαιρεθεί επίσης.',exclude:'Εξαίρεση διαστήματος',decisions:'Αποφάσεις σφάλματος μέτρησης',excluded:'Εξαιρείται από τα σύνολα',stale:'Η πηγή άλλαξε',undo:'Αναίρεση απόφασης',restored:'Η απόφαση για το διάστημα στάθμευσης αναιρέθηκε.'},
+   hu:{intervals:'Parkolási időszakok',mark:'Megjelölés mérési hibaként',confirmTitle:'Időszak ellenőrzése',preview:'Ez {kwh} kWh-t zár ki ebből a parkolási időszakból.',kept:'Az eredeti mérések az előzményekben maradnak. Az időszak kimarad az összesítésekből és az akkumulátorérték felosztásából.',linked:'A kapcsolódó, becsült {kwh} kWh töltés is kimarad.',exclude:'Időszak kizárása',decisions:'Mérési hibák döntései',excluded:'Kizárva az összesítésekből',stale:'A forrás megváltozott',undo:'Döntés visszavonása',restored:'A parkolási időszakra vonatkozó döntés visszavonva.'},
+   lb:{intervals:'Parkintervalle',mark:'Als Miessfeeler markéieren',confirmTitle:'Dëst Intervall iwwerpréiwen',preview:'Domat ginn {kwh} kWh aus dësem Parkintervall ausgeschloss.',kept:'Déi ursprénglech Miesswäerter bleiwen an der Historik. D’Intervall gëtt aus de Summen an der Wäertverdeelung vun der Batterie ausgeschloss.',linked:'Déi verlinkt berechent Ladung vun {kwh} kWh gëtt och ausgeschloss.',exclude:'Intervall ausschléissen',decisions:'Entscheedungen iwwer Miessfeeler',excluded:'Aus de Summen ausgeschloss',stale:'Quell geännert',undo:'Entscheedung réckgängeg maachen',restored:'D’Entscheedung fir de Parkintervall gouf réckgängeg gemaach.'},
+   pl:{intervals:'Przedziały postoju',mark:'Oznacz jako błąd pomiaru',confirmTitle:'Sprawdź ten przedział',preview:'Ta czynność wykluczy {kwh} kWh z tego przedziału postoju.',kept:'Oryginalne pomiary pozostaną w historii. Przedział zostanie wykluczony z sum i rozliczenia wartości baterii.',linked:'Powiązane szacowane ładowanie {kwh} kWh również zostanie wykluczone.',exclude:'Wyklucz przedział',decisions:'Decyzje o błędach pomiaru',excluded:'Wykluczono z sum',stale:'Źródło uległo zmianie',undo:'Cofnij decyzję',restored:'Cofnięto decyzję dotyczącą przedziału postoju.'},
+   pt:{intervals:'Intervalos estacionados',mark:'Marcar como erro de medição',confirmTitle:'Rever este intervalo',preview:'Esta ação exclui {kwh} kWh deste intervalo estacionado.',kept:'As medições originais permanecem no histórico. O intervalo fica excluído dos totais e da atribuição de valor da bateria.',linked:'O carregamento estimado associado de {kwh} kWh também fica excluído.',exclude:'Excluir intervalo',decisions:'Decisões de erro de medição',excluded:'Excluído dos totais',stale:'Origem alterada',undo:'Anular decisão',restored:'Decisão do intervalo estacionado anulada.'},
+   ro:{intervals:'Intervale de staționare',mark:'Marchează ca eroare de măsurare',confirmTitle:'Verificați acest interval',preview:'Aceasta exclude {kwh} kWh din intervalul de staționare.',kept:'Măsurătorile originale rămân în istoric. Intervalul este exclus din totaluri și din alocarea valorii bateriei.',linked:'Încărcarea estimată asociată de {kwh} kWh va fi exclusă și ea.',exclude:'Exclude intervalul',decisions:'Decizii privind erorile de măsurare',excluded:'Exclus din totaluri',stale:'Sursa s-a schimbat',undo:'Anulați decizia',restored:'Decizia privind intervalul de staționare a fost anulată.'}
+  };
+  return (copy[locale]||copy.en)[key]||copy.en[key]||'';
+ }
+ parkedHistory(){
+  const history=super.parkedHistory(),rows=(this.snapshot.measurement_errors||[]).filter(row=>row.state==='excluded'||row.state==='stale');
+  if(!rows.length)return history;
+  return `${history}<details class="details measurement-decisions"><summary>${this.esc(this.measurementErrorCopy('decisions'))}</summary>${rows.map(row=>`<div class="measurement-decision"><div class="row"><span>${this.date(row.start)} → ${this.date(row.end)} · ${this.n(row.kwh,2)} kWh</span><strong>${this.esc(this.measurementErrorCopy(row.state))}</strong></div><button type="button" class="text" data-measurement-undo="${this.esc(row.id)}" data-measurement-fingerprint="${this.esc(row.fingerprint)}">${this.esc(this.measurementErrorCopy('undo'))}</button><p class="gap-action-error form-error" role="alert"></p></div>`).join('')}</details>`;
+ }
+ parkedDialog(period){
+  const intervals=period.intervals||[],items=intervals.map(row=>{const pending=(this._measurementPending||new Set()).has(`${row.id}/${row.fingerprint}`);return `<div class="measurement-interval"><div class="row"><span>${this.date(row.start)} → ${this.date(row.end)}</span><strong>${this.n(row.kwh,2)} kWh</strong></div><button type="button" class="text" data-measurement-preview="${this.esc(row.id)}" data-measurement-fingerprint="${this.esc(row.fingerprint)}" ${pending?'disabled':''}>${this.esc(this.measurementErrorCopy('mark'))}</button>${pending?`<p class="muted">${this.esc(this.savedRefreshCopy())}</p>`:''}</div>`;}).join('');
+  this.dialog(this.ui.parked,`<p>${this.date(period.start)} → ${this.date(period.end)}</p><div class="metrics three">${this.value(this.translate('Duur'),(period.end-period.start)/60,'min',0)}${this.value('Verbruikt',period.kwh,'kWh',2)}${this.value('Batterij',period.soc_used_pct,'%')}</div>${items?`<section class="measurement-intervals"><h3>${this.esc(this.measurementErrorCopy('intervals'))}</h3>${items}</section>`:''}`);
+ }
+ measurementErrorDialog(row){
+  const paired=Boolean(row.paired_candidate_id&&!row.paired_candidate_excluded&&Number.isFinite(Number(row.paired_candidate_kwh)));
+  const content=`<p>${this.esc(this.measurementErrorCopy('preview').replace('{kwh}',this.n(row.kwh,2)))}</p><p class="muted">${this.esc(this.measurementErrorCopy('kept'))}</p>${paired?`<p class="notice currency-notice">${this.esc(this.measurementErrorCopy('linked').replace('{kwh}',this.n(row.paired_candidate_kwh,2)))}</p>`:''}`;
+  let dialog;dialog=this.dialog(this.measurementErrorCopy('confirmTitle'),content,async()=>{
+   const result=await this.update('set_measurement_error',{ident:row.id,fingerprint:row.fingerprint,excluded:true});
+   if(result?.saved&&result.refreshed)this._measurementFeedback=this.measurementErrorCopy('excluded');
+   else if(result?.saved){this._measurementPending||=new Set();this._measurementPending.add(`${row.id}/${row.fingerprint}`);this._deferredRender=true;const error=dialog?.querySelector('.form-error'),save=dialog?.querySelector('.save');if(error)error.textContent=this.savedRefreshCopy();if(save)save.disabled=true;return false;}
+  });
+  const button=dialog?.querySelector('.save');if(button)button.textContent=this.measurementErrorCopy('exclude');
+ }
+ async undoMeasurementError(button){
+  const target=button.closest('.measurement-decision'),error=target?.querySelector('.gap-action-error');if(error)error.textContent='';button.disabled=true;
+  try{
+   const result=await this.update('set_measurement_error',{ident:button.dataset.measurementUndo,fingerprint:button.dataset.measurementFingerprint,excluded:false});
+   if(result?.saved){if(result.refreshed){this._measurementFeedback=this.measurementErrorCopy('restored');this.render();}return;}
+   button.disabled=false;
+  }catch(err){button.disabled=false;if(error)error.textContent=this.localizeError(err);}
+ }
  chargingGraph(){
   // Base graph already has the established known/unknown cost semantics. Its date
   // filter must see the selected calendar, not the browser's current month.
@@ -162,11 +212,18 @@ export class NioDashboardHistory extends CarLedgerCard{
  }
  tripCard(t){const cap=this.snapshot.settings.capacity_kwh;return super.tripCard(t).replace(`${this.n(t.start_energy/cap*100,0)}% → ${this.n(t.end_energy/cap*100,0)}%`,`${this.n(t.start_energy/cap*100,1)}% → ${this.n(t.end_energy/cap*100,1)}%`);}
  dialog(...args){
-  super.dialog(...args);const d=this.shadowRoot.querySelector('dialog');const close=d?.querySelector('[data-close]');if(close)close.innerHTML=HISTORY_ICONS.close;
+  const d=super.dialog(...args);const close=d?.querySelector('[data-close]');if(close)close.innerHTML=HISTORY_ICONS.close;
   d?.addEventListener('close',()=>{if(this._deferredRender){this._deferredRender=false;this.render();}},{once:true});
+  return d;
  }
  async click(e){
   const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.measurementPreview){
+   const row=(this.snapshot.parked_intervals||[]).find(item=>item.id===b.dataset.measurementPreview&&item.fingerprint===b.dataset.measurementFingerprint&&(item.state==='open'||item.state==='stale'));
+   if(row)this.measurementErrorDialog(row);else{const target=b.closest('.measurement-interval'),error=target?.querySelector('.gap-action-error');if(error)error.textContent=this.measurementErrorCopy('stale');}
+   return;
+  }
+  if(b.dataset.measurementUndo){await this.undoMeasurementError(b);return;}
   if(b.dataset.tab){this.tab=b.dataset.tab;this.pageSize=36;this.period=['last_trip','current_trip','since_charge','last_100km'].includes(this.period)?this.period:this.scope==='week'?'month':this.scope;this.render();return;}
   if(b.dataset.scope){this.scope=b.dataset.scope;this.pageSize=36;this.period=this.scope==='week'?'month':this.scope;await this.refresh();return;}
   if(b.hasAttribute('data-shift')){this.pageSize=36;this.shift(Number(b.dataset.shift));await this.refresh();return;}

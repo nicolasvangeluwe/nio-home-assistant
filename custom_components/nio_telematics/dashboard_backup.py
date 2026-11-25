@@ -116,6 +116,50 @@ def validate_history(history: object) -> dict | None:
             or not fullmatch(r"[A-Z]{3}", row["currency"])
         ):
             raise ValueError("Invalid manual gap amount or currency")
+    errors = history.get("measurement_errors", {})
+    if not isinstance(errors, dict):
+        raise ValueError("Measurement errors must be an object")
+    for ident, row in errors.items():
+        if (
+            not isinstance(ident, str)
+            or not fullmatch(r"loss-[a-f0-9]{24}", ident)
+            or not isinstance(row, dict)
+            or set(row)
+            != {
+                "fingerprint",
+                "start",
+                "end",
+                "kwh",
+                "paired_candidate_id",
+                "paired_candidate_fingerprint",
+            }
+            or not isinstance(row["fingerprint"], str)
+            or not fullmatch(r"[a-f0-9]{64}", row["fingerprint"])
+            or any(
+                isinstance(row[key], bool)
+                or not isinstance(row[key], (int, float))
+                or not isfinite(row[key])
+                for key in ("start", "end", "kwh")
+            )
+            or row["start"] > row["end"]
+            or row["kwh"] < 0
+            or (
+                row["paired_candidate_id"] is not None
+                and not isinstance(row["paired_candidate_id"], str)
+            )
+            or (
+                row["paired_candidate_fingerprint"] is not None
+                and (
+                    not isinstance(row["paired_candidate_fingerprint"], str)
+                    or not fullmatch(
+                        r"[a-f0-9]{64}", row["paired_candidate_fingerprint"]
+                    )
+                )
+            )
+            or (row["paired_candidate_id"] is None)
+            != (row["paired_candidate_fingerprint"] is None)
+        ):
+            raise ValueError("Invalid measurement error")
     _check_safe(history)
     return deepcopy(history)
 

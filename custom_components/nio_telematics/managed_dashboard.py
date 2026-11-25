@@ -159,7 +159,7 @@ async def _async_register_static_assets(hass: HomeAssistant) -> bool:
     if not state.get("assets_registered"):
         paths = [
             StaticPathConfig(f"/nio_telematics/{name}", str(required[name]), False)
-            for name in ("nio-vehicle-panel.js", "nio-dashboard-history.js")
+            for name in ("nio-vehicle-panel.js",)
         ]
         await http.async_register_static_paths(paths)
         state["assets_registered"] = True

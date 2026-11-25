@@ -74,6 +74,32 @@ test('ordinary mutation response is followed by the current selected GET and par
   assert.equal(h.events.at(-1).bubbles, true); assert.equal(h.events.at(-1).composed, true);
 });
 
+test('measurement-error exclusion posts exact raw identity then re-reads the selected period', async () => {
+  const h = instance(), calls = [], values = { ident: 'loss-raw-id', fingerprint: 'loss-current-fingerprint', excluded: true };
+  h.scope = 'week'; h.anchor = '2026-11-23';
+  const read = selected(2, 'week');
+  read.measurement_errors = [{ id: 'loss-raw-id', fingerprint: 'loss-current-fingerprint', start: 110, end: 150, kwh: 1.55, state: 'excluded' },
+    { id: 'outside', fingerprint: 'outside-fingerprint', start: 210, end: 250, kwh: 2, state: 'stale' }];
+  read.parked_intervals = [{ id: 'loss-raw-id', fingerprint: 'loss-current-fingerprint', start: 110, end: 150, kwh: 1.55, state: 'excluded' },
+    { id: 'outside', fingerprint: 'outside-fingerprint', start: 210, end: 250, kwh: 2, state: 'stale' }];
+  h._hass = { callWS: async query => { calls.push(query); return query.type.endsWith('/update') ? ordinary(2) : read; } };
+
+  const result = await h.update('set_measurement_error', values);
+
+  assert.equal(result.saved, true); assert.equal(result.refreshed, true);
+  assert.deepEqual(calls.map(query => query.type), ['nio_telematics/car_dashboard/update', 'nio_telematics/car_dashboard/get']);
+  assert.deepEqual(calls[0].values, values); assert.equal(calls[0].action, 'set_measurement_error');
+  assert.equal(calls[1].period, 'week'); assert.equal(calls[1].date, '2026-11-23');
+  assert.deepEqual(Array.from(h.snapshot.measurement_errors, row => row.id), ['loss-raw-id']);
+  assert.equal(h.fullSnapshot.measurement_errors[1].fingerprint, 'outside-fingerprint');
+
+  const cleared = selected(3, 'week'); cleared.measurement_errors = []; cleared.parked_intervals = [];
+  h._hass = { callWS: async query => query.type.endsWith('/update') ? ordinary(3) : cleared };
+  const undo = await h.update('set_measurement_error', { ident: 'orphan-id', fingerprint: 'saved-orphan-fingerprint', excluded: false });
+  assert.equal(undo.saved, true); assert.equal(undo.refreshed, true);
+  assert.deepEqual(Array.from(h.snapshot.measurement_errors), []);
+});
+
 test('failed follow-up reports saved in every locale and never repeats the mutation', async () => {
   for (const language of ['en', 'nl', 'fr', 'de', 'nb', 'sv', 'da', 'cs', 'el', 'hu', 'lb', 'pl', 'pt', 'ro']) {
     const h = instance(language), calls = []; h.fullSnapshot = selected(1); h.applyView(); const before = h.snapshot;

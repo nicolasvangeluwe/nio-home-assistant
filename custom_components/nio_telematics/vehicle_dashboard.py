@@ -14,11 +14,11 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
+from .artwork import ALL_PAINTS, pin_model_for_paint, valid_paint
 from .car_dashboard import async_configure_recorder, start_recorder
 from .car_dashboard import manager as ledger_manager
 from .car_dashboard.cost_split import SOURCE_KEYS as COST_SOURCE_KEYS
 from .car_dashboard.ledger import Ledger
-from .artwork import ALL_PAINTS, pin_model_for_paint, valid_paint
 from .const import DOMAIN
 from .dashboard_backup import history_summary, make_backup, parse_backup
 
@@ -200,7 +200,9 @@ async def websocket_save(hass, connection, msg):
             return
     preferences = pin_model_for_paint(msg["preferences"], entry.title)
     if not valid_paint(preferences["model"], preferences["paint"], entry.title):
-        connection.send_error(msg["id"], "invalid_paint", "Choose a paint offered for this model")
+        connection.send_error(
+            msg["id"], "invalid_paint", "Choose a paint offered for this model"
+        )
         return
     selected_costs = [preferences[key] for key in COST_PREFERENCES]
     if any(selected_costs) and not all(selected_costs):
@@ -450,12 +452,20 @@ async def async_setup_vehicle_dashboard(hass):
     websocket_api.async_register_command(hass, websocket_get)
     websocket_api.async_register_command(hass, websocket_save)
     websocket_api.async_register_command(hass, websocket_backup)
+    assets_key = "nio_telematics_vehicle_dashboard_assets_registered"
+    if hass.data.get(assets_key):
+        return
     component_path = Path(__file__).parent
     await hass.http.async_register_static_paths(
         [
             StaticPathConfig(
                 "/nio_telematics/nio-vehicle-card.js",
                 str(component_path / "nio-vehicle-card.js"),
+                False,
+            ),
+            StaticPathConfig(
+                "/nio_telematics/nio-dashboard-history.js",
+                str(component_path / "nio-dashboard-history.js"),
                 False,
             ),
             StaticPathConfig(
@@ -475,3 +485,4 @@ async def async_setup_vehicle_dashboard(hass):
             ),
         ]
     )
+    hass.data[assets_key] = True
