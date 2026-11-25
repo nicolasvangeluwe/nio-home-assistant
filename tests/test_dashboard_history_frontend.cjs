@@ -43,7 +43,7 @@ test('parked losses are calendar-filtered before canonical grouping and actual P
   // Both epochs of the Brussels autumn clock change remain one local-month
   // group when raw intervals touch across the repeated hour.
   const dst=[{id:'dst-one',start:toSec('2026-10-25T00:20:00Z'),end:toSec('2026-10-25T00:30:00Z'),kwh:.45},{id:'dst-two',start:toSec('2026-10-25T00:30:00Z'),end:toSec('2026-10-25T00:40:00Z'),kwh:.45}];
-  h.fullSnapshot=makeSnapshot(toSec('2026-10-24T22:00:00Z'),toSec('2026-10-25T23:00:00Z'));h.fullSnapshot.parked_intervals=structuredClone(dst);h.applyView();assert.equal(h.snapshot.parked_periods[0].kwh,.9);assert.deepEqual(Array.from(h.snapshot.parked_periods[0].intervals,row=>row.id),['dst-one','dst-two']);
+  h.fullSnapshot=makeSnapshot(toSec('2026-10-24T22:00:00Z'),toSec('2026-10-25T23:00:00Z'));h.fullSnapshot.parked_intervals=structuredClone(dst);h.fullSnapshot.parked_periods=[{id:`parked-${dst[0].start.toFixed(6)}`,start:dst[0].start,end:dst[1].end,kwh:.9,intervals:structuredClone(dst)}];h.applyView();assert.equal(h.snapshot.parked_periods[0].kwh,.9);assert.deepEqual(Array.from(h.snapshot.parked_periods[0].intervals,row=>row.id),['dst-one','dst-two']);
 });
 test('calendar shift uses local dates without month overflow',()=>{const h=instance();h.scope='month';h._calendar={start_date:'2026-01-01'};h.shift(1);assert.equal(h.anchor,'2026-02-01');h.scope='week';h._calendar.start_date='2025-12-29';h.shift(1);assert.equal(h.anchor,'2026-01-05');});
 test('period labels are localized calendar dates',()=>{const p=snapshot().selected_period;assert.match(context.__label(p,'en-GB'),/23 November 2026/);assert.match(context.__label({...p,scope:'month'},'nl-BE'),/november 2026/);});
@@ -118,10 +118,17 @@ test('historical zero-refill review reuses the fingerprinted preview and preserv
 
 test('connection and charge boundary rows stay outside Parked totals and show read-only unaccounted evidence',()=>{
   const h=measurementHistory(),start=Date.parse('2026-11-22T22:50:00Z')/1000,end=Date.parse('2026-11-22T23:05:00Z')/1000;h._hass={config:{time_zone:'Europe/Brussels'}};h.full=true;h.pageSize=36;
-  const row={id:'connection-boundary',fingerprint:'boundary-fingerprint',start,end,kwh:0,recorded_kwh:.45,state:'open',accounting_basis:'connection_boundary',evidence_basis:'source_samples'};
-  h.fullSnapshot={...snapshot(),selected_period:{...snapshot().selected_period,start:start-100,end:end+100,effective_end:end+100},settings:{capacity_kwh:90},parked_periods:[],parked_intervals:[row],unaccounted_intervals:[],measurement_errors:[],charging_daily:[]};h.applyView();
-  assert.equal(h.snapshot.parked_periods.length,0);assert.equal(h.snapshot.parked_intervals.length,1);
-  const html=h.parkedHistory();assert.match(html,/Unaccounted usage/);assert.match(html,/0\.45 kWh/);assert.match(html,/This battery change crosses a connection or charging boundary\./);assert.doesNotMatch(html,/data-measurement-preview=/);assert.doesNotMatch(html,/data-parked="/);
+  const row={id:'connection-boundary',fingerprint:'boundary-fingerprint',start,end,kwh:0,recorded_kwh:.45,state:'open',accounting_basis:'connection_boundary',evidence_basis:'source_samples'},excludedBoundary={id:'excluded-boundary',fingerprint:'excluded-boundary-fingerprint',start,end,kwh:0,recorded_kwh:9.9,state:'excluded',accounting_basis:'charging_boundary',evidence_basis:'source_samples'};
+  h.fullSnapshot={...snapshot(),selected_period:{...snapshot().selected_period,start:start-100,end:end+100,effective_end:end+100},settings:{capacity_kwh:90},parked_periods:[],parked_intervals:[row,excludedBoundary],unaccounted_intervals:[],measurement_errors:[],charging_daily:[]};h.applyView();
+  assert.equal(h.snapshot.parked_periods.length,0);assert.equal(h.snapshot.parked_intervals.length,2);
+  const html=h.parkedHistory();assert.match(html,/Unaccounted usage/);assert.match(html,/0\.45 kWh/);assert.doesNotMatch(html,/9\.90 kWh/);assert.match(html,/This battery change crosses a connection or charging boundary\./);assert.doesNotMatch(html,/data-measurement-preview=/);assert.doesNotMatch(html,/data-parked="/);
+});
+
+test('connection boundary cannot bridge a parked group but remains in Unaccounted evidence',()=>{
+  const h=measurementHistory(),boundary={id:'boundary-before',fingerprint:'boundary-fp',start:100,end:120,kwh:0,recorded_kwh:.45,state:'open',accounting_basis:'connection_boundary'},loss={id:'real-loss',fingerprint:'real-fp',start:120,end:150,kwh:.45,state:'open'};
+  h._hass={config:{time_zone:'UTC'}};h.fullSnapshot={...snapshot(),settings:{capacity_kwh:90},parked_periods:[{id:'parked-120.000000',start:120,end:150,kwh:.45,soc_used_pct:.5,intervals:[loss]}],parked_intervals:[boundary,loss],measurement_errors:[],unaccounted_intervals:[],charging_daily:[]};h.applyView();
+  assert.equal(h.snapshot.parked_periods.length,1);assert.equal(h.snapshot.parked_periods[0].start,120);assert.equal(h.snapshot.parked_periods[0].kwh,.45);assert.deepEqual(Array.from(h.snapshot.parked_periods[0].intervals,row=>row.id),['real-loss']);
+  const html=h.parkedHistory();assert.match(html,/Unaccounted usage/);assert.match(html,/0\.45 kWh/);assert.match(html,/data-parked="parked-120\.000000"/);
 });
 
 test('Parked shows Undo for excluded and stale decisions even when all loss groups disappear',()=>{
@@ -146,6 +153,19 @@ test('measurement-error Undo preserves current stale and saved orphan fingerprin
 
 test('measurement-error decisions follow the selected period without changing full identity records',()=>{
   const h=measurementHistory();h.fullSnapshot=snapshot();h.fullSnapshot.settings={capacity_kwh:90};h.fullSnapshot.parked_intervals=[{id:'raw-inside',fingerprint:'raw-in',start:110,end:150,kwh:1,state:'open'},{id:'raw-out',fingerprint:'raw-out',start:190,end:210,kwh:2,state:'open'}];h.fullSnapshot.measurement_errors=[{id:'inside',fingerprint:'fp-in',start:110,end:150,kwh:1,state:'excluded'},{id:'outside',fingerprint:'fp-out',start:190,end:210,kwh:2,state:'stale'}];h.fullSnapshot.parked_periods=[{id:'inside-period',end:150},{id:'outside-period',end:210}];const before=structuredClone(h.fullSnapshot);h.applyView();assert.deepEqual(Array.from(h.snapshot.measurement_errors,row=>row.id),['inside']);assert.deepEqual(Array.from(h.snapshot.parked_periods,row=>row.id),['parked-110.000000']);assert.deepEqual(Array.from(h.snapshot.parked_intervals,row=>row.id),['raw-inside']);assert.deepEqual(h.fullSnapshot,before);
+});
+
+test('saved exclusion is removed from selected GET grouping while raw audit stays visible and Undo restores the card',async()=>{
+  const h=measurementHistory(),start=120,end=150,record={id:'loss-excluded',fingerprint:'excluded-fingerprint',start,end,kwh:73.8,state:'open'};let excluded=false;const mutations=[];
+  const selectedSnapshot=()=>({selected_period:{scope:'day',date:'1970-01-01',start_date:'1970-01-01',end_date:'1970-01-02',start:100,end:200,effective_end:200},statistics:{selected:{distance_km:0}},settings:{capacity_kwh:90},currency:'EUR',charges:[],trips:[],parked_periods:excluded?[]:[{id:`parked-${start.toFixed(6)}`,start,end,kwh:73.8,soc_used_pct:82,intervals:[{...record,state:'open'}]}],parked_intervals:[{...record,state:excluded?'excluded':'open'},{id:'boundary-excluded',fingerprint:'boundary-fp',start,end,kwh:0,recorded_kwh:6.4,state:excluded?'excluded':'open',accounting_basis:'connection_boundary'}],measurement_errors:excluded?[{...record,state:'excluded'}]:[],unaccounted_intervals:[],charging_daily:[]});
+  h._hass={config:{time_zone:'UTC'},async callWS(query){if(query.type.endsWith('/update')){mutations.push(query);excluded=query.values.excluded;return selectedSnapshot();}if(query.type.endsWith('/get')){mutations.push(query);return selectedSnapshot();}throw new Error(`Unexpected request ${query.type}`);}};
+  h.scope='day';h.anchor='1970-01-01';h.prepareSnapshot=raw=>raw;h.full=true;h.pageSize=36;h.dialog=(...args)=>{h.lastDialog=args;return {querySelector:()=>({textContent:'',disabled:false})};};
+  h.fullSnapshot=selectedSnapshot();h.applyView();const current=h.snapshot.parked_intervals[0];h.measurementErrorDialog(current);await h.lastDialog[2]();
+  assert.deepEqual(mutations.map(query=>query.type),['nio_telematics/car_dashboard/update','nio_telematics/car_dashboard/get']);assert.equal(excluded,true);
+  assert.equal(h.fullSnapshot.parked_intervals[0].kwh,73.8);assert.equal(h.fullSnapshot.parked_intervals[0].state,'excluded');assert.equal(h.snapshot.parked_periods.length,0);
+  let html=h.parkedHistory();assert.match(html,/class="empty"/);assert.match(html,/data-measurement-undo="loss-excluded" data-measurement-fingerprint="excluded-fingerprint"/);assert.doesNotMatch(html,/data-parked="/);assert.doesNotMatch(html,/6\.40 kWh/);
+  const error={textContent:''},target={querySelector:()=>error},button={dataset:{measurementUndo:'loss-excluded',measurementFingerprint:'excluded-fingerprint'},disabled:false,hasAttribute:()=>false,closest:selector=>selector==='.measurement-decision'?target:null};await h.click(clickButton(button));
+  assert.deepEqual(mutations.slice(-2).map(query=>query.type),['nio_telematics/car_dashboard/update','nio_telematics/car_dashboard/get']);assert.equal(excluded,false);assert.equal(h.snapshot.parked_periods.length,1);assert.equal(h.snapshot.parked_periods[0].kwh,73.8);html=h.parkedHistory();assert.match(html,/data-parked="parked-120\.000000"/);assert.doesNotMatch(html,/measurement-decisions/);
 });
 
 test('successful measurement-error save closes preview and stale Parked detail after refresh',async()=>{
