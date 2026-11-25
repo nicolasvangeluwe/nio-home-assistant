@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0-dev.9
+
+Development release — experimental.
+
+- Show parked battery decrease in kWh only across totals, records and details.
+  Remove the cumulative battery-equivalent and percentage metric, including the
+  cumulative Energy summary. Actual state of charge remains a percentage.
+
 ## 0.7.0-dev.8
 
 Development release — experimental.

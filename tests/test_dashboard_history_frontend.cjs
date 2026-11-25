@@ -93,17 +93,29 @@ test('measurement-error copy covers all fourteen locales and a grouped-period cl
   assert.equal(h._measurementFeedback,'Excluded from totals');
 });
 
-test('Parked summary, month total, group and detail use localized battery equivalents without changing kWh',()=>{
+test('Parked surfaces and cumulative Energy totals use kWh without battery percentages or equivalents',()=>{
   const locales=['en','nl','fr','de','nb','sv','da','cs','el','hu','lb','pl','pt','ro'],savedDocument=context.document;
   for(const language of locales){
-    const h=instance(),render=renderRoot(),period={id:'parked-label',start:100,end:160,kwh:210.6,soc_used_pct:234,intervals:[]};context.document=render.document;h.shadowRoot=render.root;h.tab='parked';h.config.language=language;h.snapshot={currency:'EUR',settings:{capacity_kwh:90},parked_periods:[period]};h.full=true;h.pageSize=36;
-    const expectedEquivalent=h.n(2.34,2),summary=h.parkedSummary({parked_loss_estimate_kwh:210.6});assert.ok(summary.includes(`${h.measurementErrorCopy('equivalent')} ${expectedEquivalent}×`),`${language} parked summary`);assert.ok(summary.includes(`${h.n(210.6,2)} kWh`));
-    render.summary.textContent=`${h.n(210.6,2)} kWh · ${expectedEquivalent}×`;h.summaryGrids();const summaryCells=render.summary.replacedWith.children;assert.equal(summaryCells[0].children[0].textContent,h.measurementErrorCopy('decrease'),`${language} period kWh label`);assert.equal(summaryCells[1].children[0].textContent,h.measurementErrorCopy('equivalent'),`${language} period equivalent label`);assert.equal(summaryCells[1].children[1].textContent,expectedEquivalent);
-    const html=h.parkedHistory();assert.ok(html.includes(h.measurementErrorCopy('decrease')),`${language} card kWh label`);assert.ok(html.includes(h.measurementErrorCopy('equivalent')),`${language} card equivalent label`);assert.ok(html.includes(`${expectedEquivalent}×`),`${language} >100% equivalent`);assert.doesNotMatch(html,/234%/);
-    h.dialog=(...args)=>{h.lastDialog=args;return null;};h.parkedDialog(period);assert.ok(h.lastDialog[1].includes(h.measurementErrorCopy('equivalent')),`${language} detail label`);assert.ok(h.lastDialog[1].includes(expectedEquivalent),`${language} detail equivalent`);assert.match(h.lastDialog[1],/×/);assert.ok(h.lastDialog[1].includes(h.n(210.6,2)));assert.match(h.lastDialog[1],/kWh/);
-    assert.ok(h.parkedSummary({parked_loss_estimate_kwh:45}).includes(`${h.n(.5,2)}×`),`${language} fraction`);
-    assert.equal(h.parkedEquivalentPrecision(.45),3,`${language} small fraction precision`);assert.ok(h.parkedSummary({parked_loss_estimate_kwh:.45}).includes(`${h.n(.005,3)}×`),`${language} small fraction`);
-    assert.ok(h.measurementErrorCopy('equivalent').length>3,`${language} label copy`);
+    const h=instance(),render=renderRoot(),period={id:'parked-label',start:100,end:160,kwh:210.6,soc_used_pct:234,intervals:[]};
+    context.document=render.document;h.shadowRoot=render.root;h.tab='parked';h.config.language=language;
+    h.snapshot={currency:'EUR',settings:{capacity_kwh:90},parked_periods:[period]};h.full=true;h.pageSize=36;
+    const summary=h.parkedSummary({parked_loss_estimate_kwh:210.6});
+    assert.ok(summary.includes(`${h.n(210.6,2)} kWh`),language);assert.doesNotMatch(summary,/%|×/);
+    render.summary.textContent=`${h.n(210.6,2)} kWh`;h.summaryGrids();
+    const cells=render.summary.replacedWith.children;assert.equal(cells.length,1,language);
+    assert.equal(cells[0].children[0].textContent,h.measurementErrorCopy('decrease'),language);
+    assert.equal(cells[0].children[1].textContent,h.n(210.6,2),language);
+    const html=h.parkedHistory();assert.ok(html.includes(h.measurementErrorCopy('decrease')),language);
+    assert.ok(html.includes(h.n(210.6,2)),language);assert.doesNotMatch(html,/%|×|equivalent/i);
+    assert.match(html,/metrics two/);
+    h.dialog=(...args)=>{h.lastDialog=args;return null;};h.parkedDialog(period);
+    assert.ok(h.lastDialog[1].includes(h.n(210.6,2)),language);assert.match(h.lastDialog[1],/kWh/);
+    assert.doesNotMatch(h.lastDialog[1],/%|×|equivalent/i);assert.match(h.lastDialog[1],/metrics two/);
+    const stat={segments:[],categories:{},distance_km:1000,used_kwh:210.6,soc_used_pct:234,parked_loss_estimate_kwh:210.6};
+    h.snapshot={...h.snapshot,preferences:{},counters:[],charging_daily:[],statistics:{month:stat}};
+    h.period='month';const energy=h.insight();
+    assert.ok(energy.includes(h.n(210.6,1)),language);assert.match(energy,/kWh/);
+    assert.doesNotMatch(energy,/234(?:[.,]0)?%|<strong>[^<]*×|equivalent/i);
   }
   context.document=savedDocument;
 });
