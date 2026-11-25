@@ -1783,6 +1783,7 @@ class CarLedgerCard extends HTMLElement {
   }
   tripEnergy(t){return this.drivingStats(t.segments).used_kwh;}
   tripAverage(t){return this.drivingStats(t.segments).consumption_kwh_100km;}
+  tripBatteryPercent(value,capacity){return value==null?null:Number(value)/capacity*100;}
   prepareSnapshot(raw){
     const data=JSON.parse(JSON.stringify(raw)),cap=data.settings.capacity_kwh;
     const rangeStat=Object.values(raw.statistics).find(s=>s.projected_range_km!=null&&s.consumption_kwh_100km>0);
@@ -1843,7 +1844,7 @@ class CarLedgerCard extends HTMLElement {
   tripCard(t){
     const gaps=this.gapsForTrip(t),energy=this.tripEnergy(t),average=this.tripAverage(t),gapLabel=gaps.length?this.gapStatusText(gaps.some(g=>g.resolution==='stale')?'stale':gaps.some(g=>g.resolution==='ignored')?'ignored':gaps.some(g=>g.resolution==='manual')?'manual':'open'):'';
     const cap=this.snapshot.settings.capacity_kwh;
-    return `<button class="session ${this.snapshot.active_trip_id===t.id?'active':''}" data-trip="${this.esc(t.id)}"><div class="row session-head"><span>${this.date(t.start)} → ${this.date(t.end,{hour:'2-digit',minute:'2-digit'})}</span>${this.snapshot.active_trip_id===t.id?'<span class="place">Rit bezig</span>':''}${gapLabel?`<span class="place gap-status">${this.esc(gapLabel)}</span>`:''}</div><div class="metrics three">${this.value('Afstand',t.distance_km,'km')}${this.value('Gem. verbruik',average,'kWh/100 km')}${this.value('Batterij gebruikt',energy!=null?energy/cap*100:null,'%')}</div><div class="muted">${this.n(t.start_energy/cap*100,0)}% → ${this.n(t.end_energy/cap*100,0)}%${energy==null?(gaps.length?` · ${this.esc(gapLabel)}`:' · Meting ontbreekt'):` · ${this.n(energy,2)} kWh`}</div></button>`;
+    return `<button class="session ${this.snapshot.active_trip_id===t.id?'active':''}" data-trip="${this.esc(t.id)}"><div class="row session-head"><span>${this.date(t.start)} → ${this.date(t.end,{hour:'2-digit',minute:'2-digit'})}</span>${this.snapshot.active_trip_id===t.id?'<span class="place">Rit bezig</span>':''}${gapLabel?`<span class="place gap-status">${this.esc(gapLabel)}</span>`:''}</div><div class="metrics three">${this.value('Afstand',t.distance_km,'km')}${this.value('Gem. verbruik',average,'kWh/100 km')}${this.value('Batterij gebruikt',energy!=null?energy/cap*100:null,'%')}</div><div class="muted">${this.n(this.tripBatteryPercent(t.start_energy,cap),0)}% → ${this.n(this.tripBatteryPercent(t.end_energy,cap),0)}%${energy==null?(gaps.length?` · ${this.esc(gapLabel)}`:' · Meting ontbreekt'):` · ${this.n(energy,2)} kWh`}</div></button>`;
   }
   history(){
     const charging=this.tab==='charging', all=charging?this.snapshot.charges:this.snapshot.trips;
@@ -1910,7 +1911,7 @@ class CarLedgerCard extends HTMLElement {
     const statCurrency=this.currencyCode(stat.currency||this.snapshot.currency||'EUR'),mixed=Number(stat.currency_mismatch_count)>0;
     html+=`<div class="panel"><div class="metrics ${stat.cost_eur_100km!=null?'two':''} hero">${this.value('Gemiddeld verbruik',stat.consumption_kwh_100km,'kWh/100 km')}${stat.cost_eur_100km!=null?this.value('Rijkosten',stat.cost_eur_100km,`${this.moneyUnit(statCurrency)}/100 km`,2):''}</div><div class="metrics three secondary">${this.value('Afstand',stat.distance_km,'km')}${this.value('Gebruikt',stat.used_kwh,'kWh')}${this.value('Batterij',stat.soc_used_pct,'%')}</div>${mixed?`<p class="muted">${this.currencyNotice('mixed')}</p>`:''}${!stat.distance_km?'<p class="muted">Verbruik wordt zichtbaar na de eerste gemeten rit.</p>':''}</div>`;
     if(this.period!=='last_100km')html+=this.unaccountedUsage(stat);
-    if(!['last_100km','last_trip','current_trip'].includes(this.period))html+=`<button class="parked-summary row" data-tab="parked"><span>Stilstand</span><strong>${this.n(stat.parked_loss_estimate_kwh,2)} kWh · ${this.n(stat.parked_loss_estimate_kwh/this.snapshot.settings.capacity_kwh*100)}%</strong><span aria-hidden="true">›</span></button>`;
+    if(!['last_100km','last_trip','current_trip'].includes(this.period))html+=this.parkedSummary(stat);
         html+=`<div class="panel"><h3>Laadkosten</h3><div class="metrics three">${this.value('Totaal',mixed?null:stat.spend_eur,this.moneyUnit(statCurrency),2)}${this.value('Geladen',stat.charged_kwh,'kWh')}${this.value('Gem. tarief',mixed?null:stat.price_eur_kwh,this.moneyRateUnit(statCurrency),2)}</div><div class="metrics two secondary">${this.value('Gem. verbruik',stat.consumption_kwh_100km,'kWh/100 km')}${this.value('Rijkosten',stat.cost_eur_100km,`${this.moneyUnit(statCurrency)}/100 km`,2)}</div>${mixed?`<p class="muted">${this.currencyNotice('mixed')}</p>`:''}${stat.missing_prices||stat.unconfirmed_charges?`<button class="notice" data-action="missing">${this.missingNoticeText(stat)} <span>›</span></button>`:''}<div class="categories">${Object.entries(stat.categories).map(([k,r])=>`<div class="row"><span>${this.category(k)}</span><span>${this.n(r.kwh)} kWh · ${this.money(mixed||Number(r.currency_mismatch_count)>0?null:r.cost_eur,this.currencyCode(r.currency||statCurrency))}</span></div>`).join('')}</div></div>`;
     if(stat.segments.length||['day','month','year'].includes(this.period))html+=`<details class="details"><summary>Grafieken & actieradius</summary>${this.graph(stat.segments,stat.consumption_kwh_100km)}${stat.projected_range_km!=null?`<div class="row range"><span>Actieradius bij dit verbruik</span><strong>${this.n(stat.projected_range_km,0)} km</strong></div>`:''}${['day','month','year'].includes(this.period)?this.chargingGraph():''}</details>`;
     const rated=this.snapshot.preferences.rated_kwh_100km;
@@ -1923,18 +1924,23 @@ class CarLedgerCard extends HTMLElement {
     const all=this.snapshot.parked_periods||[],rows=all.slice(0,this.full?this.pageSize:3);
     let html=`<div class="row heading"><h2>${this.full?'Alle stilstandperiodes':'Laatste stilstandperiodes'}</h2></div>`;
     if(!rows.length)html+='<div class="empty">Nog geen geregistreerde bereikafname bij stilstand.</div>';
-    const total=group=>{const energy=group.reduce((sum,p)=>sum+p.kwh,0);return `${this.n(energy,2)} kWh · ${this.n(energy/this.snapshot.settings.capacity_kwh*100)}%`;};
+    const total=group=>{const energy=group.reduce((sum,p)=>sum+p.kwh,0);return `${this.n(energy,2)} kWh · ${this.n(this.parkedEquivalent(energy),this.parkedEquivalentPrecision(energy))}×`;};
     let month='';
     for(const p of rows){
       const key=this.monthKey(p.end);
       if(this.full&&month!==key){month=key;html+=`<div class="month parked-month"><h3>${this.date(p.end,{month:'long',year:'numeric'})}</h3><p>${total(all.filter(r=>this.monthKey(r.end)===key))}</p></div>`;}
-      html+=`<button class="session" data-parked="${this.esc(p.id)}"><div class="row session-head"><span>${this.date(p.start)} → ${this.date(p.end)}</span></div><div class="metrics three">${this.value('Duur',(p.end-p.start)/60,'min',0)}${this.value('Verbruikt',p.kwh,'kWh',2)}${this.value('Batterij',p.soc_used_pct,'%')}</div><div class="muted">Geschat uit batterijafname</div></button>`;
+      html+=`<button class="session" data-parked="${this.esc(p.id)}"><div class="row session-head"><span>${this.date(p.start)} → ${this.date(p.end)}</span></div><div class="metrics three">${this.value('Duur',(p.end-p.start)/60,'min',0)}${this.value(this.parkedEnergyLabel(),p.kwh,'kWh',2)}${this.value(this.parkedEquivalentLabel(),this.parkedEquivalent(p.kwh),'×',this.parkedEquivalentPrecision(p.kwh))}</div><div class="muted">Geschat uit batterijafname</div></button>`;
     }
     if(this.full&&all.length>this.pageSize)html+=`<button class="more" data-action="more">Meer tonen (${all.length-this.pageSize})</button>`;
     html+=`<button class="more" data-action="full">${this.full?'Terug naar de laatste drie':'Alle stilstandperiodes'} <span>›</span></button>`;
     if(!this.full&&all.length){const key=this.monthKey(all[0].end);html+=`<div class="month parked-month"><h3>${this.date(all[0].end,{month:'long',year:'numeric'})}</h3><p>${total(all.filter(p=>this.monthKey(p.end)===key))}</p></div>`;}
     return html;
   }
+  parkedEnergyLabel(){return 'Verbruikt';}
+  parkedEquivalentLabel(){return 'Batterijequivalent';}
+  parkedEquivalent(kwh){return kwh/this.snapshot.settings.capacity_kwh;}
+  parkedEquivalentPrecision(kwh){const equivalent=Math.abs(this.parkedEquivalent(kwh));return equivalent>0&&equivalent<0.01?Math.min(6,Math.max(3,Math.ceil(-Math.log10(equivalent)))):2;}
+  parkedSummary(stat){const kwh=stat.parked_loss_estimate_kwh;return `<button class="parked-summary row" data-tab="parked"><span>Stilstand</span><strong>${this.n(kwh,2)} kWh · ${this.parkedEquivalentLabel()} ${this.n(this.parkedEquivalent(kwh),this.parkedEquivalentPrecision(kwh))}×</strong><span aria-hidden="true">›</span></button>`;}
   render(){
     if(!this.config)return;
     this.shadowRoot.innerHTML=`<style>${CarLedgerCard.styles}</style><ha-card><div class="row top"><nav class="segmented main-tabs" aria-label="Autohistoriek">${[['charging','Laden'],['trips','Ritten'],['insight','Verbruik'],['parked','Stilstand']].map(([key,label])=>`<button data-tab="${key}" aria-pressed="${this.tab===key}" class="${this.tab===key?'selected':''}">${label}</button>`).join('')}</nav><button class="icon refresh" data-action="refresh" title="Vernieuwen" aria-label="Vernieuwen"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M20 12a8 8 0 1 0-2.4 5.7"/></svg></button></div><div class="error" role="status">${this.esc(this.error)}</div>${this.snapshot?(this.tab==='insight'?this.insight():this.tab==='parked'?this.parkedHistory():this.history()):'<div class="empty">Ritten en laadkosten laden…</div>'}</ha-card>`;
@@ -1964,7 +1970,7 @@ class CarLedgerCard extends HTMLElement {
       case'settings':this.settingsDialog();break;
     }
   }
-  parkedDialog(p){this.dialog('Stilstand',`<p>${this.date(p.start)} → ${this.date(p.end)}</p><div class="metrics three">${this.value('Duur',(p.end-p.start)/60,'min',0)}${this.value('Verbruikt',p.kwh,'kWh',2)}${this.value('Batterij',p.soc_used_pct,'%')}</div><p class="muted">Geschatte energieafname tussen metingen met dezelfde kilometerstand. Los van rijverbruik; oorzaken zijn niet gemeten.</p>`);}
+  parkedDialog(p){this.dialog('Stilstand',`<p>${this.date(p.start)} → ${this.date(p.end)}</p><div class="metrics three">${this.value('Duur',(p.end-p.start)/60,'min',0)}${this.value(this.parkedEnergyLabel(),p.kwh,'kWh',2)}${this.value(this.parkedEquivalentLabel(),this.parkedEquivalent(p.kwh),'×',this.parkedEquivalentPrecision(p.kwh))}</div><p class="muted">Geschatte energieafname tussen metingen met dezelfde kilometerstand. Los van rijverbruik; oorzaken zijn niet gemeten.</p>`);}
   localISO(d){const local=new Date(d.getTime()-d.getTimezoneOffset()*60000);return local.toISOString().slice(0,10);}
   inputDate(t){const d=new Date(t*1000);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);}
   chargeDialog(c){
@@ -1986,7 +1992,7 @@ class CarLedgerCard extends HTMLElement {
     let explanation=`${fill(copy.odometer)} ${gaps.length?copy.gap:fill(copy.measured)}`;
     if(energy==null&&!gaps.length)explanation+=copy.missing;
     explanation+=` ${copy.parked}`;
-    this.dialog('Ritdetails',`<p>${this.date(t.start)} → ${this.date(t.end)}</p><div class="metrics two">${this.value('Afstand',t.distance_km,'km')}${this.value('Energie gebruikt',energy,'kWh',2)}${this.value('Batterij bij vertrek',t.start_energy/cap*100,'%')}${this.value('Batterij bij aankomst',t.end_energy/cap*100,'%')}</div><p class="muted">${explanation}</p>${gaps.length?`<section class="gap-trip-details"><h3>${this.gapCopy('title')}</h3>${gaps.map(g=>this.gapEntry(g)).join('')}</section>`:''}`,null);
+    this.dialog('Ritdetails',`<p>${this.date(t.start)} → ${this.date(t.end)}</p><div class="metrics two">${this.value('Afstand',t.distance_km,'km')}${this.value('Energie gebruikt',energy,'kWh',2)}${this.value('Batterij bij vertrek',this.tripBatteryPercent(t.start_energy,cap),'%')}${this.value('Batterij bij aankomst',this.tripBatteryPercent(t.end_energy,cap),'%')}</div><p class="muted">${explanation}</p>${gaps.length?`<section class="gap-trip-details"><h3>${this.gapCopy('title')}</h3>${gaps.map(g=>this.gapEntry(g)).join('')}</section>`:''}`,null);
   }
   settingsDialog(){
     const p=this.snapshot.preferences;

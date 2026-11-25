@@ -132,6 +132,8 @@ test('simple NIO card also distinguishes unknown status from idle', () => {
   card.stamp=Vehicle.prototype.stamp;card.effectiveModel=Vehicle.prototype.effectiveModel;card.artwork=()=>'';
   card.render();
   assert.match(card.shadowRoot.innerHTML,/Charging status unknown · Connected/);
+  assert.match(card.shadowRoot.innerHTML,/<strong>75(?:\.0)?<small>%<\/small><\/strong>/,'instantaneous SoC remains a percentage');
+  assert.doesNotMatch(card.shadowRoot.innerHTML,/Battery equivalent/,'Parked battery equivalents do not replace instantaneous SoC');
 });
 
 test('charging status unknown is localized in all fourteen dashboard languages', () => {

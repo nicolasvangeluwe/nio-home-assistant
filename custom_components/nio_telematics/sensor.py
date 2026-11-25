@@ -700,12 +700,10 @@ class NioSensorEntity(NioEntity):
             else {}
         )
         attributes["telemetry_source"] = self.coordinator.data.connection_method
-        if (
-            self.coordinator.data.connection_method == "direct"
-            and self.entity_description.key
-            in ("battery_state_of_charge", "remaining_range")
-            and isinstance(getattr(self.coordinator, "_joint_zero_pending", None), dict)
-        ):
+        if self.entity_description.key in (
+            "battery_state_of_charge",
+            "remaining_range",
+        ) and isinstance(getattr(self.coordinator, "_joint_zero_pending", None), dict):
             attributes.update(fresh=False, pending_zero=True)
         if self.coordinator.data.connection_method == "companion":
             attributes["source_generation"] = self.coordinator.data.source_generation
@@ -717,6 +715,15 @@ class NioSensorEntity(NioEntity):
             metadata = (self.coordinator.data.field_metadata or {}).get(field_key, {})
             attributes["source_quality"] = metadata.get("quality", "unavailable")
             attributes["fresh"] = metadata.get("quality") == "valid"
+            if metadata.get("validation_blocked"):
+                attributes.update(fresh=False, pending_zero=True)
+            if self.entity_description.key in (
+                "battery_state_of_charge",
+                "remaining_range",
+            ) and isinstance(
+                getattr(self.coordinator, "_joint_zero_pending", None), dict
+            ):
+                attributes.update(fresh=False, pending_zero=True)
         if endpoint := self.entity_description.source_endpoint:
             attributes = {
                 **attributes,
