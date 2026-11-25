@@ -26,6 +26,7 @@ from .const import (
     CONNECTION_COMPANION,
     DOMAIN,
 )
+from .energy_validation import confirm_joint_zero
 from .models import NioSocStatus, NioVehicleData
 from .polling import polling_settings_for_entry
 
@@ -233,6 +234,8 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
         self._vehicle_key = entry.data[CONF_COMPANION_VEHICLE_KEY]
         self._issue_id = f"companion_source_{entry.entry_id}"
         self._last_good: NioVehicleData | None = None
+        self._joint_zero_pending: dict | None = None
+        self._rejected_zero_at: dict[str, datetime] = {}
         self._last_vehicle_key: str | None = None
         self._polling_refresh_count = 0
         self._polling_last_attempt_monotonic: float | None = None
@@ -330,9 +333,80 @@ class CompanionDataUpdateCoordinator(DataUpdateCoordinator[NioVehicleData]):
                 ]
             )
         vehicle = snapshot_to_vehicle(snapshot, self.data)
+        vehicle = self._validate_energy(vehicle)
         self._last_good = vehicle
         self._last_vehicle_key = snapshot.vehicle_key
         return vehicle
+
+    def _validate_energy(self, vehicle):
+        """Use actual valid Companion field clocks, never cache generation as time."""
+        previous = self.data
+        # Generation is provenance, not an independent source observation.
+        # In particular, a cache-generation change cannot promote a zero.
+        if previous is None:
+            return vehicle
+        metadata = vehicle.field_metadata or {}
+        authoritative = all(
+            metadata.get(key, {}).get("quality") == "valid"
+            for key in ("socPercent", "rangeKm")
+        ) and not (vehicle.soc_retained or vehicle.remaining_range_retained)
+        advancing = all(
+            current is not None and (prior is None or current > prior)
+            for current, prior in (
+                (vehicle.soc_last_valid_at, previous.soc_last_valid_at),
+                (
+                    vehicle.remaining_range_last_valid_at,
+                    previous.remaining_range_last_valid_at,
+                ),
+            )
+        )
+        if not authoritative or not advancing:
+            # Stale cache responses cannot confirm a pending event, nor turn
+            # a FIRST same/older-clock abrupt zero into a new baseline. A
+            # cache generation change is not independent source evidence.
+            suspect = self._joint_zero_pending or (
+                (previous.soc_status.soc or 0) > 1
+                and (previous.soc_status.remaining_range or 0) > 0
+                and vehicle.soc_status.soc == vehicle.soc_status.remaining_range == 0
+            )
+            blocked = {
+                key
+                for key in ("soc", "remaining_range")
+                if suspect and getattr(vehicle.soc_status, key) == 0
+            }
+        else:
+            blocked = confirm_joint_zero(
+                self,
+                vehicle.soc_status,
+                previous.soc_status,
+                vehicle.soc_last_valid_at,
+                vehicle.remaining_range_last_valid_at,
+                previous.soc_last_valid_at,
+                previous.remaining_range_last_valid_at,
+                observed_at=time.monotonic(),
+            )
+        changes = {}
+        values = {}
+        if "soc" in blocked:
+            values["soc"] = previous.soc_status.soc
+            changes.update(
+                soc_last_valid_at=previous.soc_last_valid_at, soc_retained=True
+            )
+        if "remaining_range" in blocked:
+            values["remaining_range"] = previous.soc_status.remaining_range
+            changes.update(
+                remaining_range_last_valid_at=previous.remaining_range_last_valid_at,
+                remaining_range_retained=True,
+            )
+        if blocked:
+            metadata = {key: dict(value) for key, value in metadata.items()}
+            for key, field in (("soc", "socPercent"), ("remaining_range", "rangeKm")):
+                if key in blocked:
+                    metadata[field]["validation_blocked"] = True
+            changes["field_metadata"] = metadata
+        return replace(
+            vehicle, soc_status=replace(vehicle.soc_status, **values), **changes
+        )
 
     async def _async_fetch_snapshot(self):
         """Enforce Companion's 30-second request floor for runtime controllers."""

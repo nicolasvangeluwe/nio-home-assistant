@@ -1928,13 +1928,14 @@ class CarLedgerCard extends HTMLElement {
     for(const p of rows){
       const key=this.monthKey(p.end);
       if(this.full&&month!==key){month=key;html+=`<div class="month parked-month"><h3>${this.date(p.end,{month:'long',year:'numeric'})}</h3><p>${total(all.filter(r=>this.monthKey(r.end)===key))}</p></div>`;}
-      html+=`<button class="session" data-parked="${this.esc(p.id)}"><div class="row session-head"><span>${this.date(p.start)} → ${this.date(p.end)}</span></div><div class="metrics three">${this.value('Duur',(p.end-p.start)/60,'min',0)}${this.value('Verbruikt',p.kwh,'kWh',2)}${this.value('Batterij',p.soc_used_pct,'%')}</div><div class="muted">Geschat uit batterijafname</div></button>`;
+      html+=`<button class="session" data-parked="${this.esc(p.id)}"><div class="row session-head"><span>${this.date(p.start)} → ${this.date(p.end)}</span></div><div class="metrics three">${this.value('Duur',(p.end-p.start)/60,'min',0)}${this.value(this.parkedEnergyLabel(),p.kwh,'kWh',2)}${this.value('Batterij',p.soc_used_pct,'%')}</div><div class="muted">Geschat uit batterijafname</div></button>`;
     }
     if(this.full&&all.length>this.pageSize)html+=`<button class="more" data-action="more">Meer tonen (${all.length-this.pageSize})</button>`;
     html+=`<button class="more" data-action="full">${this.full?'Terug naar de laatste drie':'Alle stilstandperiodes'} <span>›</span></button>`;
     if(!this.full&&all.length){const key=this.monthKey(all[0].end);html+=`<div class="month parked-month"><h3>${this.date(all[0].end,{month:'long',year:'numeric'})}</h3><p>${total(all.filter(p=>this.monthKey(p.end)===key))}</p></div>`;}
     return html;
   }
+  parkedEnergyLabel(){return 'Verbruikt';}
   render(){
     if(!this.config)return;
     this.shadowRoot.innerHTML=`<style>${CarLedgerCard.styles}</style><ha-card><div class="row top"><nav class="segmented main-tabs" aria-label="Autohistoriek">${[['charging','Laden'],['trips','Ritten'],['insight','Verbruik'],['parked','Stilstand']].map(([key,label])=>`<button data-tab="${key}" aria-pressed="${this.tab===key}" class="${this.tab===key?'selected':''}">${label}</button>`).join('')}</nav><button class="icon refresh" data-action="refresh" title="Vernieuwen" aria-label="Vernieuwen"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M20 12a8 8 0 1 0-2.4 5.7"/></svg></button></div><div class="error" role="status">${this.esc(this.error)}</div>${this.snapshot?(this.tab==='insight'?this.insight():this.tab==='parked'?this.parkedHistory():this.history()):'<div class="empty">Ritten en laadkosten laden…</div>'}</ha-card>`;

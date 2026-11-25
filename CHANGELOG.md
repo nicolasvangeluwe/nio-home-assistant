@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.7.0-dev.8
+
+Development release — experimental.
+
+- Allocate battery changes once across driving and parked usage. Reconcile a
+  delayed trip endpoint without also retaining the same parked loss, and preserve
+  charging, provider and battery-capacity boundaries.
+- Calculate net stationary battery decrease from fully covered compatible
+  readings. A rebound cancels recent decreases in derived accounting instead of
+  accumulating every downward fluctuation; retain the original readings and
+  historical records whose source path is incomplete.
+- Protect both Direct and Companion accounting from suspicious zero/rebound
+  readings using their actual source evidence while preserving genuine zero.
+- Review archived zero/refill pairs through the existing reversible
+  measurement-error flow. Show the matching inferred refill's time and amount;
+  confirmed charging receipts remain protected.
+- Apply calendar selection to individual parked intervals before grouping so
+  daily and wider views agree. Retain charging-boundary battery changes separately
+  as unaccounted usage, with localized review and audit copy in all 14 languages.
+
 ## 0.7.0-dev.7
 
 Development release — experimental.

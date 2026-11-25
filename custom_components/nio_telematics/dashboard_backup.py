@@ -80,6 +80,48 @@ def validate_history(history: object) -> dict | None:
         ):
             raise ValueError("History currency is invalid")
     resolutions = history.get("gap_resolutions", {})
+    paths = history.get("parking_source_paths", [])
+    if not isinstance(paths, list):
+        raise ValueError("Parking source paths must be a list")
+    for path in paths:
+        if not isinstance(path, list) or not path:
+            raise ValueError("Invalid parking source path")
+        previous = None
+        for point in path:
+            if (
+                not isinstance(point, dict)
+                or any(
+                    isinstance(point.get(key), bool)
+                    or not isinstance(point.get(key), (int, float))
+                    or not isfinite(point[key])
+                    for key in ("t", "odo", "energy")
+                )
+                or point["odo"] <= 0
+                or point["energy"] < 0
+                or point.get("energy_source") != "native_soc"
+                or not isinstance(point.get("home_connected"), bool)
+                or (
+                    "until" in point
+                    and (
+                        isinstance(point["until"], bool)
+                        or not isinstance(point["until"], (int, float))
+                        or not isfinite(point["until"])
+                        or point["until"] < point["t"]
+                    )
+                )
+                or (
+                    "capacity_kwh" in point
+                    and (
+                        isinstance(point["capacity_kwh"], bool)
+                        or not isinstance(point["capacity_kwh"], (int, float))
+                        or not isfinite(point["capacity_kwh"])
+                        or point["capacity_kwh"] <= 0
+                    )
+                )
+                or (previous is not None and point["t"] <= previous)
+            ):
+                raise ValueError("Invalid parking source path")
+            previous = point.get("until", point["t"])
     if not isinstance(resolutions, dict):
         raise ValueError("Gap resolutions must be an object")
     for ident, row in resolutions.items():

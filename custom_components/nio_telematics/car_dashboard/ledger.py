@@ -139,6 +139,9 @@ class Ledger:
             }
         )
         self.data.setdefault("parked_losses", [])
+        # Compact, durable stationary paths retain the evidence needed to net
+        # later recoveries after the rolling diagnostic sample buffer expires.
+        self.data.setdefault("parking_source_paths", [])
         self.data.setdefault("last_home_charge", None)
         self.data.setdefault("source_transition_at", None)
         self.data.setdefault("source_transition_energy", None)
@@ -214,6 +217,11 @@ class Ledger:
             self.data["native_soc_reports"] = reports = reports[-2000:]
             self.changed()
         prior = [r for r in reports if 0 <= odo_t - r["t"] <= 180]
+        # Allocate a bounded arrival endpoint before ingest can also book the
+        # identical decrease as stationary loss.
+        self.reconcile_native_endpoint(
+            odo, soc_t, soc, connected=connected, connected_since=connected_since
+        )
         accepted = False
         if prior:
             reading = max(prior, key=lambda r: r["t"])
@@ -247,6 +255,19 @@ class Ledger:
         if not candidates:
             return False
         trip = max(candidates, key=lambda r: r["end"])
+        if (
+            connected_since is not None
+            and trip["last_movement"] < connected_since <= soc_t
+        ):
+            # A later cable-state event breaks the arrival endpoint window,
+            # even if its current value is disconnected. False alone is not
+            # evidence that this whole interval was disconnected.
+            return False
+        if self.data.get("pending_epoch") is not None or any(
+            trip["last_movement"] <= row["t"] <= soc_t
+            for row in self.data["source_transitions"]
+        ):
+            return False
         if soc_t <= trip.get("endpoint_soc_time", trip["end"]):
             return False
         if any(
@@ -538,12 +559,14 @@ class Ledger:
             "energy": energy,
             "energy_source": source,
             "home_connected": home_connected,
+            "capacity_kwh": self.settings["capacity_kwh"],
         }
         if soc is not None:
             sample["soc"] = soc
         old = self.data["last"]
         if old and t <= old["t"]:
             return False
+        self._retain_parking_path(old, sample)
         self.tick(t)
         arrival = bool(
             old
@@ -702,7 +725,7 @@ class Ledger:
                 )
             elif delta < -self.energy(2) and not (
                 source == "native_soc"
-                and -delta <= self.settings["capacity_kwh"] * 0.01
+                and -delta <= self.settings["capacity_kwh"] * 0.01 + 1e-9
             ):
                 home_overlap = (
                     home_connected
@@ -765,6 +788,11 @@ class Ledger:
                         "kwh": delta,
                         "end_energy": sample["energy"],
                         "complete": True,
+                        "allocation_guard": "charging_boundary"
+                        if self._parking_boundary(old["t"], t)
+                        else "connection_boundary"
+                        if old.get("home_connected")
+                        else None,
                     }
                 )
         self.data["last"] = sample
@@ -950,10 +978,241 @@ class Ledger:
             [self.data["active"]] if self.data["active"] else []
         )
 
+    def _parking_boundary(self, start, end):
+        """Charging and source changes break battery-only stationary paths."""
+        return any(
+            c["kind"] != "dismissed" and c["start"] < end and c["end"] > start
+            for c in self.data["charges"].values()
+        ) or any(start < r["t"] <= end for r in self.data["source_transitions"])
+
+    def _parking_pair(self, before, after):
+        return (
+            before["t"] < after["t"]
+            and after["t"] - before.get("until", before["t"])
+            <= self.settings["max_gap_minutes"] * 60
+            and before["odo"] == after["odo"]
+            and before.get("energy_source")
+            == after.get("energy_source")
+            == "native_soc"
+            and not before.get("home_connected")
+            and not after.get("home_connected")
+            and before.get("capacity_kwh", self._capacity_at(before["t"]))
+            == after.get("capacity_kwh", self._capacity_at(after["t"]))
+            and not self._parking_boundary(before["t"], after["t"])
+            # Archived abrupt zero/refill pairs need explicit human review;
+            # expired source payloads cannot prove that either reading was bad.
+            and not (
+                min(before["energy"], after["energy"]) == 0
+                and max(before["energy"], after["energy"])
+                > self._capacity_at(after["t"]) * 0.01
+            )
+        )
+
+    def _capacity_at(self, timestamp):
+        capacity = self.data["initial_capacity_kwh"]
+        for transition in sorted(self.data["source_transitions"], key=lambda r: r["t"]):
+            if transition["t"] > timestamp:
+                break
+            capacity = transition.get("capacity_kwh", capacity)
+        return capacity
+
+    def _retain_parking_path(self, before, after):
+        """Retain energy-changing points and plateau end clocks, not every poll."""
+        if not before or not self._parking_pair(before, after):
+            return
+        paths = self.data["parking_source_paths"]
+        if paths and paths[-1][-1].get("until", paths[-1][-1]["t"]) == before["t"]:
+            path = paths[-1]
+        else:
+            path = [deepcopy(before)]
+            paths.append(path)
+        if path[-1]["energy"] == after["energy"]:
+            path[-1]["until"] = after["t"]
+        else:
+            path.append(deepcopy(after))
+
+    def _net_parked_losses(self):
+        """Project nonnegative net depletion; never change the raw loss journal.
+
+        Only a fully retained stationary source path can cancel earlier loss.
+        LIFO cancellation precedes user exclusions and cannot manufacture an
+        energy receipt or priced inventory. Paths split at movement, charging,
+        source/capacity changes and abrupt archived zeroes. Uncovered history
+        retains its legacy basis.
+        """
+        coherent_read = getattr(self, "_parked_read_projection", None)
+        if coherent_read is not None:
+            return deepcopy(coherent_read)
+        sample_keys = (
+            "t",
+            "until",
+            "odo",
+            "energy",
+            "energy_source",
+            "home_connected",
+            "capacity_kwh",
+        )
+
+        def points_key(points):
+            return tuple(tuple(r.get(k) for k in sample_keys) for r in points)
+
+        signature = (
+            self.settings["max_gap_minutes"],
+            self.data["initial_capacity_kwh"],
+            points_key(self.data["samples"]),
+            tuple(points_key(path) for path in self.data["parking_source_paths"]),
+            json.dumps(self.data["parked_losses"], sort_keys=True),
+            tuple(
+                (c["kind"], c["start"], c["end"]) for c in self.data["charges"].values()
+            ),
+            tuple(
+                (r["t"], r.get("capacity_kwh")) for r in self.data["source_transitions"]
+            ),
+            tuple(
+                (
+                    t.get("native_alignment_version"),
+                    t.get("endpoint_soc_time"),
+                    t.get("end_energy"),
+                    t.get("last_movement"),
+                    (t["segments"][-1].get("kwh") if t["segments"] else None),
+                )
+                for t in self.all_trips()
+            ),
+        )
+        cached = getattr(self, "_parked_projection_cache", None)
+        if cached and cached[0] == signature:
+            return deepcopy(cached[1])
+        rows = [
+            dict(r, recorded_kwh=r["kwh"], accounting_basis="legacy_interval")
+            for r in self.data["parked_losses"]
+        ]
+        lookup = {(r["start"], r["end"]): i for i, r in enumerate(rows)}
+        # Durable future paths take precedence over the diagnostic buffer.
+        paths = list(self.data["parking_source_paths"])
+        samples = sorted(self.data["samples"], key=lambda r: r["t"])
+        path = []
+        for sample in samples:
+            if path and not self._parking_pair(path[-1], sample):
+                if len(path) > 1:
+                    paths.append(path)
+                path = []
+            path.append(sample)
+        if len(path) > 1:
+            paths.append(path)
+        visited = set()
+        for path in paths:
+            stack = []
+            surplus = 0.0
+            for before, after in zip(path, path[1:], strict=False):
+                if not self._parking_pair(before, after):
+                    stack = []
+                    surplus = 0.0
+                    continue
+                delta = before["energy"] - after["energy"]
+                if delta > 1e-9:
+                    key = (before.get("until", before["t"]), after["t"])
+                    index = lookup.get(key)
+                    if (
+                        index is None
+                        or abs(self.data["parked_losses"][index]["kwh"] - delta) > 1e-6
+                    ):
+                        stack = []
+                        continue
+                    if index in visited:
+                        stack = []
+                        continue
+                    visited.add(index)
+                    rows[index]["accounting_basis"] = "net_endpoints"
+                    cancelled = min(surplus, rows[index]["kwh"])
+                    rows[index]["kwh"] -= cancelled
+                    surplus -= cancelled
+                    if rows[index]["kwh"] > 1e-9:
+                        stack.append(index)
+                elif delta < -1e-9:
+                    recovery = -delta
+                    while stack and recovery > 1e-9:
+                        row = rows[stack[-1]]
+                        cancelled = min(row["kwh"], recovery)
+                        row["kwh"] -= cancelled
+                        recovery -= cancelled
+                        if row["kwh"] <= 1e-9:
+                            stack.pop()
+                    # Energy above the original path baseline has no booked
+                    # purchase basis and cannot cancel a later loss.
+                    if recovery > 1e-9:
+                        stack = []
+                        surplus += recovery
+        # Dev.7 could allocate an arrival decrease to both a driving endpoint
+        # and a raw parked row. Only exact retained endpoint provenance proves
+        # that duplicate; mere temporal overlap does not.
+        for row in rows:
+            if row.get("allocation_guard") in (
+                "charging_boundary",
+                "connection_boundary",
+            ):
+                row.update(kwh=0.0, accounting_basis=row["allocation_guard"])
+            covered = [
+                r for r in self.data["samples"] if row["start"] <= r["t"] <= row["end"]
+            ]
+            if (
+                len(covered) >= 2
+                and covered[0]["t"] == row["start"]
+                and covered[-1]["t"] == row["end"]
+                and all(r.get("energy_source") == "native_soc" for r in covered)
+                and all(r["odo"] == covered[0]["odo"] for r in covered)
+                and abs(covered[0]["energy"] - covered[-1]["energy"] - row["kwh"])
+                < 1e-6
+                and (
+                    any(r.get("home_connected") for r in covered)
+                    or self._parking_boundary(row["start"], row["end"])
+                )
+            ):
+                source_boundary = any(
+                    row["start"] <= r["t"] <= row["end"]
+                    for r in self.data["source_transitions"]
+                )
+                charging_boundary = any(
+                    c["kind"] != "dismissed"
+                    and c["start"] < row["end"]
+                    and c["end"] > row["start"]
+                    for c in self.data["charges"].values()
+                )
+                row.update(
+                    kwh=0.0,
+                    accounting_basis="source_boundary"
+                    if source_boundary
+                    else "charging_boundary"
+                    if charging_boundary
+                    else "connection_boundary",
+                )
+            for trip in self.all_trips():
+                if (
+                    row["accounting_basis"]
+                    not in (
+                        "connection_boundary",
+                        "charging_boundary",
+                        "source_boundary",
+                    )
+                    and trip.get("native_alignment_version") == 2
+                    and trip.get("endpoint_soc_time") == row["end"]
+                    and trip.get("end_energy") == row.get("end_energy")
+                    and trip["last_movement"] == row["start"]
+                    and not self._parking_boundary(row["start"], row["end"])
+                    and trip["segments"]
+                    and (number(trip["segments"][-1].get("kwh")) or 0)
+                    >= row["kwh"] - 1e-6
+                ):
+                    row.update(kwh=0.0, accounting_basis="aligned_driving_endpoint")
+        self._parked_projection_cache = (signature, deepcopy(rows))
+        return rows
+
     def measurement_error_intervals(self):
         """Offer raw-loss identities; only an explicit user choice excludes one."""
         intervals = []
-        for loss in self.data["parked_losses"]:
+        projections = self._net_parked_losses()
+        for loss, projection in zip(
+            self.data["parked_losses"], projections, strict=True
+        ):
             ident = (
                 "loss-"
                 + sha256(json.dumps([loss["start"], loss["end"]]).encode()).hexdigest()[
@@ -969,7 +1228,8 @@ class Ledger:
                 and c.get("cost_eur") is None
                 and c.get("price_eur_kwh") is None
                 and c["start"] == loss["end"]
-                and 0 < c["end"] - c["start"] <= 60
+                and 0 < c["end"] - c["start"]
+                and (c["end"] - c["start"] <= 60 or loss.get("end_energy") == 0)
                 and abs(c["kwh"] - loss["kwh"]) <= 1e-6
                 and abs(c.get("estimated_kwh", -1) - loss["kwh"]) <= 1e-6
                 and not any(
@@ -1002,11 +1262,28 @@ class Ledger:
                     "fingerprint": fingerprint,
                     "start": loss["start"],
                     "end": loss["end"],
-                    "kwh": loss["kwh"],
+                    "kwh": projection["kwh"],
+                    "recorded_kwh": loss["kwh"],
+                    "accounting_basis": projection["accounting_basis"],
+                    "review_required": bool(candidate and loss.get("end_energy") == 0),
+                    "review_reason": "zero_refill_pair"
+                    if candidate and loss.get("end_energy") == 0
+                    else None,
+                    "evidence_basis": "archived_pair_only"
+                    if candidate and loss.get("end_energy") == 0
+                    else "source_samples"
+                    if projection["accounting_basis"] != "legacy_interval"
+                    else "legacy_interval",
                     "state": state,
                     "measurement_error": state == "excluded",
                     "paired_candidate_id": candidate["id"] if candidate else None,
                     "paired_candidate_kwh": candidate["kwh"] if candidate else None,
+                    "paired_candidate_start": candidate["start"] if candidate else None,
+                    "paired_candidate_end": candidate["end"] if candidate else None,
+                    "paired_candidate_duration_seconds": candidate["end"]
+                    - candidate["start"]
+                    if candidate
+                    else None,
                     "paired_candidate_fingerprint": candidate_fingerprint,
                     "paired_candidate_excluded": bool(
                         state == "excluded"
@@ -1048,6 +1325,7 @@ class Ledger:
                     "paired_candidate_fingerprint",
                 )
             }
+            self.data["measurement_errors"][ident]["kwh"] = interval["recorded_kwh"]
         else:
             self.data["measurement_errors"].pop(ident, None)
         self.changed()
@@ -1068,13 +1346,47 @@ class Ledger:
         }
         return [
             r
-            for r in self.data["parked_losses"]
+            for r in self._net_parked_losses()
+            if (r["start"], r["end"]) not in excluded and r["kwh"] > 1e-9
+        ]
+
+    def unaccounted_parked_intervals(self):
+        """Retain observed charging-boundary changes without calling them usage."""
+        excluded = {
+            (r["start"], r["end"])
+            for r in self.measurement_error_intervals()
+            if r["measurement_error"]
+        }
+        return [
+            r
+            for r in self._net_parked_losses()
             if (r["start"], r["end"]) not in excluded
+            if r["accounting_basis"]
+            in ("charging_boundary", "connection_boundary", "source_boundary")
         ]
 
     def accounting_segments(self, trip, apply_resolutions=True):
         """Exclude a proven legacy gap-anchor overlap without changing archives."""
         rows = deepcopy(trip["segments"])
+        # Older arrival reconciliation could extend a trip through a later
+        # recorded cable transition. The exact retained raw-loss endpoint is
+        # sufficient to return that allocation to the unaccounted boundary.
+        for loss in self._net_parked_losses():
+            if (
+                rows
+                and trip.get("native_alignment_version") == 2
+                and loss["accounting_basis"] == "connection_boundary"
+                and trip.get("endpoint_soc_time") == loss["end"]
+                and trip.get("last_movement") == loss["start"]
+                and rows[-1].get("end_energy") == loss.get("end_energy")
+                and number(rows[-1].get("kwh")) is not None
+                and rows[-1]["kwh"] >= loss["recorded_kwh"] - 1e-6
+            ):
+                rows[-1].update(
+                    kwh=max(0.0, rows[-1]["kwh"] - loss["recorded_kwh"]),
+                    end_energy=loss["end_energy"] + loss["recorded_kwh"],
+                    energy_basis="native_arrival_boundary_replay",
+                )
         for previous, row in zip(rows, rows[1:], strict=False):
             if (
                 trip.get("native_alignment_version", 0) < 1
@@ -1320,6 +1632,23 @@ class Ledger:
                 events.append((segment["end"], 1, "trip", segment))
         for loss in self.accounting_parked_losses():
             events.append((loss["end"], 1, "parked", loss))
+        for loss in self.unaccounted_parked_intervals():
+            endpoint = number(loss.get("end_energy"))
+            events.append(
+                (
+                    loss["end"],
+                    1,
+                    "parked",
+                    dict(
+                        loss,
+                        kwh=None,
+                        start_energy=endpoint + loss["recorded_kwh"]
+                        if endpoint is not None
+                        else None,
+                        invalid_reason=loss["accounting_basis"],
+                    ),
+                )
+            )
         for transition in self.data["source_transitions"]:
             events.append((transition["t"], -1, "source_transition", transition))
         result = []
@@ -1365,7 +1694,12 @@ class Ledger:
                 ]
                 discharged = (
                     row.get("invalid_reason")
-                    in ("gap", "legacy_gap_overlap", "legacy_charging_overlap")
+                    in (
+                        "gap",
+                        "legacy_gap_overlap",
+                        "legacy_charging_overlap",
+                        "connection_boundary",
+                    )
                     and not overlapping
                     and None not in (start_energy, end_energy)
                     and end_energy <= start_energy
@@ -1923,6 +2257,14 @@ class Ledger:
         return list(reversed(periods))
 
     def snapshot(self, now, tz=UTC):
+        """Use one canonical allocation for this synchronous coherent read."""
+        self._parked_read_projection = self._net_parked_losses()
+        try:
+            return self._snapshot(now, tz)
+        finally:
+            self._parked_read_projection = None
+
+    def _snapshot(self, now, tz=UTC):
         local = datetime.fromtimestamp(now, tz)
         midnight = local.replace(hour=0, minute=0, second=0, microsecond=0)
         charges = sorted(

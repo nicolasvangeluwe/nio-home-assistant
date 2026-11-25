@@ -8,7 +8,7 @@ On my EU ET5 Touring, it receives live **battery SoC, remaining range, odometer 
 
 **Native charging state:** The native NIO charging-state sensor may be unavailable for some vehicles or samples. We have observed it missing on an ET5 Touring, and an EL6 owner reported it unknown while the car was charging; the cause is not confirmed. You can select your charger’s charging-state binary sensor or W/kW power sensor in the NIO Vehicle Dashboard settings. This works with chargers integrated through Home Assistant, including ZHA; EVCC is not required.
 
-**Battery SoC:** the integration reads `soc_status/changes`. The zero in `vehicle_status/latest` can be a placeholder and is ignored; a real 0% reading from `soc_status` is still valid. This has been the source since [v0.1.1-dev.7](CHANGELOG.md#011-dev7). An abrupt Direct joint 0%/0km reading after a positive battery reading is held for confirmation: after at least 60 seconds, a successful energy read must advance both source timestamps. Retained values keep their original timestamps and are marked unfresh while pending. A repeated cached event cannot confirm itself; initial and near-empty (at most 1%) zero readings remain valid immediately.
+**Battery SoC:** Direct NIO reads `soc_status/changes`. The zero in `vehicle_status/latest` can be a placeholder and is ignored; a real 0% reading from `soc_status` is still valid. This has been the Direct source since [v0.1.1-dev.7](CHANGELOG.md#011-dev7). Direct and Companion validate an abrupt joint 0%/0km pair after a positive battery reading: after at least 60 seconds, a successful authoritative energy read must advance both source timestamps. Retained values keep their original timestamps and are marked unfresh while pending. Cached or retained readings cannot confirm themselves; initial and near-empty (at most 1%) zero readings remain valid immediately.
 
 **Charge limit:** the entity labelled *Maximum state of charge* comes from NIO's `max_soc` field—the limit set in the car (90% on my test car). *Charging target* is a different API field and has reported 0% while parked; do not use that value as your saved charge limit.
 
@@ -86,6 +86,27 @@ when no included parked records remain. A narrowly matching inferred charging
 candidate may be included in the preview; confirmed charging receipts are never
 removed by this action. Changed source evidence makes the old decision inactive
 and visible for review. Existing false losses are not automatically guessed away.
+
+**Parked → Battery decrease** reports net stationary battery change estimated
+from the configured usable capacity and the car's rounded battery readings.
+Within a fully covered compatible stationary path, a recovery cancels recent
+decreases first in the derived accounting. For example, 80% → 79.5% → 80% → 79.5%
+on a configured 90 kWh battery is 0.45 kWh, not 0.90 kWh. Original readings remain
+stored. Movement, charging and provider/capacity changes separate those paths;
+incomplete historical paths retain their recorded basis.
+
+Delayed arrival reconciliation assigns the same battery change only once.
+Recorded decreases overlapping charging appear separately under **Unaccounted
+usage**, rather than being treated as proved parked consumption. Charger input
+is not assumed to equal stored battery energy. Calendar views select individual
+intervals before grouping, using the same Home Assistant timezone and booking
+boundaries as their totals.
+
+An archived zero-ending decrease followed by an equal inferred refill may be
+flagged for review. Its preview shows both original amounts and the refill time
+span; the pair alone does not prove a measurement error. Exclusion is an explicit,
+reversible choice and cannot remove a confirmed charging receipt. A repaired
+historical total is not automatically a verified physical standby-energy total.
 
 ## Polling
 
