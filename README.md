@@ -2,6 +2,8 @@
 
 Bring your NIO into Home Assistant using NIO's official EU Open Telematics API. This is an independent, unofficial, read-only integration—not affiliated with or endorsed by NIO. It shows vehicle data but does not control charging or the car.
 
+**Finding this useful? [Give the project a ⭐ on GitHub](https://github.com/nicolasvangeluwe/nio-home-assistant).** It helps other NIO owners discover the integration and encourages continued development. Sign in to GitHub and click **Star** at the top of the repository—it’s free.
+
 ## What works today
 
 On my EU ET5 Touring, it receives live **battery SoC, remaining range, odometer and vehicle state**, plus the user-set charge limit and battery-pack voltage/current. Pack, cell and temperature-probe counts are available as diagnostics. Other optional sensors cover charging, trips, location, body and cabin data; what NIO supplies may differ by car.
