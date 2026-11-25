@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.0-dev.10
+
+Development release — experimental.
+
+- Preserve a fully known booked battery price when an arrival overlaps a
+  confirmed priced charging session that finishes later. Credit each receipt
+  once, then resume pricing only from an independently aligned native start
+  reading after charging completes. Keep the arrival's missing energy and cost
+  unaccounted; retain currency, source, capacity and intervening-driving guards.
+- Wait until Home Assistant has started before initially validating optional
+  dashboard source entities, avoiding a false missing-entity warning when a
+  charger integration loads later. Recording from saved settings continues
+  during startup; running reloads and options saves still validate immediately.
+- Preserve exact JSON text through dashboard backup download, preview and
+  restore so numeric representations do not invalidate saved measurement-error
+  decisions or record identifiers. Keep the existing backup format and legacy
+  API. Reject transfers that exceed Home Assistant's safe WebSocket size, with
+  localized guidance in all 14 languages.
+- Bind restore to the exact file and revision that were previewed, ignore
+  superseded file reads, and prevent changing the selected file during restore.
+
 ## 0.7.0-dev.9
 
 Development release — experimental.

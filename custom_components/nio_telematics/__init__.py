@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import config_entry_oauth2_flow
@@ -72,6 +73,20 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     return True
 
 
+async def _async_initial_dashboard_reconcile(hass, entry):
+    """Wait for other integrations only during startup; saved recorders stay live."""
+    if hass.is_running:
+        await _async_dashboard_options_updated(hass, entry)
+        return
+
+    async def started(event):
+        await _async_dashboard_options_updated(hass, entry)
+
+    entry.async_on_unload(
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, started)
+    )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: NioConfigEntry) -> bool:
     """Set up NIO Open Telematics from a config entry."""
     if entry.data.get(CONF_CONNECTION_METHOD) == CONNECTION_COMPANION:
@@ -98,7 +113,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: NioConfigEntry) -> bool:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         # Dashboard preferences are applied explicitly by the options flow.
         # A config-entry update listener conflicts with OAuth reload on HA 2026.12.
-        await _async_dashboard_options_updated(hass, entry)
+        await _async_initial_dashboard_reconcile(hass, entry)
         async_track_config_entry(hass, entry)
     except BaseException:
         await coordinator.polling_controller.async_stop()

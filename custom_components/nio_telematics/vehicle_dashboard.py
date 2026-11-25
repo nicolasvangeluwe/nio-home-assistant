@@ -20,7 +20,13 @@ from .car_dashboard import manager as ledger_manager
 from .car_dashboard.cost_split import SOURCE_KEYS as COST_SOURCE_KEYS
 from .car_dashboard.ledger import Ledger
 from .const import DOMAIN
-from .dashboard_backup import history_summary, make_backup, parse_backup
+from .dashboard_backup import (
+    decode_backup_text,
+    history_summary,
+    make_backup,
+    parse_backup,
+    serialize_backup,
+)
 
 OPTIONS_KEY = "vehicle_dashboard"
 MODELS = ("auto", "ET5", "ET5 Touring", "ET7", "EL6", "EL7", "EL8", "ES8", "other")
@@ -302,6 +308,8 @@ async def _read_history(hass, entry_id):
         vol.Required("entry_id"): str,
         vol.Required("action"): vol.In(("export", "preview", "restore")),
         vol.Optional("backup"): dict,
+        vol.Optional("backup_json"): str,
+        vol.Optional("serialized"): bool,
         vol.Optional("expected_revision"): vol.Any(None, int),
         vol.Optional("confirmation"): str,
     }
@@ -316,14 +324,37 @@ async def websocket_backup(hass, connection, msg):
         return
     try:
         if msg["action"] == "export":
+            if any(
+                key in msg
+                for key in (
+                    "backup",
+                    "backup_json",
+                    "expected_revision",
+                    "confirmation",
+                )
+            ):
+                raise ValueError("Export does not accept restore data")
             backup = make_backup(
                 entry.data["vin"],
                 preferences_for_entry(hass, entry),
                 await _read_history(hass, entry.entry_id),
             )
-            connection.send_result(msg["id"], backup)
+            connection.send_result(
+                msg["id"], serialize_backup(backup) if msg.get("serialized") else backup
+            )
             return
-        preferences, history = parse_backup(msg.get("backup"), entry.data["vin"])
+        if "serialized" in msg or ("backup" in msg) == ("backup_json" in msg):
+            raise ValueError("Choose exactly one backup object or JSON text")
+        if msg["action"] == "preview" and any(
+            key in msg for key in ("expected_revision", "confirmation")
+        ):
+            raise ValueError("Preview does not accept restore confirmation")
+        backup = (
+            decode_backup_text(msg["backup_json"])
+            if "backup_json" in msg
+            else msg["backup"]
+        )
+        preferences, history = parse_backup(backup, entry.data["vin"])
         preferences = _check_import_preferences(hass, entry, preferences)
         _check_import_history(hass, preferences, history)
         current = await _read_history(hass, entry.entry_id)
@@ -335,7 +366,7 @@ async def websocket_backup(hass, connection, msg):
                     "imported": history_summary(history),
                     "current": current_summary,
                     "replaces_history": history is not None,
-                    "exported_at": msg["backup"]["exported_at"],
+                    "exported_at": backup["exported_at"],
                 },
             )
             return
@@ -402,7 +433,7 @@ async def websocket_backup(hass, connection, msg):
                 "history": history_summary(await _read_history(hass, entry.entry_id)),
             },
         )
-    except (ValueError, KeyError, TypeError, vol.Invalid) as err:
+    except (ValueError, KeyError, TypeError, RecursionError, vol.Invalid) as err:
         connection.send_error(msg["id"], "invalid_backup", str(err))
 
 

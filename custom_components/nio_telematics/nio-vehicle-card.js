@@ -494,7 +494,7 @@ const NIO_BACKUP_WORDS = {
     "Backup contains {imported} trips and {charges} charging sessions; this car currently has {current} trips and {currentCharges} charging sessions. Restoring replaces existing history.",
     "Export your current data first. OAuth credentials are never included.",
     "Replace this car’s dashboard settings and saved history with the selected backup?",
-    "Backup exceeds the 8 MB transfer limit",
+    "This backup is too large to transfer through Home Assistant.",
     "Confirm the restore after reviewing its preview",
     "History changed since preview; review the restore again",
     "Backup history cannot be read by this version"
@@ -507,7 +507,7 @@ const NIO_BACKUP_WORDS = {
     "Back-up bevat {imported} ritten en {charges} laadsessies; deze auto heeft nu {current} ritten en {currentCharges} laadsessies. Herstel vervangt de bestaande historiek.",
     "Exporteer eerst je huidige gegevens. OAuth-gegevens zijn nooit inbegrepen.",
     "Dashboardinstellingen en opgeslagen historiek van deze auto vervangen door deze back-up?",
-    "Back-up overschrijdt de overdrachtslimiet van 8 MB.",
+    "Deze back-up is te groot om via Home Assistant over te dragen.",
     "Bevestig het herstel nadat je het voorbeeld hebt bekeken.",
     "De historiek is gewijzigd sinds het voorbeeld; bekijk het herstel opnieuw.",
     "De back-uphistoriek kan niet door deze versie worden gelezen."
@@ -520,7 +520,7 @@ const NIO_BACKUP_WORDS = {
     "Die Sicherung enthält {imported} Fahrten und {charges} Ladevorgänge. Dieses Fahrzeug hat derzeit {current} Fahrten und {currentCharges} Ladevorgänge. Beim Wiederherstellen wird der vorhandene Verlauf ersetzt.",
     "Aktuelle Daten zuerst exportieren. OAuth-Zugangsdaten sind nie enthalten.",
     "Einstellungen und Verlauf dieses Autos durch diese Sicherung ersetzen?",
-    "Die Sicherung überschreitet das Übertragungslimit von 8 MB.",
+    "Diese Sicherung ist zu groß für die Übertragung über Home Assistant.",
     "Bestätige die Wiederherstellung, nachdem du die Vorschau geprüft hast.",
     "Der Verlauf wurde seit der Vorschau geändert; prüfe die Wiederherstellung erneut.",
     "Der Sicherungsverlauf kann von dieser Version nicht gelesen werden."
@@ -533,7 +533,7 @@ const NIO_BACKUP_WORDS = {
     "La sauvegarde contient {imported} trajets et {charges} sessions de recharge. Cette voiture en compte actuellement {current} trajets et {currentCharges} sessions de recharge. La restauration remplace l’historique existant.",
     "Exportez d’abord vos données actuelles. Les identifiants OAuth ne sont jamais inclus.",
     "Remplacer les réglages et l’historique de cette voiture par cette sauvegarde ?",
-    "La sauvegarde dépasse la limite de transfert de 8 Mo.",
+    "Cette sauvegarde est trop volumineuse pour être transférée via Home Assistant.",
     "Confirmez la restauration après avoir vérifié l’aperçu.",
     "L’historique a changé depuis l’aperçu ; vérifiez à nouveau la restauration.",
     "Cette version ne peut pas lire l’historique de la sauvegarde."
@@ -546,7 +546,7 @@ const NIO_BACKUP_WORDS = {
     "Sikkerhetskopien inneholder {imported} turer og {charges} ladeøkter. Denne bilen har nå {current} turer og {currentCharges} ladeøkter. Gjenoppretting erstatter den eksisterende historikken.",
     "Eksporter gjeldende data først. OAuth-legitimasjon er aldri inkludert.",
     "Vil du erstatte denne bilens dashbordinnstillinger og lagrede historikk med den valgte sikkerhetskopien?",
-    "Sikkerhetskopien overskrider overføringsgrensen på 8 MB.",
+    "Denne sikkerhetskopien er for stor til å overføres via Home Assistant.",
     "Bekreft gjenopprettingen etter at du har gjennomgått forhåndsvisningen.",
     "Historikken er endret siden forhåndsvisningen; gå gjennom gjenopprettingen på nytt.",
     "Denne versjonen kan ikke lese sikkerhetskopihistorikken."
@@ -559,7 +559,7 @@ const NIO_BACKUP_WORDS = {
     "Säkerhetskopian innehåller {imported} resor och {charges} laddningssessioner. Bilen har för närvarande {current} resor och {currentCharges} laddningssessioner. Återställningen ersätter den befintliga historiken.",
     "Exportera din nuvarande data först. OAuth-uppgifter ingår aldrig.",
     "Ersätta den här bilens instrumentpanelsinställningar och sparade historik med den valda säkerhetskopian?",
-    "Säkerhetskopian överskrider överföringsgränsen på 8 MB.",
+    "Säkerhetskopian är för stor för att överföras via Home Assistant.",
     "Bekräfta återställningen efter att du har granskat förhandsvisningen.",
     "Historiken har ändrats sedan förhandsvisningen; granska återställningen igen.",
     "Den här versionen kan inte läsa säkerhetskopians historik."
@@ -572,7 +572,7 @@ const NIO_BACKUP_WORDS = {
     "Sikkerhedskopien indeholder {imported} ture og {charges} opladningssessioner. Bilen har i øjeblikket {current} ture og {currentCharges} opladningssessioner. Gendannelsen erstatter den eksisterende historik.",
     "Eksportér dine nuværende data først. OAuth-legitimationsoplysninger er aldrig inkluderet.",
     "Vil du erstatte denne bils instrumentbrætindstillinger og gemte historik med den valgte backup?",
-    "Sikkerhedskopien overskrider overførselsgrænsen på 8 MB.",
+    "Sikkerhedskopien er for stor til at blive overført via Home Assistant.",
     "Bekræft gendannelsen efter at have gennemgået forhåndsvisningen.",
     "Historikken er ændret siden forhåndsvisningen; gennemgå gendannelsen igen.",
     "Denne version kan ikke læse sikkerhedskopiens historik."
@@ -585,7 +585,7 @@ const NIO_BACKUP_WORDS = {
     "Záloha obsahuje {imported} jízd a {charges} nabíjecích relací. Toto vozidlo má nyní {current} jízd a {currentCharges} nabíjecích relací. Obnovení nahradí stávající historii.",
     "Nejprve exportujte svá aktuální data. Přihlašovací údaje OAuth nejsou nikdy zahrnuty.",
     "Nahradit nastavení palubní desky tohoto auta a uloženou historii vybranou zálohou?",
-    "Záloha překračuje limit přenosu 8 MB.",
+    "Tato záloha je příliš velká pro přenos přes Home Assistant.",
     "Po kontrole náhledu potvrďte obnovení.",
     "Historie se od náhledu změnila; znovu zkontrolujte obnovení.",
     "Tato verze nedokáže přečíst historii zálohy."
@@ -598,7 +598,7 @@ const NIO_BACKUP_WORDS = {
     "Το αντίγραφο ασφαλείας περιέχει {imported} διαδρομές και {charges} συνεδρίες φόρτισης. Το όχημα έχει τώρα {current} διαδρομές και {currentCharges} συνεδρίες φόρτισης. Η επαναφορά αντικαθιστά το υπάρχον ιστορικό.",
     "Εξάγετε πρώτα τα τρέχοντα δεδομένα σας. Τα διαπιστευτήρια OAuth δεν περιλαμβάνονται ποτέ.",
     "Αντικατάσταση των ρυθμίσεων του ταμπλό και του αποθηκευμένου ιστορικού αυτού του αυτοκινήτου με το επιλεγμένο αντίγραφο ασφαλείας;",
-    "Το αντίγραφο ασφαλείας υπερβαίνει το όριο μεταφοράς των 8 MB.",
+    "Το αντίγραφο ασφαλείας είναι πολύ μεγάλο για μεταφορά μέσω του Home Assistant.",
     "Επιβεβαιώστε την επαναφορά αφού ελέγξετε την προεπισκόπηση.",
     "Το ιστορικό άλλαξε μετά την προεπισκόπηση· ελέγξτε ξανά την επαναφορά.",
     "Αυτή η έκδοση δεν μπορεί να διαβάσει το ιστορικό του αντιγράφου ασφαλείας."
@@ -611,7 +611,7 @@ const NIO_BACKUP_WORDS = {
     "A biztonsági másolat {imported} utazást és {charges} töltési alkalmat tartalmaz. Ennek az autónak jelenleg {current} utazása és {currentCharges} töltési alkalma van. A visszaállítás felváltja a meglévő előzményeket.",
     "Először exportálja jelenlegi adatait. Az OAuth hitelesítési adatokat soha nem tartalmazza.",
     "Lecseréli ennek az autónak a műszerfal beállításait és a mentett előzményeket a kiválasztott biztonsági másolatra?",
-    "A biztonsági mentés meghaladja a 8 MB-os átviteli korlátot.",
+    "A biztonsági mentés túl nagy a Home Assistanton keresztüli átvitelhez.",
     "Az előnézet áttekintése után erősítse meg a visszaállítást.",
     "Az előzmények megváltoztak az előnézet óta; tekintse át újra a visszaállítást.",
     "Ez a verzió nem tudja beolvasni a biztonsági mentés előzményeit."
@@ -624,7 +624,7 @@ const NIO_BACKUP_WORDS = {
     "De Backup enthält {imported} Faarten an {charges} Opluedsessiounen. Dësen Auto huet aktuell {current} Faarten an {currentCharges} Opluedsessiounen. D’Restauratioun ersetzt déi existent Historik.",
     "Exportéiert fir d’éischt Är aktuell Donnéeën. OAuth-Zougangsdonnéeë sinn ni abegraff.",
     "D’Dashboard-Astellungen an déi gespäichert Historik vun dësem Auto duerch de gewielte Backup ersetzen?",
-    "De Backup iwwerschreit d'Iwwerdroungslimit vun 8 MB.",
+    "Dëse Backup ass ze grouss fir iwwer Home Assistant transferéiert ze ginn.",
     "Bestätegt d’Restauratioun nodeems Dir d’Virschau iwwerpréift hutt.",
     "D’Historik huet sech zënter der Virschau geännert; iwwerpréift d’Restauratioun nach eng Kéier.",
     "Dës Versioun kann d’Backup-Historik net liesen."
@@ -637,7 +637,7 @@ const NIO_BACKUP_WORDS = {
     "Kopia zapasowa zawiera {imported} przejazdów i {charges} sesji ładowania. Ten samochód ma obecnie {current} przejazdów i {currentCharges} sesji ładowania. Przywrócenie zastąpi istniejącą historię.",
     "Najpierw wyeksportuj bieżące dane. Dane uwierzytelniające OAuth nigdy nie są uwzględniane.",
     "Zamienić ustawienia deski rozdzielczej i zapisaną historię tego samochodu na wybraną kopię zapasową?",
-    "Kopia zapasowa przekracza limit transferu 8 MB.",
+    "Ta kopia zapasowa jest zbyt duża, aby przesłać ją przez Home Assistant.",
     "Potwierdź przywracanie po sprawdzeniu podglądu.",
     "Historia zmieniła się od czasu podglądu; sprawdź przywracanie ponownie.",
     "Ta wersja nie może odczytać historii kopii zapasowej."
@@ -650,7 +650,7 @@ const NIO_BACKUP_WORDS = {
     "A cópia de segurança contém {imported} viagens e {charges} sessões de carregamento. Este veículo tem atualmente {current} viagens e {currentCharges} sessões de carregamento. O restauro substitui o histórico existente.",
     "Exporte primeiro os dados atuais. As credenciais OAuth nunca são incluídas.",
     "Substituir as definições do painel e o histórico guardado deste veículo pela cópia de segurança selecionada?",
-    "A cópia de segurança excede o limite de transferência de 8 MB.",
+    "Esta cópia de segurança é demasiado grande para ser transferida através do Home Assistant.",
     "Confirme o restauro depois de rever a pré-visualização.",
     "O histórico foi alterado desde a pré-visualização; reveja novamente o restauro.",
     "Esta versão não consegue ler o histórico da cópia de segurança."
@@ -663,11 +663,27 @@ const NIO_BACKUP_WORDS = {
     "Copia de rezervă conține {imported} călătorii și {charges} sesiuni de încărcare. Mașina are în prezent {current} călătorii și {currentCharges} sesiuni de încărcare. Restaurarea înlocuiește istoricul existent.",
     "Exportați mai întâi datele curente. Datele de autentificare OAuth nu sunt niciodată incluse.",
     "Înlocuiți setările tabloului de bord ale acestei mașini și istoricul salvat cu copia de rezervă selectată?",
-    "Copia de rezervă depășește limita de transfer de 8 MB.",
+    "Această copie de rezervă este prea mare pentru a fi transferată prin Home Assistant.",
     "Confirmați restaurarea după ce verificați previzualizarea.",
     "Istoricul s-a schimbat de la previzualizare; verificați din nou restaurarea.",
     "Această versiune nu poate citi istoricul copiei de rezervă."
   ]
+};
+const NIO_BACKUP_TRANSPORT_ERROR = {
+  en:"This Home Assistant integration is outdated. Restart Home Assistant to enable exact-text backup transfer.",
+  nl:"Deze Home Assistant-integratie is verouderd. Herstart Home Assistant om back-ups exact als tekst over te dragen.",
+  de:"Diese Home-Assistant-Integration ist veraltet. Starte Home Assistant neu, um Sicherungen unverändert als Text zu übertragen.",
+  fr:"Cette intégration Home Assistant est obsolète. Redémarrez Home Assistant pour transférer les sauvegardes en texte exact.",
+  nb:"Denne Home Assistant-integrasjonen er utdatert. Start Home Assistant på nytt for å overføre sikkerhetskopier som nøyaktig tekst.",
+  sv:"Den här Home Assistant-integrationen är inaktuell. Starta om Home Assistant för att överföra säkerhetskopior som exakt text.",
+  da:"Denne Home Assistant-integration er forældet. Genstart Home Assistant for at overføre sikkerhedskopier som nøjagtig tekst.",
+  cs:"Tato integrace Home Assistant je zastaralá. Restartujte Home Assistant, aby bylo možné přenášet zálohy jako přesný text.",
+  el:"Αυτή η ενσωμάτωση του Home Assistant είναι παλιά. Κάντε επανεκκίνηση του Home Assistant για ακριβή μεταφορά αντιγράφων ασφαλείας ως κειμένου.",
+  hu:"Ez a Home Assistant-integráció elavult. Indítsa újra a Home Assistantot a biztonsági mentések pontos szövegként történő átviteléhez.",
+  lb:"Dës Home-Assistant-Integratioun ass veraltet. Restart Home Assistant, fir Backuppen als geneeën Text ze transferéieren.",
+  pl:"Ta integracja Home Assistant jest nieaktualna. Uruchom ponownie Home Assistant, aby przesyłać kopie zapasowe jako dokładny tekst.",
+  pt:"Esta integração do Home Assistant está desatualizada. Reinicie o Home Assistant para transferir cópias de segurança como texto exato.",
+  ro:"Această integrare Home Assistant este învechită. Reporniți Home Assistant pentru a transfera copiile de rezervă ca text exact."
 };
 
 class NioVehicleCard extends HTMLElement {
@@ -764,7 +780,13 @@ class NioVehicleCard extends HTMLElement {
     const inputLanguage=nioLocaleCode(this.locale());
     const costLabels=NIO_COST_INPUTS[inputLanguage]||NIO_COST_INPUTS.en;
     const backupWords=NIO_BACKUP_WORDS[inputLanguage]||NIO_BACKUP_WORDS.en;
-    const backupError=error=>this.serviceErrorSummary(error,inputLanguage,{"Confirm the restore after reviewing its preview":backupWords[8],"History changed since preview; review the restore again":backupWords[9],"Backup history cannot be read by this version":backupWords[10]});
+    const backupError=error=>{
+      const message=String(error?.message||'');
+      if(/unsupported|not supported|unknown|extra keys not allowed|unexpected keyword/i.test(message)&&/serialized|backup_json/i.test(message))return NIO_BACKUP_TRANSPORT_ERROR[inputLanguage]||NIO_BACKUP_TRANSPORT_ERROR.en;
+      if(/backup_too_large|backup.*(?:too large|exceeds?.*limit|transfer limit)|(?:payload|message).*(?:too large|size limit)/i.test(message))return backupWords[7];
+      return this.serviceErrorSummary(error,inputLanguage,{"Confirm the restore after reviewing its preview":backupWords[8],"History changed since preview; review the restore again":backupWords[9],"Backup history cannot be read by this version":backupWords[10]});
+    };
+    const backupFitsWire=text=>new Blob([JSON.stringify(text)]).size<=4*1024*1024-1024;
     const paintLabel=NIO_PAINT_LABELS[inputLanguage]||NIO_PAINT_LABELS.en;
     const costFields=['cost_energy','cost_solar','cost_total_cost','cost_grid_price','cost_export_price'].map((key,i)=>[key,costLabels[i+1]]);
     const fields=[...vehicleFields,...householdFields,...costFields];
@@ -781,34 +803,48 @@ class NioVehicleCard extends HTMLElement {
       dialog.querySelector(`[name="${key}"]`)?.closest('label')?.insertAdjacentHTML('afterend',this.fieldHelp(key,inputLanguage));
     }
     dialog.querySelector('.error').insertAdjacentHTML('beforebegin',`<details class="backup"><summary>${this.esc(backupWords[0])}</summary><p>${this.esc(backupWords[5])}</p><button type="button" data-export>${this.esc(backupWords[1])}</button><label class="backup-file"><span data-file-label>${this.esc(backupWords[2])}</span><input type="file" accept=".json,application/json" aria-label="${this.esc(backupWords[2])}" data-import></label><p data-backup-preview aria-live="polite"></p><button type="button" data-restore hidden>${this.esc(backupWords[3])}</button></details>`);
-    let selectedBackup=null,backupPreview=null;
+    let selectedBackup=null,backupPreview=null,backupSelection=0,restorePending=false;
     const errorNode=dialog.querySelector('.error');
     dialog.querySelector('[data-export]').onclick=async()=>{
       errorNode.textContent='';
       try{
-        const data=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/backup',entry_id:v.entry_id,action:'export'});
-        const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+        const data=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/backup',entry_id:v.entry_id,action:'export',serialized:true});
+        if(typeof data!=='string')throw new Error('Unsupported serialized backup response');
+        const url=URL.createObjectURL(new Blob([data],{type:'application/json'}));
         const link=document.createElement('a');link.href=url;link.download=`nio-dashboard-${new Date().toISOString().slice(0,10)}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
       }catch(err){errorNode.textContent=backupError(err);}
     };
     dialog.querySelector('[data-import]').onchange=async event=>{
+      if(restorePending)return;
+      const selection=++backupSelection;
       selectedBackup=null;backupPreview=null;dialog.querySelector('[data-restore]').hidden=true;dialog.querySelector('[data-backup-preview]').textContent='';errorNode.textContent='';
       const file=event.target.files?.[0];dialog.querySelector('[data-file-label]').textContent=file?.name||backupWords[2];if(!file)return;
       if(file.size>8*1024*1024){errorNode.textContent=backupWords[7];return;}
       try{
-        selectedBackup=JSON.parse(await file.text());
-        backupPreview=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/backup',entry_id:v.entry_id,action:'preview',backup:selectedBackup});
+        const text=await file.text();
+        if(selection!==backupSelection)return;
+        JSON.parse(text);
+        if(!backupFitsWire(text)){errorNode.textContent=backupWords[7];return;}
+        const preview=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/backup',entry_id:v.entry_id,action:'preview',backup_json:text});
+        if(selection!==backupSelection)return;
+        selectedBackup=text;backupPreview=preview;
         dialog.querySelector('[data-backup-preview]').textContent=backupWords[4].replace('{imported}',backupPreview.imported.trips).replace('{charges}',backupPreview.imported.charges).replace('{current}',backupPreview.current.trips).replace('{currentCharges}',backupPreview.current.charges);
         dialog.querySelector('[data-restore]').hidden=false;
-      }catch(err){selectedBackup=null;backupPreview=null;errorNode.textContent=backupError(err);}
+      }catch(err){if(selection!==backupSelection)return;selectedBackup=null;backupPreview=null;errorNode.textContent=backupError(err);}
     };
     dialog.querySelector('[data-restore]').onclick=async()=>{
-      if(!selectedBackup||!backupPreview||!window.confirm(backupWords[6]))return;
+      const text=selectedBackup,preview=backupPreview;
+      if(restorePending||text===null||!preview||!window.confirm(backupWords[6]))return;
+      if(!backupFitsWire(text)){errorNode.textContent=backupWords[7];return;}
+      restorePending=true;
+      const fileInput=dialog.querySelector('[data-import]'),restoreButton=dialog.querySelector('[data-restore]');
+      fileInput.disabled=true;restoreButton.disabled=true;
       errorNode.textContent='';
       try{
-        const result=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/backup',entry_id:v.entry_id,action:'restore',backup:selectedBackup,expected_revision:backupPreview.current.revision,confirmation:'RESTORE'});
+        const result=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/backup',entry_id:v.entry_id,action:'restore',backup_json:text,expected_revision:preview.current.revision,confirmation:'RESTORE'});
         this.vehicles=this.vehicles.map(old=>old.entry_id===v.entry_id?result.vehicle:old);dialog.close();this.render();
-      }catch(err){errorNode.textContent=backupError(err);dialog.querySelector('[data-restore]').hidden=true;}
+      }catch(err){selectedBackup=null;backupPreview=null;fileInput.value='';errorNode.textContent=backupError(err);restoreButton.hidden=true;}
+      finally{restorePending=false;fileInput.disabled=false;restoreButton.disabled=false;}
     };
     this.shadowRoot.append(dialog);
     dialog.querySelector('[name="model"]')?.addEventListener('change',event=>{
@@ -818,7 +854,7 @@ class NioVehicleCard extends HTMLElement {
       if(![...picker.options].some(option=>option.value===previous))picker.value='auto';
     });
     dialog.querySelector('[data-evcc-preset]')?.addEventListener('change',event=>{if(event.target.value==='')return;const choice=presets[Number(event.target.value)];if(!choice)return;dialog.querySelector('[name="evcc_connected"]').value=choice.connected;dialog.querySelector('[name="evcc_power"]').value=choice.power;});
-    dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove());
+    dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{backupSelection++;dialog.remove();});
     dialog.querySelector('form').onsubmit=async event=>{event.preventDefault();const form=new FormData(event.target),preferences={};for(const [key] of fields)preferences[key]=String(form.get(key)||'').trim();preferences.model=String(form.get('model'));preferences.paint=String(form.get('paint')||'auto');preferences.language=String(form.get('language'));preferences.battery_capacity_kwh=form.get('battery_capacity_kwh')===''?null:Number(form.get('battery_capacity_kwh'));preferences.full_range_km=form.get('full_range_km')===''?null:Number(form.get('full_range_km'));preferences.ledger_enabled=form.has('ledger_enabled');try{const updated=await this._hass.callWS({type:'nio_telematics/vehicle_dashboard/save',entry_id:v.entry_id,preferences});this.vehicles=this.vehicles.map(old=>old.entry_id===v.entry_id?updated:old);dialog.close();this.render();}catch(err){dialog.querySelector('.error').textContent=this.serviceErrorSummary(err,inputLanguage);}};
     dialog.showModal();
   }

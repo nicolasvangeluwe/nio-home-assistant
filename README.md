@@ -37,6 +37,15 @@ History is stored by Home Assistant outside HACS-managed integration files, so u
 
 Settings groups the existing controls into **Appearance & language**, **Vehicle readings**, **Charger & cost sources**, and **History & backup**, with help beside optional inputs. An HA administrator can download a JSON copy of this car's dashboard settings and trip/charging history, then preview and explicitly confirm a restore to the same car. Export your current copy before replacing history. OAuth credentials and the full VIN are not exported, but the file contains private trip and cost details: store it securely. This is a dashboard/ledger backup, not a whole-Home-Assistant backup.
 
+Backup files retain their original JSON number representations through download
+and restore. The transfer must fit Home Assistant's 4 MiB WebSocket limit,
+including escaping and the request envelope; unusually large files are rejected
+with an explanation. Existing backup files remain supported, but this cannot
+repair numeric representations already changed by an older browser export.
+After updating, restart Home Assistant before using the new backup transport.
+During HA startup, saved history recording continues while initial validation
+waits for other integrations to finish registering their source entities.
+
 Disabling the managed page preserves recorded history, entities and other dashboards. Existing embedded `NIO Vehicle Dashboard` and compact `NIO Vehicle` cards remain supported; their manual resource setup is only needed when embedding a card yourself. To reuse an existing dashboard URL, first back up and explicitly remove that old dashboard through HA, then choose its free path in NIO options. The integration never silently adopts or deletes a foreign dashboard.
 
 ## Costs, currencies and data gaps
@@ -67,9 +76,14 @@ gap energy and expense are not filled in. Detected charging without a price and
 missing opening prices retain their own price checks. Raw archived records are
 preserved, including a bounded display correction for old post-gap overlap.
 For a charging overlap, a fully known battery price is retained only when all
-overlapping sessions are confirmed, priced, in the same currency, and completed
-within the interval. Unknown driving energy stays unaccounted. The following
-native energy anchor restarts independently; proven older v2 anchor errors are
+overlapping sessions are confirmed, priced and in the same currency. If a session
+finishes after the arrival interval, its receipt is credited once at completion.
+Pricing resumes only from a retained native start reading whose own source time
+is after completion; intervening driving or incompatible evidence clears that
+deferred basis. Unknown driving energy stays unaccounted. This uses the existing
+weighted booked-cost convention, not a reconstruction of the physical battery
+mix or charging time. The following native energy anchor restarts independently;
+proven older v2 anchor errors are
 corrected in derived views without rewriting the archive. Existing Manual/Ignore
 decisions keep priority until Undo.
 

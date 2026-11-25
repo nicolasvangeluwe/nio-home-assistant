@@ -31,6 +31,163 @@ vm.runInNewContext(ledgerSource, {
 });
 const Ledger = ledgerElements.get('car-ledger-card');
 
+function openBackupSettings({callWS, language = 'en'}) {
+  const nodes = new Map();
+  const node = () => ({textContent:'', hidden:false, value:'', options:[], addEventListener(){}, insertAdjacentHTML(){}, closest(){return null;}, click(){}, close(){}, showModal(){}, remove(){}});
+  const dialog = node();
+  dialog.querySelector = selector => {
+    if (!nodes.has(selector)) nodes.set(selector, node());
+    return nodes.get(selector);
+  };
+  dialog.addEventListener = () => {};
+  const form = dialog.querySelector('form');
+  const fileInput = dialog.querySelector('[data-import]');
+  const exportButton = dialog.querySelector('[data-export]');
+  const restoreButton = dialog.querySelector('[data-restore]');
+  const card = Object.create(Dashboard.prototype);
+  card.config = {entry_id:'car'};
+  card.vehicles = [{entry_id:'car', name:'Test car', preferences:{language}}];
+  card._hass = {language, states:{}, callWS};
+  card.shadowRoot = {append(){}, querySelector(){return null;}, querySelectorAll(){return [];}};
+  card.fieldHelp = () => '';
+  card.evccPresets = () => [];
+  card.paintOptions = () => '';
+  card.effectiveModel = () => 'ET5';
+  card.esc = value => String(value);
+  card.render = () => {};
+  card.serviceErrorSummary = Dashboard.prototype.serviceErrorSummary;
+  vehicleRuntime.document = {createElement: () => dialog};
+  vehicleRuntime.URL = {createObjectURL: blob => {vehicleRuntime.__blob = blob; return 'blob:test';}, revokeObjectURL(){}};
+  vehicleRuntime.Blob = Blob;
+  vehicleRuntime.setTimeout = () => {};
+  vehicleRuntime.window.confirm = () => true;
+  card.settings();
+  return {card, dialog, fileInput, exportButton, restoreButton, nodes};
+}
+
+test('backup settings send and download the original serialized JSON text', async () => {
+  const raw = '{"active_fingerprint":1.0,"stale_fingerprint":0.0,"id_exclusions":[1.0],"escaped":"quote\\\" slash\\\\ newline\\n 雪"}';
+  const requests = [];
+  const ui = openBackupSettings({callWS: async request => {
+    requests.push(request);
+    if (request.action === 'export') return raw;
+    if (request.action === 'preview') return {imported:{trips:1,charges:2},current:{trips:3,charges:4,revision:9}};
+    if (request.action === 'restore') return {vehicle:{entry_id:'car'}};
+  }});
+  await ui.exportButton.onclick();
+  assert.deepEqual(JSON.parse(JSON.stringify(requests[0])), {type:'nio_telematics/vehicle_dashboard/backup',entry_id:'car',action:'export',serialized:true});
+  assert.equal(await vehicleRuntime.__blob.text(), raw);
+  await ui.fileInput.onchange({target:{files:[{name:'backup.json',size:raw.length,text:async()=>raw}]}});
+  assert.equal(requests[1].backup_json, raw);
+  assert.equal('backup' in requests[1], false);
+  await ui.restoreButton.onclick();
+  assert.equal(requests[2].backup_json, raw);
+  assert.equal('backup' in requests[2], false);
+  assert.equal(requests[2].expected_revision, 9);
+  assert.equal(requests[2].confirmation, 'RESTORE');
+});
+
+test('backup preview rejects escaped UTF-8 text above the safe WebSocket envelope size', async () => {
+  const raw=JSON.stringify({payload:'"\\\n雪'.repeat(300000)});
+  assert.ok(new Blob([raw]).size<8*1024*1024);
+  assert.ok(new Blob([JSON.stringify(raw)]).size>4*1024*1024-1024);
+  const requests=[];
+  const ui=openBackupSettings({language:'en',callWS:async request=>{requests.push(request);return {imported:{trips:1,charges:1},current:{trips:1,charges:1,revision:1}};}});
+  await ui.fileInput.onchange({target:{files:[{name:'large.json',size:new Blob([raw]).size,text:async()=>raw}]}});
+  assert.deepEqual(requests,[]);
+  assert.match(ui.nodes.get('.error').textContent,/too large to transfer through Home Assistant/i);
+  assert.equal(ui.restoreButton.hidden,true);
+});
+
+test('backend backup size-limit errors use the localized Home Assistant transfer message', async () => {
+  const raw='{"value":"small"}';
+  const ui=openBackupSettings({language:'nl',callWS:async request=>{
+    if(request.action==='preview')throw new Error('Backup exceeds the safe text transfer limit');
+  }});
+  await ui.fileInput.onchange({target:{files:[{name:'backup.json',size:raw.length,text:async()=>raw}]}});
+  assert.match(ui.nodes.get('.error').textContent,/te groot om via Home Assistant over te dragen/i);
+});
+
+test('backup preview and restore stay bound to the latest selected file', async t => {
+  for (const obsoleteOutcome of ['success', 'failure']) await t.test(obsoleteOutcome, async () => {
+    let finishA, failA, startA;
+    const pendingA = new Promise((resolve,reject)=>{finishA=resolve;failA=reject;});
+    const beganA = new Promise(resolve=>{startA=resolve;});
+    const requests=[], rawA='{"file":"A","zero":0.0}', rawB='{"file":"B","zero":0.0}';
+    const ui=openBackupSettings({callWS:async request=>{
+      requests.push(request);
+      if(request.action==='preview'){
+        if(request.backup_json===rawA){startA();return pendingA;}
+        return {imported:{trips:2,charges:3},current:{trips:4,charges:5,revision:9}};
+      }
+      return {vehicle:{entry_id:'car'}};
+    }});
+    const selectA=ui.fileInput.onchange({target:{files:[{name:'A.json',size:30,text:async()=>rawA}]}});
+    await beganA;
+    await ui.fileInput.onchange({target:{files:[{name:'B.json',size:30,text:async()=>rawB}]}});
+    if(obsoleteOutcome==='success')finishA({imported:{trips:1,charges:1},current:{trips:1,charges:1,revision:7}});
+    else failA(new Error('Old preview failed'));
+    await selectA;
+    assert.match(ui.nodes.get('[data-backup-preview]').textContent,/contains 2 trips/);
+    assert.equal(ui.nodes.get('.error').textContent,'');
+    assert.equal(ui.restoreButton.hidden,false);
+    await ui.restoreButton.onclick();
+    const restored=requests.find(request=>request.action==='restore');
+    assert.equal(restored.backup_json,rawB);
+    assert.equal(restored.expected_revision,9);
+  });
+});
+
+test('an obsolete file read cannot replace a newer backup selection', async () => {
+  let finishA;
+  const pendingA=new Promise(resolve=>{finishA=resolve;}),requests=[];
+  const rawA='{"file":"A","zero":0.0}',rawB='{"file":"B","zero":0.0}';
+  const ui=openBackupSettings({callWS:async request=>{
+    requests.push(request);
+    return request.action==='preview'?{imported:{trips:2,charges:3},current:{trips:4,charges:5,revision:9}}:{vehicle:{entry_id:'car'}};
+  }});
+  const selectA=ui.fileInput.onchange({target:{files:[{name:'A.json',size:30,text:()=>pendingA}]}});
+  await ui.fileInput.onchange({target:{files:[{name:'B.json',size:30,text:async()=>rawB}]}});
+  finishA(rawA);await selectA;
+  await ui.restoreButton.onclick();
+  assert.deepEqual(requests.map(request=>request.backup_json),[rawB,rawB]);
+  assert.match(ui.nodes.get('[data-backup-preview]').textContent,/contains 2 trips/);
+});
+
+test('pending restore locks its file and revision and prevents duplicate writes', async () => {
+  let finishRestore;
+  const pendingRestore=new Promise(resolve=>{finishRestore=resolve;}),requests=[];
+  const rawA='{"file":"A","zero":0.0}';
+  const ui=openBackupSettings({callWS:async request=>{
+    requests.push(request);
+    return request.action==='preview'?{imported:{trips:1,charges:2},current:{trips:3,charges:4,revision:9}}:pendingRestore;
+  }});
+  await ui.fileInput.onchange({target:{files:[{name:'A.json',size:30,text:async()=>rawA}]}});
+  const restore=ui.restoreButton.onclick();
+  assert.equal(ui.fileInput.disabled,true);assert.equal(ui.restoreButton.disabled,true);
+  await ui.fileInput.onchange({target:{files:[{name:'B.json',size:10,text:async()=>'{}'}]}});
+  await ui.restoreButton.onclick();
+  assert.equal(requests.filter(request=>request.action==='restore').length,1);
+  assert.equal(requests.at(-1).backup_json,rawA);assert.equal(requests.at(-1).expected_revision,9);
+  finishRestore({vehicle:{entry_id:'car'}});await restore;
+  assert.equal(ui.fileInput.disabled,false);assert.equal(ui.restoreButton.disabled,false);
+});
+
+test('an older backend rejecting exact-text backup transport gets a localized restart message', async () => {
+  const raw = '{"ratio":0.0}';
+  const ui = openBackupSettings({language:'nl',callWS:async request => {
+    if (request.action === 'export') throw new Error('Unsupported extra key serialized');
+    if (request.action === 'preview') throw new Error('backup_json is not supported');
+  }});
+  vehicleRuntime.__blob = null;
+  await ui.exportButton.onclick();
+  assert.match(ui.nodes.get('.error').textContent, /integratie is verouderd/i);
+  assert.equal(vehicleRuntime.__blob, null);
+  await ui.fileInput.onchange({target:{files:[{name:'backup.json',size:raw.length,text:async()=>raw}]}});
+  assert.match(ui.nodes.get('.error').textContent, /Herstart Home Assistant/i);
+  assert.equal(ui.restoreButton.hidden, true);
+});
+
 test('dashboard setup provides keyboard-accessible help and restore controls', () => {
   const card = Object.create(Vehicle.prototype);
   assert.match(card.fieldHelp('evcc_connected', 'en'), /<details class="field-help">/);
