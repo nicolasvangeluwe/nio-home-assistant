@@ -97,10 +97,9 @@ on a configured 90 kWh battery is 0.45 kWh, not 0.90 kWh. Original readings rema
 stored. Movement, charging and provider/capacity changes separate those paths;
 incomplete historical paths retain their recorded basis.
 
-The secondary **Battery equivalent** is this cumulative energy divided by the
-configured usable capacity: 234% is 2.34× one battery's energy. It is not the current
-charge level, charging power, recharge efficiency or a measured battery-cycle
-count. Current state of charge continues to use %.
+Parked totals, records and details show energy in kWh. Cumulative Energy totals
+also use kWh without a second battery-capacity metric. Current state of charge
+continues to use %.
 
 Delayed arrival reconciliation assigns the same battery change only once.
 Recorded decreases overlapping charging appear separately under **Unaccounted
