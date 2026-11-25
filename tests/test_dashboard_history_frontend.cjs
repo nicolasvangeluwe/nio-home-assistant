@@ -199,6 +199,16 @@ test('saved measurement-error with failed read stays open, shows acknowledgement
   context.document=savedDocument;context.FormData=savedFormData;
 });
 
+test('trip endpoint battery SoC keeps missing readings unknown in row and detail while preserving real zero',()=>{
+  const h=instance();h.snapshot={settings:{capacity_kwh:90},active_trip_id:null};h.config.language='en';h.gapsForTrip=()=>[];h.tripEnergy=()=>null;h.tripAverage=()=>null;h.date=()=> 'time';h.value=(label,value,unit)=>`${label}: ${value==null?'—':h.n(value,1)}${unit}`;
+  h.dialog=(...args)=>{h.lastDialog=args;};
+  for(const [start,end,expected] of [[null,0,'—% → 0.0%'],[0,null,'0.0% → —%']]){
+    const trip={id:'pending-trip',start:1,end:2,start_energy:start,end_energy:end,start_odo:10,end_odo:11,distance_km:1,segments:[]};
+    const row=h.tripCard(trip);assert.ok(row.includes(expected),`row preserves endpoint values ${expected}`);assert.doesNotMatch(row,/NaN/);
+    h.tripDialog(trip);const detail=h.lastDialog[1];assert.ok(detail.includes(start==null?'—':'0.0'),`detail start ${start}`);assert.ok(detail.includes(end==null?'—':'0.0'),`detail end ${end}`);assert.match(detail,/Batterij bij (vertrek|aankomst)/);
+  }
+});
+
 test('successful Parked decisions scroll feedback once after deferred close render; failures do not scroll',async()=>{
   const originalDialog=context.__Base.prototype.dialog,originalFrame=context.requestAnimationFrame,frames=[],scrolls=[];
   context.requestAnimationFrame=callback=>{frames.push(callback);return frames.length;};

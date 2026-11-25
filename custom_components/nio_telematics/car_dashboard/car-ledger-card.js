@@ -1783,6 +1783,7 @@ class CarLedgerCard extends HTMLElement {
   }
   tripEnergy(t){return this.drivingStats(t.segments).used_kwh;}
   tripAverage(t){return this.drivingStats(t.segments).consumption_kwh_100km;}
+  tripBatteryPercent(value,capacity){return value==null?null:Number(value)/capacity*100;}
   prepareSnapshot(raw){
     const data=JSON.parse(JSON.stringify(raw)),cap=data.settings.capacity_kwh;
     const rangeStat=Object.values(raw.statistics).find(s=>s.projected_range_km!=null&&s.consumption_kwh_100km>0);
@@ -1843,7 +1844,7 @@ class CarLedgerCard extends HTMLElement {
   tripCard(t){
     const gaps=this.gapsForTrip(t),energy=this.tripEnergy(t),average=this.tripAverage(t),gapLabel=gaps.length?this.gapStatusText(gaps.some(g=>g.resolution==='stale')?'stale':gaps.some(g=>g.resolution==='ignored')?'ignored':gaps.some(g=>g.resolution==='manual')?'manual':'open'):'';
     const cap=this.snapshot.settings.capacity_kwh;
-    return `<button class="session ${this.snapshot.active_trip_id===t.id?'active':''}" data-trip="${this.esc(t.id)}"><div class="row session-head"><span>${this.date(t.start)} → ${this.date(t.end,{hour:'2-digit',minute:'2-digit'})}</span>${this.snapshot.active_trip_id===t.id?'<span class="place">Rit bezig</span>':''}${gapLabel?`<span class="place gap-status">${this.esc(gapLabel)}</span>`:''}</div><div class="metrics three">${this.value('Afstand',t.distance_km,'km')}${this.value('Gem. verbruik',average,'kWh/100 km')}${this.value('Batterij gebruikt',energy!=null?energy/cap*100:null,'%')}</div><div class="muted">${this.n(t.start_energy/cap*100,0)}% → ${this.n(t.end_energy/cap*100,0)}%${energy==null?(gaps.length?` · ${this.esc(gapLabel)}`:' · Meting ontbreekt'):` · ${this.n(energy,2)} kWh`}</div></button>`;
+    return `<button class="session ${this.snapshot.active_trip_id===t.id?'active':''}" data-trip="${this.esc(t.id)}"><div class="row session-head"><span>${this.date(t.start)} → ${this.date(t.end,{hour:'2-digit',minute:'2-digit'})}</span>${this.snapshot.active_trip_id===t.id?'<span class="place">Rit bezig</span>':''}${gapLabel?`<span class="place gap-status">${this.esc(gapLabel)}</span>`:''}</div><div class="metrics three">${this.value('Afstand',t.distance_km,'km')}${this.value('Gem. verbruik',average,'kWh/100 km')}${this.value('Batterij gebruikt',energy!=null?energy/cap*100:null,'%')}</div><div class="muted">${this.n(this.tripBatteryPercent(t.start_energy,cap),0)}% → ${this.n(this.tripBatteryPercent(t.end_energy,cap),0)}%${energy==null?(gaps.length?` · ${this.esc(gapLabel)}`:' · Meting ontbreekt'):` · ${this.n(energy,2)} kWh`}</div></button>`;
   }
   history(){
     const charging=this.tab==='charging', all=charging?this.snapshot.charges:this.snapshot.trips;
@@ -1991,7 +1992,7 @@ class CarLedgerCard extends HTMLElement {
     let explanation=`${fill(copy.odometer)} ${gaps.length?copy.gap:fill(copy.measured)}`;
     if(energy==null&&!gaps.length)explanation+=copy.missing;
     explanation+=` ${copy.parked}`;
-    this.dialog('Ritdetails',`<p>${this.date(t.start)} → ${this.date(t.end)}</p><div class="metrics two">${this.value('Afstand',t.distance_km,'km')}${this.value('Energie gebruikt',energy,'kWh',2)}${this.value('Batterij bij vertrek',t.start_energy/cap*100,'%')}${this.value('Batterij bij aankomst',t.end_energy/cap*100,'%')}</div><p class="muted">${explanation}</p>${gaps.length?`<section class="gap-trip-details"><h3>${this.gapCopy('title')}</h3>${gaps.map(g=>this.gapEntry(g)).join('')}</section>`:''}`,null);
+    this.dialog('Ritdetails',`<p>${this.date(t.start)} → ${this.date(t.end)}</p><div class="metrics two">${this.value('Afstand',t.distance_km,'km')}${this.value('Energie gebruikt',energy,'kWh',2)}${this.value('Batterij bij vertrek',this.tripBatteryPercent(t.start_energy,cap),'%')}${this.value('Batterij bij aankomst',this.tripBatteryPercent(t.end_energy,cap),'%')}</div><p class="muted">${explanation}</p>${gaps.length?`<section class="gap-trip-details"><h3>${this.gapCopy('title')}</h3>${gaps.map(g=>this.gapEntry(g)).join('')}</section>`:''}`,null);
   }
   settingsDialog(){
     const p=this.snapshot.preferences;
