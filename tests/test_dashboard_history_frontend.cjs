@@ -93,12 +93,17 @@ test('measurement-error copy covers all fourteen locales and a grouped-period cl
   assert.equal(h._measurementFeedback,'Excluded from totals');
 });
 
-test('Parked calendar summaries and cards use the localized battery-decrease label',()=>{
+test('Parked summary, month total, group and detail use localized battery equivalents without changing kWh',()=>{
   const locales=['en','nl','fr','de','nb','sv','da','cs','el','hu','lb','pl','pt','ro'],savedDocument=context.document;
   for(const language of locales){
-    const h=instance(),render=renderRoot();context.document=render.document;h.shadowRoot=render.root;h.tab='parked';h.config.language=language;h.snapshot={currency:'EUR',settings:{capacity_kwh:90},parked_periods:[{id:'parked-label',start:100,end:160,kwh:.45,soc_used_pct:.5}]};h.full=false;h.pageSize=36;
-    h.summaryGrids();assert.equal(render.summary.replacedWith.children[0].children[0].textContent,h.measurementErrorCopy('decrease'),`${language} summary`);
-    assert.ok(h.parkedHistory().includes(h.measurementErrorCopy('decrease')),`${language} card`);
+    const h=instance(),render=renderRoot(),period={id:'parked-label',start:100,end:160,kwh:210.6,soc_used_pct:234,intervals:[]};context.document=render.document;h.shadowRoot=render.root;h.tab='parked';h.config.language=language;h.snapshot={currency:'EUR',settings:{capacity_kwh:90},parked_periods:[period]};h.full=true;h.pageSize=36;
+    const expectedEquivalent=h.n(2.34,2),summary=h.parkedSummary({parked_loss_estimate_kwh:210.6});assert.ok(summary.includes(`${h.measurementErrorCopy('equivalent')} ${expectedEquivalent}×`),`${language} parked summary`);assert.ok(summary.includes(`${h.n(210.6,2)} kWh`));
+    render.summary.textContent=`${h.n(210.6,2)} kWh · ${expectedEquivalent}×`;h.summaryGrids();const summaryCells=render.summary.replacedWith.children;assert.equal(summaryCells[0].children[0].textContent,h.measurementErrorCopy('decrease'),`${language} period kWh label`);assert.equal(summaryCells[1].children[0].textContent,h.measurementErrorCopy('equivalent'),`${language} period equivalent label`);assert.equal(summaryCells[1].children[1].textContent,expectedEquivalent);
+    const html=h.parkedHistory();assert.ok(html.includes(h.measurementErrorCopy('decrease')),`${language} card kWh label`);assert.ok(html.includes(h.measurementErrorCopy('equivalent')),`${language} card equivalent label`);assert.ok(html.includes(`${expectedEquivalent}×`),`${language} >100% equivalent`);assert.doesNotMatch(html,/234%/);
+    h.dialog=(...args)=>{h.lastDialog=args;return null;};h.parkedDialog(period);assert.ok(h.lastDialog[1].includes(h.measurementErrorCopy('equivalent')),`${language} detail label`);assert.ok(h.lastDialog[1].includes(expectedEquivalent),`${language} detail equivalent`);assert.match(h.lastDialog[1],/×/);assert.ok(h.lastDialog[1].includes(h.n(210.6,2)));assert.match(h.lastDialog[1],/kWh/);
+    assert.ok(h.parkedSummary({parked_loss_estimate_kwh:45}).includes(`${h.n(.5,2)}×`),`${language} fraction`);
+    assert.equal(h.parkedEquivalentPrecision(.45),3,`${language} small fraction precision`);assert.ok(h.parkedSummary({parked_loss_estimate_kwh:.45}).includes(`${h.n(.005,3)}×`),`${language} small fraction`);
+    assert.ok(h.measurementErrorCopy('equivalent').length>3,`${language} label copy`);
   }
   context.document=savedDocument;
 });
@@ -192,4 +197,22 @@ test('saved measurement-error with failed read stays open, shows acknowledgement
   assert.equal(confirmation.open,true);assert.equal(parent.open,true);assert.equal(save.disabled,true);assert.equal(error.textContent,h.savedRefreshCopy());assert.equal(h._measurementPending.has('loss-one/fp-one'),true);
   const close=confirmation.querySelector('[data-close]');close.onclick();assert.equal(parent.removed,true);assert.equal(openDialogs.length,0);
   context.document=savedDocument;context.FormData=savedFormData;
+});
+
+test('successful Parked decisions scroll feedback once after deferred close render; failures do not scroll',async()=>{
+  const originalDialog=context.__Base.prototype.dialog,originalFrame=context.requestAnimationFrame,frames=[],scrolls=[];
+  context.requestAnimationFrame=callback=>{frames.push(callback);return frames.length;};
+  context.__Base.prototype.dialog=function(...args){const listeners={},closeButton={},saveButton={disabled:false,textContent:''},dialog={open:true,querySelector(selector){return selector==='[data-close]'?closeButton:selector==='.save'?saveButton:null;},addEventListener(type,callback){(listeners[type]||=[]).push(callback);},close(){this.open=false;for(const callback of listeners.close||[])callback();}};this.lastDialog=args;this._testDialog=dialog;return dialog;};
+  try{
+    const h=measurementHistory(),row={id:'loss-scroll',fingerprint:'scroll-fingerprint',start:120,end:150,kwh:1,state:'open',paired_candidate_id:null,paired_candidate_kwh:null};delete h.dialog;let renderCount=0;
+    h.tab='parked';h.scope='day';h.anchor='2026-11-23';h.filters={location:'all',basis:'all',price:false};h.shadowRoot={querySelector(selector){return selector==='.measurement-feedback'?{scrollIntoView:options=>scrolls.push(options)}:null;}};
+    h.render=()=>{renderCount++;h.scrollMeasurementFeedbackAfterRender();};h.update=async()=>{h._deferredRender=true;return {saved:true,refreshed:true};};
+    h.measurementErrorDialog(row);await h.lastDialog[2]();assert.equal(frames.length,0);assert.equal(h._measurementFeedbackScrollPending,true);
+    h._testDialog.close();assert.equal(renderCount,1);assert.equal(frames.length,1);assert.deepEqual([h.tab,h.scope,h.anchor],['parked','day','2026-11-23']);
+    frames.shift()();assert.equal(scrolls.length,1);assert.equal(JSON.stringify(scrolls[0]),JSON.stringify({behavior:'smooth',block:'center'}));h.render();assert.equal(frames.length,0);
+    const error={textContent:''},target={querySelector:()=>error},button={dataset:{measurementUndo:'loss-scroll',measurementFingerprint:'scroll-fingerprint'},disabled:false,hasAttribute:()=>false,closest:selector=>selector==='.measurement-decision'?target:null};
+    h.update=async()=>({saved:true,refreshed:true});await h.undoMeasurementError(button);assert.equal(renderCount,3);assert.equal(frames.length,1);frames.shift()();assert.equal(scrolls.length,2);
+    h.update=async()=>({saved:true,refreshed:false});h.measurementErrorDialog(row);await h.lastDialog[2]();assert.equal(h._measurementFeedbackScrollPending,false);assert.equal(frames.length,0);
+    h.update=async()=>{throw new Error('write rejected');};h.measurementErrorDialog(row);await assert.rejects(h.lastDialog[2](),/write rejected/);assert.equal(h._measurementFeedbackScrollPending,false);assert.equal(frames.length,0);assert.equal(scrolls.length,2);
+  }finally{context.__Base.prototype.dialog=originalDialog;if(originalFrame===undefined)delete context.requestAnimationFrame;else context.requestAnimationFrame=originalFrame;}
 });

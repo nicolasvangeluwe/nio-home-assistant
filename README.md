@@ -97,6 +97,11 @@ on a configured 90 kWh battery is 0.45 kWh, not 0.90 kWh. Original readings rema
 stored. Movement, charging and provider/capacity changes separate those paths;
 incomplete historical paths retain their recorded basis.
 
+The secondary **Battery equivalent** is this cumulative energy divided by the
+configured usable capacity: 234% is 2.34× one battery's energy. It is not the current
+charge level, charging power, recharge efficiency or a measured battery-cycle
+count. Current state of charge continues to use %.
+
 Delayed arrival reconciliation assigns the same battery change only once.
 Recorded decreases overlapping charging appear separately under **Unaccounted
 usage**, rather than being treated as proved parked consumption. Charger input
@@ -109,6 +114,14 @@ flagged for review. Its preview shows both original amounts and the refill time
 span; the pair alone does not prove a measurement error. Exclusion is an explicit,
 reversible choice and cannot remove a confirmed charging receipt. A repaired
 historical total is not automatically a verified physical standby-energy total.
+
+The ledger also checks saved accepted readings after a Home Assistant restart.
+An abrupt joint zero cannot become a battery loss and inferred refill merely
+because the source coordinator has restarted. While validation is pending,
+observed movement remains visible as read-only unaccounted distance, with no
+invented energy or cost. Once the source reading is resolved, any lasting gap
+uses the existing manual completion and Ignore controls. This safeguard survives
+another restart and source or configured-capacity changes.
 
 ## Polling
 

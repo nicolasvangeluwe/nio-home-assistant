@@ -125,6 +125,17 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
                 else None
             )
             self.ledger.tick(now)
+            if self.ledger.data.get("native_zero_capture") and odo:
+                pending_odo_t = _source_time(odo, "source_sample")
+                pending_odo = number(odo.state)
+                if (
+                    pending_odo_t is not None
+                    and pending_odo is not None
+                    and odo.attributes.get("fresh", True) is not False
+                    and not odo.attributes.get("data_retained", False)
+                    and -30 <= now - pending_odo_t <= 900
+                ):
+                    self.ledger.observe_capture_odometer(pending_odo_t, pending_odo)
             if self.settings["soc"]:
                 # Odometer reports define distance windows. A fresh unchanged
                 # SoC is still evidence; never gate samples on value changes.
@@ -149,20 +160,73 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
                     provenance = soc.attributes.get("telemetry_source", "direct")
                     if provenance == "companion":
                         provenance += ":" + str(soc.attributes.get("source_generation"))
-                    if provenance != self.ledger.data.get("telemetry_source", "direct"):
+                    source_changed = provenance != self.ledger.data.get(
+                        "telemetry_source", "direct"
+                    )
+                    # Consult the accepted native baseline BEFORE an epoch
+                    # clears last; a first zero from a new generation is not
+                    # evidence that its source event independently changed.
+                    hold = self.capture_native_zero(
+                        soc, rng, odo_t, number(odo.state), now, provenance
+                    )
+                    guard = self.ledger.data.get("native_zero_capture")
+                    if source_changed and not hold:
+                        release = (
+                            {
+                                key: guard[key]
+                                for key in (
+                                    "released",
+                                    "accepted_soc",
+                                    "accepted_soc_at",
+                                )
+                            }
+                            if guard
+                            else None
+                        )
                         self.ledger.begin_new_epoch(self.settings)
-                    if self.ledger.data.get("telemetry_source") != provenance:
+                        guard = self.ledger.data.get("native_zero_capture")
+                        if release:
+                            guard.update(release, needs_advanced=False)
                         self.ledger.data["telemetry_source"] = provenance
                         self.ledger.changed()
-                    if self.ledger.observe_native_sources(
+                    pending_baseline = (
+                        self.ledger.pending_native_trip()
+                        if guard and self.ledger.data["last"] is None
+                        else None
+                    )
+                    if not hold and self.ledger.observe_native_sources(
                         odo_t,
                         odo.state,
                         soc_t,
                         soc_value,
                         _is_connected(connected),
                         connected.last_changed.timestamp() if connected else None,
+                        force_native_gap=bool(guard),
                     ):
+                        if pending_baseline:
+                            pending_baseline.update(
+                                capture_pending=False,
+                                start_energy=None,
+                                end_energy=self.ledger.data["last"]["energy"],
+                            )
+                            pending_baseline["segments"][0].update(
+                                capture_pending=False,
+                                invalid_reason="gap",
+                                start_energy=None,
+                                end_energy=self.ledger.data["last"]["energy"],
+                            )
+                            self.ledger.data["trips"].append(pending_baseline)
+                            self.ledger.changed()
+                        if (
+                            guard
+                            and self.ledger.data["last"]["odo"]
+                            >= guard["latest"]["odo"]
+                        ):
+                            self.ledger.data.pop("native_zero_capture", None)
+                            self.ledger.changed()
                         self.source_status = "fresh_native_soc"
+                    elif hold or guard:
+                        self.source_status = "waiting_for_validated_energy"
                 else:
                     self.source_status = "waiting_for_aligned_odometer"
             elif odo and rng:
@@ -203,6 +267,167 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
             self.async_set_updated_data(
                 {"revision": self.ledger.data["revision"], "status": self.source_status}
             )
+
+    def capture_native_zero(self, soc, rng, odo_t, odo, now, provenance):
+        """Bridge native-coordinator restarts using this ledger's accepted baseline.
+
+        Only actual matching source metadata identifies a joint zero. This
+        accounting safeguard never seeds the generic integration with ledger
+        data, invents an old range, or treats a generation bump as a new event.
+        """
+
+        def evidence(state, *, soc_field=False):
+            if state is None:
+                return None
+            attrs = state.attributes
+            raw = attrs.get("last_valid_sample")
+            stamp = dt_util.parse_datetime(raw) if isinstance(raw, str) else None
+            source = attrs.get("telemetry_source")
+            source = (
+                source + ":" + str(attrs.get("source_generation"))
+                if source == "companion"
+                else source
+            )
+            if (
+                stamp is None
+                or source != provenance
+                or (soc_field and attrs.get("source_endpoint") != "soc_status")
+                or attrs.get("source_endpoint") not in (None, "soc_status")
+            ):
+                return None
+            authoritative = (
+                attrs.get("fresh", True) is not False
+                and not attrs.get("data_retained", False)
+                and attrs.get("source_quality", "valid") == "valid"
+                and -30 <= now - stamp.timestamp() <= 900
+            )
+            return number(state.state), stamp.timestamp(), authoritative
+
+        # NioRangeSensor exposes its real field clock/source/quality but has
+        # no source_endpoint attribute; the selected range role supplies no
+        # synthetic metadata. SoC explicitly identifies the energy feed.
+        soc_read, range_read = evidence(soc, soc_field=True), evidence(rng)
+        joint = (
+            soc_read is not None
+            and range_read is not None
+            and soc_read[0] == range_read[0] == 0
+            and abs(soc_read[1] - range_read[1]) <= 5
+        )
+        guard = self.ledger.data.get("native_zero_capture")
+        last = self.ledger.data["last"]
+        context = (self.ledger.data.get("pending_epoch") or {}).get(
+            "native_validation_baseline"
+        )
+        if last is None and context:
+            last = dict(context["sample"], energy_source="native_soc")
+        if (
+            not guard
+            and joint
+            and last
+            and last.get("energy_source") == "native_soc"
+            and (number(last.get("soc")) or 0) > 1
+        ):
+            self.ledger.close_trip()
+            guard = {
+                "source": provenance,
+                "capacity_kwh": context["capacity_kwh"]
+                if context and self.ledger.data["last"] is None
+                else last.get("capacity_kwh", self.ledger._capacity_at(last["t"])),
+                "baseline": {key: last[key] for key in ("t", "odo", "soc", "energy")},
+                "latest": {"t": last["t"], "odo": last["odo"]},
+                "started": None,
+                "soc_at": soc_read[1],
+                "range_at": range_read[1],
+                "released": False,
+                "accepted_soc": None,
+                "accepted_soc_at": None,
+                "needs_advanced": False,
+            }
+            self.ledger.data["native_zero_capture"] = guard
+            self.ledger.changed()
+        if guard is None:
+            return False
+        before = deepcopy(guard)
+        if guard["source"] != provenance:
+            guard.update(
+                source=provenance,
+                started=None,
+                released=False,
+                accepted_soc=None,
+                accepted_soc_at=None,
+                needs_advanced=True,
+            )
+        baseline, latest = guard["baseline"], guard["latest"]
+        if (
+            odo_t > latest["t"]
+            and odo >= latest["odo"]
+            and odo - baseline["odo"] <= max(0, odo_t - baseline["t"]) / 3600 * 250 + 5
+        ):
+            latest.update(t=odo_t, odo=odo)
+        if (
+            guard["released"]
+            and soc_read
+            and soc_read[0] == guard["accepted_soc"]
+            and soc_read[1] >= guard["accepted_soc_at"]
+            and soc.attributes.get("source_quality", "valid") == "valid"
+        ):
+            hold = False
+        elif (
+            soc_read
+            and soc_read[0] is not None
+            and soc_read[0] > 0
+            and soc_read[2]
+            and soc_read[1] >= guard["soc_at"]
+        ):
+            guard["released"] = True
+            guard.update(
+                accepted_soc=soc_read[0],
+                accepted_soc_at=soc_read[1],
+                needs_advanced=False,
+            )
+            hold = False
+        else:
+            if guard["released"]:
+                guard.update(
+                    released=False,
+                    started=None,
+                    accepted_soc=None,
+                    accepted_soc_at=None,
+                )
+            hold = True
+            if (
+                joint
+                and soc_read[2]
+                and range_read[2]
+                and min(soc_read[1], range_read[1]) > baseline["t"]
+            ):
+                if guard["started"] is None and (
+                    not guard["needs_advanced"]
+                    or (
+                        soc_read[1] > guard["soc_at"]
+                        and range_read[1] > guard["range_at"]
+                    )
+                ):
+                    guard["started"] = now
+                    guard["needs_advanced"] = False
+                elif (
+                    guard["started"] is not None
+                    and now - guard["started"] >= 60
+                    and soc_read[1] > guard["soc_at"]
+                    and range_read[1] > guard["range_at"]
+                ):
+                    guard["released"] = True
+                    guard.update(accepted_soc=0.0, accepted_soc_at=soc_read[1])
+                    hold = False
+                guard["soc_at"] = max(guard["soc_at"], soc_read[1])
+                guard["range_at"] = max(guard["range_at"], range_read[1])
+        if not guard["released"]:
+            for key, reading in (("soc_at", soc_read), ("range_at", range_read)):
+                if reading and reading[0] == 0 and reading[2]:
+                    guard[key] = max(guard[key], reading[1])
+        if guard != before:
+            self.ledger.changed()
+        return hold or odo < latest["odo"]
 
     def sync_currency(self):
         """Apply HA's current accounting unit without relabelling saved amounts."""

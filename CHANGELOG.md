@@ -13,12 +13,18 @@ Development release — experimental.
   historical records whose source path is incomplete.
 - Protect both Direct and Companion accounting from suspicious zero/rebound
   readings using their actual source evidence while preserving genuine zero.
+- Preserve this protection across Home Assistant restarts and source/capacity
+  changes. Keep movement during validation as unaccounted distance without
+  inventing driving energy, a battery loss or a refill.
 - Review archived zero/refill pairs through the existing reversible
   measurement-error flow. Show the matching inferred refill's time and amount;
   confirmed charging receipts remain protected.
 - Apply calendar selection to individual parked intervals before grouping so
   daily and wider views agree. Retain charging-boundary battery changes separately
   as unaccounted usage, with localized review and audit copy in all 14 languages.
+- Label cumulative parked battery usage as a battery equivalent (for example,
+  2.34×) instead of an ambiguous charge percentage. Actual state of charge remains
+  a percentage; primary energy totals remain in kWh.
 
 ## 0.7.0-dev.7
 

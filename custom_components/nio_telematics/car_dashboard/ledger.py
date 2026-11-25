@@ -179,13 +179,45 @@ class Ledger:
 
     def begin_new_epoch(self, new_settings):
         """Keep archives, but never compare a new source/calibration to the old one."""
+        context = (self.data.get("pending_epoch") or {}).get(
+            "native_validation_baseline"
+        )
+        last = self.data["last"]
+        if (
+            last
+            and last.get("energy_source") == "native_soc"
+            and (number(last.get("soc")) or 0) > 1
+        ):
+            context = {
+                "capacity_kwh": last.get("capacity_kwh", self._capacity_at(last["t"])),
+                "sample": {key: last[key] for key in ("t", "odo", "soc", "energy")},
+            }
         self.close_trip(incomplete=True)
+        pending = self.pending_native_trip()
+        if pending:
+            pending["segments"][0].update(invalid_reason="gap", capture_pending=False)
+            pending["capture_pending"] = False
+            self.data["trips"].append(pending)
+        guard = self.data.get("native_zero_capture")
+        if guard:
+            # Keep accepted SoC only as validation context across an epoch;
+            # never reinterpret its old-capacity energy as a new measurement.
+            guard["baseline"].update(t=guard["latest"]["t"], odo=guard["latest"]["odo"])
+            guard.update(
+                started=None,
+                released=False,
+                accepted_soc=None,
+                accepted_soc_at=None,
+                needs_advanced=True,
+            )
         self.data["last"] = None
         self.data.pop("native_soc_reports", None)
         self.data["pending_epoch"] = {
             "capacity_kwh": new_settings["capacity_kwh"],
             "full_range_km": new_settings["full_range_km"],
         }
+        if context:
+            self.data["pending_epoch"]["native_validation_baseline"] = context
         self.changed()
 
     def record_transition(self, sample):
@@ -201,7 +233,15 @@ class Ledger:
             self.data["source_transition_energy"] = sample["energy"]
 
     def observe_native_sources(
-        self, odo_t, odo, soc_t, soc, connected=False, connected_since=None
+        self,
+        odo_t,
+        odo,
+        soc_t,
+        soc,
+        connected=False,
+        connected_since=None,
+        *,
+        force_native_gap=False,
     ):
         """Pair source clocks, never future SoC; persist the small alignment buffer."""
         values = list(map(number, (odo_t, odo, soc_t, soc)))
@@ -219,9 +259,10 @@ class Ledger:
         prior = [r for r in reports if 0 <= odo_t - r["t"] <= 180]
         # Allocate a bounded arrival endpoint before ingest can also book the
         # identical decrease as stationary loss.
-        self.reconcile_native_endpoint(
-            odo, soc_t, soc, connected=connected, connected_since=connected_since
-        )
+        if not force_native_gap:
+            self.reconcile_native_endpoint(
+                odo, soc_t, soc, connected=connected, connected_since=connected_since
+            )
         accepted = False
         if prior:
             reading = max(prior, key=lambda r: r["t"])
@@ -232,12 +273,14 @@ class Ledger:
                 connected,
                 soc_pct=reading["soc"],
                 home_connected_since=connected_since,
+                force_native_gap=force_native_gap,
             )
         # The last arrival sample can follow its odometer sample. It updates
         # that endpoint, rather than becoming parked loss or next-trip energy.
-        self.reconcile_native_endpoint(
-            odo, soc_t, soc, connected=connected, connected_since=connected_since
-        )
+        if not force_native_gap:
+            self.reconcile_native_endpoint(
+                odo, soc_t, soc, connected=connected, connected_since=connected_since
+            )
         return accepted
 
     def reconcile_native_endpoint(
@@ -532,6 +575,7 @@ class Ledger:
         *,
         soc_pct=None,
         home_connected_since=None,
+        force_native_gap=False,
     ):
         t, odo, km = map(number, (timestamp, odometer, range_km))
         soc = number(soc_pct)
@@ -624,7 +668,7 @@ class Ledger:
         else:
             distance, elapsed = odo - old["odo"], t - old["t"]
             delta = old["energy"] - sample["energy"]
-            gap = elapsed > self.settings["max_gap_minutes"] * 60
+            gap = force_native_gap or elapsed > self.settings["max_gap_minutes"] * 60
             if distance < 0 or distance > elapsed / 3600 * 250 + 5:
                 self.close_trip(incomplete=True)
                 sample["discontinuity"] = True
@@ -974,9 +1018,71 @@ class Ledger:
         self.changed()
 
     def all_trips(self):
-        return self.data["trips"] + (
-            [self.data["active"]] if self.data["active"] else []
+        pending = self.pending_native_trip()
+        return (
+            self.data["trips"]
+            + ([self.data["active"]] if self.data["active"] else [])
+            + ([pending] if pending else [])
         )
+
+    def pending_native_trip(self):
+        """Expose observed distance while a restart zero awaits source evidence.
+
+        This read-only projection has no gap mutation identity. No withheld
+        energy is recorded as a sample, loss, charge or known trip allocation.
+        """
+        guard = self.data.get("native_zero_capture")
+        if not guard:
+            return None
+        before, after = guard["baseline"], guard["latest"]
+        distance = after["odo"] - before["odo"]
+        if distance <= 0:
+            return None
+        return {
+            "id": "validation-"
+            + sha256(
+                json.dumps([guard["source"], before["t"], before["odo"]]).encode()
+            ).hexdigest()[:24],
+            "start": before["t"],
+            "end": after["t"],
+            "start_odo": before["odo"],
+            "end_odo": after["odo"],
+            "start_energy": before["energy"],
+            "end_energy": None,
+            "distance_km": distance,
+            "last_movement": after["t"],
+            "complete": False,
+            "capture_pending": True,
+            "segments": [
+                {
+                    "start": before["t"],
+                    "end": after["t"],
+                    "km": distance,
+                    "kwh": None,
+                    "complete": False,
+                    "sparse": True,
+                    "invalid_reason": "validation_pending",
+                    "capture_pending": True,
+                    "start_energy": before["energy"],
+                    "end_energy": None,
+                }
+            ],
+        }
+
+    def observe_capture_odometer(self, timestamp, odometer):
+        """Retain real distance even while energy fields are unavailable/stale."""
+        guard = self.data.get("native_zero_capture")
+        if not guard:
+            return
+        baseline, latest = guard["baseline"], guard["latest"]
+        if (
+            timestamp > latest["t"]
+            and odometer >= latest["odo"]
+            and odometer - baseline["odo"]
+            <= max(0, timestamp - baseline["t"]) / 3600 * 250 + 5
+        ):
+            latest.update(t=timestamp, odo=odometer)
+            self.changed()
 
     def _parking_boundary(self, start, end):
         """Charging and source changes break battery-only stationary paths."""
@@ -1849,7 +1955,9 @@ class Ledger:
                 remaining -= portion
             segments = list(reversed(result))
         gaps = [r for r in segments if "gap_id" in r]
-        unaccounted = [r for r in gaps if r["gap_resolution"] != "manual"]
+        unaccounted = [r for r in gaps if r["gap_resolution"] != "manual"] + [
+            r for r in segments if r.get("capture_pending")
+        ]
         changes = [
             (number(r.get("start_energy")), number(r.get("end_energy")))
             for r in unaccounted
@@ -2301,7 +2409,9 @@ class Ledger:
         rolling["basis"] = "native_soc_driving"
         rolling["window_km"] = 100
         rolling["calculated_at"] = now
-        rolling["remaining_kwh"] = last.get("energy")
+        rolling["remaining_kwh"] = (
+            last.get("energy") if not self.data.get("native_zero_capture") else None
+        )
         statistics["last_100km"] = rolling
         displayed = self.display_trips(tz)
         active_id = (self.data["active"] or {}).get("id")
@@ -2320,7 +2430,11 @@ class Ledger:
         pref = self.data["preferences"]
         for value in statistics.values():
             consumption = value["consumption_kwh_100km"]
-            energy = self.data["last"]["energy"] if self.data["last"] else None
+            energy = (
+                self.data["last"]["energy"]
+                if self.data["last"] and not self.data.get("native_zero_capture")
+                else None
+            )
             value["projected_range_km"] = (
                 energy / consumption * 100
                 if energy is not None and consumption and consumption > 0
@@ -2378,6 +2492,16 @@ class Ledger:
         parked_ids = {r["id"] for r in parked_intervals}
         return {
             "currency": self.currency,
+            "pending_native_capture": {
+                "start": self.data["native_zero_capture"]["baseline"]["t"],
+                "end": self.data["native_zero_capture"]["latest"]["t"],
+                "distance_km": self.data["native_zero_capture"]["latest"]["odo"]
+                - self.data["native_zero_capture"]["baseline"]["odo"],
+                "reason": "joint_zero_validation",
+                "read_only": True,
+            }
+            if self.data.get("native_zero_capture")
+            else None,
             "revision": self.data["revision"],
             "unaccounted_intervals": intervals,
             "parked_intervals": parked_intervals,

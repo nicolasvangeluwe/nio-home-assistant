@@ -55,6 +55,8 @@ def validate_history(history: object) -> dict | None:
         return None
     if not isinstance(history, dict):
         raise ValueError("History must be an object")
+    _validate_native_zero_capture(history.get("native_zero_capture"))
+    _validate_pending_epoch(history.get("pending_epoch"))
     for key, expected in HISTORY_COLLECTIONS.items():
         if key not in history or not isinstance(history[key], expected):
             raise ValueError(f"History is missing a valid {key} collection")
@@ -204,6 +206,123 @@ def validate_history(history: object) -> dict | None:
             raise ValueError("Invalid measurement error")
     _check_safe(history)
     return deepcopy(history)
+
+
+def _validate_pending_epoch(epoch):
+    """An old-calibration reading is bounded validation context, never new stock."""
+    if epoch is None:
+        return
+    if (
+        not isinstance(epoch, dict)
+        or set(epoch)
+        not in (
+            {"capacity_kwh", "full_range_km"},
+            {"capacity_kwh", "full_range_km", "native_validation_baseline"},
+        )
+        or any(
+            isinstance(epoch.get(key), bool)
+            or not isinstance(epoch.get(key), (int, float))
+            or not isfinite(epoch[key])
+            or epoch[key] <= 0
+            for key in ("capacity_kwh", "full_range_km")
+        )
+    ):
+        raise ValueError("Invalid pending energy epoch")
+    if "native_validation_baseline" not in epoch:
+        return
+    context = epoch["native_validation_baseline"]
+    if not isinstance(context, dict) or set(context) != {"capacity_kwh", "sample"}:
+        raise ValueError("Invalid native validation baseline")
+    # Reuse precisely the same accepted-native baseline validation. These
+    # temporary fields are validation scaffolding, not imported source data.
+    _validate_native_zero_capture(
+        {
+            "source": "direct",
+            "capacity_kwh": context["capacity_kwh"],
+            "baseline": context["sample"],
+            "latest": {key: context["sample"].get(key) for key in ("t", "odo")}
+            if isinstance(context["sample"], dict)
+            else {},
+            "started": None,
+            "soc_at": 0,
+            "range_at": 0,
+            "released": False,
+            "accepted_soc": None,
+            "accepted_soc_at": None,
+            "needs_advanced": False,
+        }
+    )
+
+
+def _validate_native_zero_capture(guard):
+    """Validate the one bounded restart-capture record, including held distance."""
+    if guard is None:
+        return
+
+    def finite(value):
+        return (
+            not isinstance(value, bool)
+            and isinstance(value, (int, float))
+            and isfinite(value)
+        )
+
+    if not isinstance(guard, dict) or set(guard) != {
+        "source",
+        "capacity_kwh",
+        "baseline",
+        "latest",
+        "started",
+        "soc_at",
+        "range_at",
+        "released",
+        "accepted_soc",
+        "accepted_soc_at",
+        "needs_advanced",
+    }:
+        raise ValueError("Invalid native zero capture")
+    baseline, latest = guard["baseline"], guard["latest"]
+    if (
+        not isinstance(guard["source"], str)
+        or not fullmatch(r"direct|companion:(?:[0-9]+|None)", guard["source"])
+        or not finite(guard["capacity_kwh"])
+        or guard["capacity_kwh"] <= 0
+        or not isinstance(baseline, dict)
+        or set(baseline) != {"t", "odo", "soc", "energy"}
+        or not all(finite(value) for value in baseline.values())
+        or baseline["t"] < 0
+        or baseline["odo"] <= 0
+        or not 1 < baseline["soc"] <= 100
+        or not 0 < baseline["energy"] <= guard["capacity_kwh"]
+        or abs(baseline["energy"] - baseline["soc"] / 100 * guard["capacity_kwh"])
+        > 1e-6
+        or not isinstance(latest, dict)
+        or set(latest) != {"t", "odo"}
+        or not all(finite(value) for value in latest.values())
+        or latest["t"] < baseline["t"]
+        or latest["odo"] < baseline["odo"]
+        or latest["odo"] - baseline["odo"]
+        > (latest["t"] - baseline["t"]) / 3600 * 250 + 5
+        or (
+            guard["started"] is not None
+            and (not finite(guard["started"]) or guard["started"] < 0)
+        )
+        or not all(
+            finite(guard[key]) and guard[key] >= 0 for key in ("soc_at", "range_at")
+        )
+        or not isinstance(guard["released"], bool)
+        or not isinstance(guard["needs_advanced"], bool)
+    ):
+        raise ValueError("Invalid native zero capture")
+    if guard["released"]:
+        if (
+            not finite(guard["accepted_soc"])
+            or not 0 <= guard["accepted_soc"] <= 100
+            or not finite(guard["accepted_soc_at"])
+            or guard["accepted_soc_at"] < 0
+        ):
+            raise ValueError("Invalid native zero capture release")
+    elif guard["accepted_soc"] is not None or guard["accepted_soc_at"] is not None:
+        raise ValueError("Invalid native zero capture release")
 
 
 def make_backup(vin: str, preferences: dict, history: dict | None) -> dict:
