@@ -48,8 +48,9 @@ class CarLedgerCoordinator(DataUpdateCoordinator):
         self.active_home_id = None
 
     async def async_start(self):
-        self.ledger = Ledger(self.settings, await self.store.async_load())
-        before = self.ledger.data["revision"]
+        saved = await self.store.async_load()
+        before = saved["revision"] if saved else 0
+        self.ledger = Ledger(self.settings, saved)
         self.ledger.classify_recorded_intervals()
         if self.ledger.currency_migrated or self.ledger.data["revision"] != before:
             await self.store.async_save(deepcopy(self.ledger.data))

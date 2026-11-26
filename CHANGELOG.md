@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.7.0-dev.12
+
+Development release — experimental.
+
+- Allow a parked charging boundary to start above booked battery stock when
+  eligible pending receipts explain the rise. Keep the original booked basis
+  and credit each completed receipt once, without pricing delivered energy twice.
+- Preserve native accounting observations outside the rolling diagnostic
+  buffers. Retain actual source clocks, stock, capacity and epoch; migrate
+  still-retained historical evidence and save it immediately at startup.
+  Historical pricing no longer disappears merely because both buffers rotate.
+- Keep conservative source-time bounds when an old archive lacks exact clocks.
+  Leave unsupported intervals unpriced, retire coherent known native usage
+  proportionally from pending book value, and allow a later supported START to
+  resume pricing. Unknown energy and incompatible supplies/sources remain guards.
+- Preserve the real native energy anchor across ordinary pauses, including a
+  bounded derived correction for older complete native rows. Retain observed
+  legacy parked-boundary endpoints so sample expiry does not change their
+  classification. Keep raw readings, decisions and existing record IDs.
+
 ## 0.7.0-dev.11
 
 Development release — experimental.

@@ -173,6 +173,83 @@ class Ledger:
                 if first is not None
                 else []
             )
+        self.data.setdefault("native_cost_anchors", [])
+        self._migrate_native_cost_anchors()
+
+    def _native_cost_proof(self, sample):
+        """Retain observations, never a cached pricing decision."""
+        if not sample or sample.get("energy_source") != "native_soc":
+            return None
+        at, energy = number(sample.get("t")), number(sample.get("energy"))
+        if at is None or energy is None:
+            return None
+        capacity = sample.get("capacity_kwh", self._capacity_at(at))
+        if not 0 <= energy <= capacity:
+            return None
+        epoch = max(
+            (r["t"] for r in self.data["source_transitions"] if r["t"] <= at), default=0
+        )
+        # Arrival refinement can replace a sample's energy with a later read.
+        # It cannot establish a source observation at that sample's old clock.
+        source = number(
+            sample.get("endpoint_soc_time", sample.get("native_source_time"))
+        )
+        if source is None:
+            matching = [
+                r["t"]
+                for r in self.data.get("native_soc_reports", [])
+                if 0 <= at - r["t"] <= 180
+                and r["t"] >= epoch
+                and self._capacity_at(r["t"]) == capacity
+                and abs(r["soc"] / 100 * capacity - energy) <= 1e-6
+            ]
+            # This can be an independent same-valued native observation, not
+            # necessarily the report originally selected during capture.
+            source = max(matching) if matching else None
+        if source is not None and (not 0 <= at - source <= 180 or source < epoch):
+            return None
+        return {
+            "observed_at": at,
+            "energy": energy,
+            "capacity_kwh": capacity,
+            "source_from": source if source is not None else at - 180,
+            "source_until": source if source is not None else at,
+            "epoch": epoch,
+            "odo": sample["odo"],
+            "home_connected": bool(sample.get("home_connected")),
+        }
+
+    def _remember_native_cost_anchor(self, sample):
+        proof = self._native_cost_proof(sample)
+        if proof is None:
+            return False
+        anchors = self.data["native_cost_anchors"]
+        for existing in anchors:
+            if all(
+                existing[k] == proof[k]
+                for k in ("observed_at", "energy", "capacity_kwh", "epoch")
+            ):
+                if proof["source_from"] > existing["source_from"]:
+                    existing.update(proof)
+                    return True
+                return False
+        anchors.append(proof)
+        return True
+
+    def _migrate_native_cost_anchors(self):
+        """Copy still-retained legacy START evidence before either ring expires."""
+        wanted = set()
+        for trip in self.all_trips():
+            if trip.get("native_alignment_version") == 2:
+                wanted.update(r["start"] for r in trip["segments"])
+        wanted.update(r["start"] for r in self.data["parked_losses"])
+        wanted.update(r["end"] for r in self.data["parked_losses"])
+        changed = False
+        for sample in self.data["samples"]:
+            if sample["t"] in wanted:
+                changed = self._remember_native_cost_anchor(sample) or changed
+        if changed:
+            self.changed()
 
     def changed(self):
         self.data["revision"] += 1
@@ -272,6 +349,7 @@ class Ledger:
                 None,
                 connected,
                 soc_pct=reading["soc"],
+                soc_source_time=reading["t"],
                 home_connected_since=connected_since,
                 force_native_gap=force_native_gap,
             )
@@ -574,6 +652,7 @@ class Ledger:
         home_connected=False,
         *,
         soc_pct=None,
+        soc_source_time=None,
         home_connected_since=None,
         force_native_gap=False,
     ):
@@ -607,6 +686,8 @@ class Ledger:
         }
         if soc is not None:
             sample["soc"] = soc
+            if soc_source_time is not None:
+                sample["native_source_time"] = soc_source_time
         old = self.data["last"]
         if old and t <= old["t"]:
             return False
@@ -731,9 +812,14 @@ class Ledger:
                     "complete": complete,
                     "sparse": gap,
                     "invalid_reason": invalid_reason,
-                    "start_energy": old["energy"],
+                    "start_energy": trip.get("energy_anchor", old["energy"])
+                    if source == "native_soc"
+                    else old["energy"],
                     "end_energy": sample["energy"],
                 }
+                if old["t"] == segment["start"]:
+                    self._remember_native_cost_anchor(old)
+                self._remember_native_cost_anchor(sample)
                 trip["segments"].append(segment)
                 if source == "native_soc" and invalid_reason in ("gap", "charging"):
                     # Resume from this observed endpoint, never price or count
@@ -825,6 +911,8 @@ class Ledger:
                 and not (source == "native_soc" and self.data["active"] is not None)
             ):
                 # Classification follows measured distance, even during short stops.
+                self._remember_native_cost_anchor(old)
+                self._remember_native_cost_anchor(sample)
                 self.data["parked_losses"].append(
                     {
                         "start": old["t"],
@@ -1166,6 +1254,20 @@ class Ledger:
             self.settings["max_gap_minutes"],
             self.data["initial_capacity_kwh"],
             points_key(self.data["samples"]),
+            tuple(
+                tuple(
+                    p.get(k)
+                    for k in (
+                        "observed_at",
+                        "energy",
+                        "capacity_kwh",
+                        "epoch",
+                        "odo",
+                        "home_connected",
+                    )
+                )
+                for p in self.data["native_cost_anchors"]
+            ),
             tuple(points_key(path) for path in self.data["parking_source_paths"]),
             json.dumps(self.data["parked_losses"], sort_keys=True),
             tuple(
@@ -1260,6 +1362,48 @@ class Ledger:
             covered = [
                 r for r in self.data["samples"] if row["start"] <= r["t"] <= row["end"]
             ]
+            if (
+                not covered
+                or covered[0]["t"] != row["start"]
+                or covered[-1]["t"] != row["end"]
+            ):
+                # Legacy boundary classification must survive the sample ring
+                # too. Retain actual native endpoint observations, not a cached
+                # classification or an inferred cable/charging verdict.
+                endpoints = []
+                ending = number(row.get("end_energy"))
+                for at, energy in (
+                    (
+                        row["start"],
+                        ending + row["recorded_kwh"] if ending is not None else None,
+                    ),
+                    (row["end"], ending),
+                ):
+                    proof = next(
+                        (
+                            p
+                            for p in self.data["native_cost_anchors"]
+                            if p["observed_at"] == at
+                            and energy is not None
+                            and abs(p["energy"] - energy) <= 1e-6
+                            and p.get("odo") is not None
+                            and p["capacity_kwh"] == self._capacity_at(at)
+                            and p["epoch"]
+                            == max(
+                                (
+                                    t["t"]
+                                    for t in self.data["source_transitions"]
+                                    if t["t"] <= at
+                                ),
+                                default=0,
+                            )
+                        ),
+                        None,
+                    )
+                    if proof is not None:
+                        endpoints.append(dict(proof, t=at, energy_source="native_soc"))
+                if len(endpoints) == 2:
+                    covered = endpoints
             if (
                 len(covered) >= 2
                 and covered[0]["t"] == row["start"]
@@ -1739,27 +1883,44 @@ class Ledger:
 
         native_windows = set()
 
-        def native_start_after(kind, row, settled_at):
-            """Require the START's own retained native source observation."""
+        anchors_by_time = {}
+        for proof in self.data["native_cost_anchors"]:
+            anchors_by_time.setdefault(proof["observed_at"], []).append(proof)
+
+        def native_observations(kind, row):
             if (
                 kind == "trip"
                 and (row["start"], row["end"], row["km"]) not in native_windows
             ):
-                return False
+                return []
             energy = number(row.get("start_energy"))
-            return energy is not None and any(
-                sample["t"] == row["start"]
-                and sample.get("energy_source") == "native_soc"
-                and abs(sample["energy"] - energy) <= 1e-6
-                and sample.get("capacity_kwh", self._capacity_at(sample["t"]))
-                == capacity
-                and any(
-                    settled_at <= report["t"] <= sample["t"]
-                    and sample["t"] - report["t"] <= 180
-                    and abs(report["soc"] / 100 * capacity - energy) <= 1e-6
-                    for report in self.data.get("native_soc_reports", [])
-                )
-                for sample in self.data["samples"]
+            if energy is None:
+                return []
+            epoch = max(
+                (
+                    r["t"]
+                    for r in self.data["source_transitions"]
+                    if r["t"] <= row["start"]
+                ),
+                default=0,
+            )
+            return [
+                p
+                for p in anchors_by_time.get(row["start"], [])
+                if abs(p["energy"] - energy) <= 1e-6
+                and p["capacity_kwh"] == capacity
+                and p["epoch"] == epoch
+                and row["start"] - 180
+                <= p["source_from"]
+                <= p["source_until"]
+                <= row["start"]
+            ]
+
+        def native_start_after(kind, row, settled_at):
+            # The exact selected source clock (or a conservative legacy bound)
+            # lives with permanent accounting evidence, outside diagnostic rings.
+            return any(
+                p["source_from"] >= settled_at for p in native_observations(kind, row)
             )
 
         def defer_boundary(kind, segment):
@@ -1785,6 +1946,28 @@ class Ledger:
                 events.append((charge["end"], 0, "charge", charge))
         for trip in self.all_trips():
             for segment in self.accounting_segments(trip, apply_resolutions=False):
+                if (
+                    trip.get("native_alignment_version") == 2
+                    and segment["kwh"] is not None
+                    and segment.get("invalid_reason") is None
+                    and not segment.get("native_correction_resolved")
+                    and number(segment.get("end_energy")) is not None
+                ):
+                    # Old complete native rows used a later idle sample as the
+                    # START stock, though their energy delta used energy_anchor.
+                    # Repair only this read projection with matching permanent
+                    # START evidence; raw usage, timestamps and IDs stay intact.
+                    anchored = segment["end_energy"] + segment["kwh"]
+                    projected = dict(segment, start_energy=anchored)
+                    native_windows.add(
+                        (segment["start"], segment["end"], segment["km"])
+                    )
+                    if (
+                        number(segment.get("start_energy")) is not None
+                        and 0 <= segment["start_energy"] <= anchored + 1e-6
+                        and native_observations("trip", projected)
+                    ):
+                        segment = projected
                 events.append((segment["end"], 1, "trip", segment))
                 if trip.get("native_alignment_version") == 2:
                     native_windows.add(
@@ -1885,13 +2068,22 @@ class Ledger:
                     0 < stock <= capacity + 1e-6
                     and known_energy >= stock - 1e-6
                     and valid_endpoints
-                    and 0 <= start <= min(stock, capacity) + 1e-6
+                    and start
+                    <= min(
+                        stock
+                        + sum(
+                            c["kwh"] for c in overlap if c["start"] < segment["start"]
+                        ),
+                        capacity,
+                    )
+                    + 1e-6
                 ):
                     # Nominal available energy/value, NOT physical battery
                     # stock. It may exceed capacity before unknown withdrawals.
+                    basis = min(start, stock)
                     deferred = {
-                        "stock": start,
-                        "value": start * value / stock,
+                        "stock": basis,
+                        "value": basis * value / stock,
                         "origin": (segment["start"], segment["end"]),
                         "windows": {window},
                         "settled_at": max(c["end"] for c in overlap),
@@ -1966,9 +2158,32 @@ class Ledger:
                         # later interval can use its own observed start stock.
                         stock = known_energy = quantity
                         value = quantity * deferred["value"] / deferred["stock"]
-                    # An intervening drive or missing START evidence cannot be
-                    # priced retrospectively from this interval's END.
-                    deferred = None
+                        deferred = None
+                    elif (
+                        not deferred["remaining"]
+                        and row["start"] >= deferred["settled_at"]
+                        and number(row.get("kwh")) is not None
+                        and 0 <= row["kwh"] < deferred["stock"]
+                        and quantity is not None
+                        and 0 <= quantity <= min(capacity, deferred["stock"]) + 1e-6
+                        and native_observations(kind, row)
+                        and all(
+                            c["id"] in deferred["receipts"]
+                            for c in charges
+                            if c["kind"] != "dismissed"
+                            and c["start"] < row["end"]
+                            and c["end"] > deferred["origin"][0]
+                        )
+                    ):
+                        # Known native withdrawal can retire pending BOOK value
+                        # proportionally while this row's cost stays unknown.
+                        # A later supported START may recover; never backprice
+                        # this interval from a future END or a missing clock.
+                        fraction = (deferred["stock"] - row["kwh"]) / deferred["stock"]
+                        deferred["stock"] *= fraction
+                        deferred["value"] *= fraction
+                    else:
+                        deferred = None
                 energy = row["kwh"]
                 complete = (
                     energy is not None

@@ -78,9 +78,16 @@ preserved, including a bounded display correction for old post-gap overlap.
 For a charging overlap, a fully known battery price is retained only when all
 overlapping sessions are confirmed, priced and in the same currency. If a session
 finishes after the arrival interval, its receipt is credited once at completion.
-Pricing resumes only from a retained native start reading whose own source time
-is after completion; intervening driving or incompatible evidence clears that
-deferred basis. Unknown driving energy stays unaccounted. This uses the existing
+Pricing resumes from a supported native start reading after completion.
+Native accounting observations are retained with the permanent ledger, outside
+the rolling diagnostic buffers. Existing exact clocks or corroborating native
+observations are preserved; an older accepted sample without its source clock
+establishes only the existing 180-second alignment bound. An unsupported old
+interval stays unpriced. Coherent known native usage can retire pending book
+value proportionally until a later supported start resumes pricing; unknown
+energy or incompatible evidence still clears the deferred basis. A receipt-backed
+in-session rise opens from the original booked stock, with the receipt credited
+once. Unknown driving energy stays unaccounted. This uses the existing
 weighted booked-cost convention, not a reconstruction of the physical battery
 mix or charging time. The following native energy anchor restarts independently;
 proven older v2 anchor errors are
