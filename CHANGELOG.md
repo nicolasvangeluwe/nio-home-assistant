@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.0-dev.11
+
+Development release — experimental.
+
+- Fix the dev.8 regression where an uncertain parked battery change overlapping
+  a priced charging session erased the known booked battery price for later
+  trips. Preserve one deferred book-value pool across related parked and arrival
+  intervals, credit each eligible completed receipt once, and reconcile only
+  from compatible retained native start evidence after charging. Ordinary parked
+  consumption after charging can use the same native-start settlement.
+- Keep missing consumption and arrival costs unaccounted, raw history and
+  correction decisions unchanged, and the existing currency, source, capacity,
+  unknown-price and intervening-driving safeguards. This is booked accounting,
+  not reconstruction of physical charging timing or missing energy.
+- Retain the startup-validation and exact-text backup fixes from dev.10.
+
 ## 0.7.0-dev.10
 
 Development release — experimental.
