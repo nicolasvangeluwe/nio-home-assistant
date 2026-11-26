@@ -1739,9 +1739,12 @@ class Ledger:
 
         native_windows = set()
 
-        def native_start_after(row, settled_at):
+        def native_start_after(kind, row, settled_at):
             """Require the START's own retained native source observation."""
-            if (row["start"], row["end"], row["km"]) not in native_windows:
+            if (
+                kind == "trip"
+                and (row["start"], row["end"], row["km"]) not in native_windows
+            ):
                 return False
             energy = number(row.get("start_energy"))
             return energy is not None and any(
@@ -1758,6 +1761,20 @@ class Ledger:
                 )
                 for sample in self.data["samples"]
             )
+
+        def defer_boundary(kind, segment):
+            overlap = [
+                c
+                for c in charges
+                if c["kind"] != "dismissed"
+                and c["start"] < segment["end"]
+                and c["end"] > segment["start"]
+            ]
+            if overlap and all(fully_priced(c) for c in overlap):
+                # Start before receipt completion, after preceding movement.
+                events.append(
+                    (segment["start"], 2, "deferred_start", (kind, segment, overlap))
+                )
 
         for charge in charges:
             if (
@@ -1777,31 +1794,8 @@ class Ledger:
                         segment["kwh"] is None
                         and segment.get("invalid_reason") == "charging"
                     ):
-                        overlap = [
-                            c
-                            for c in charges
-                            if c["kind"] != "dismissed"
-                            and c["start"] < segment["end"]
-                            and c["end"] > segment["start"]
-                        ]
-                        if (
-                            overlap
-                            and all(fully_priced(c) for c in overlap)
-                            and any(c["end"] > segment["end"] for c in overlap)
-                        ):
-                            # Open before receipt end events, after any preceding
-                            # movement ending at this same timestamp.
-                            events.append(
-                                (
-                                    segment["start"],
-                                    2,
-                                    "deferred_start",
-                                    (segment, overlap),
-                                )
-                            )
+                        defer_boundary("trip", segment)
         for loss in self.accounting_parked_losses():
-            events.append((loss["end"], 1, "parked", loss))
-        for loss in self.unaccounted_parked_intervals():
             endpoint = number(loss.get("end_energy"))
             events.append(
                 (
@@ -1810,32 +1804,88 @@ class Ledger:
                     "parked",
                     dict(
                         loss,
-                        kwh=None,
-                        start_energy=endpoint + loss["recorded_kwh"]
+                        start_energy=endpoint + loss["kwh"]
                         if endpoint is not None
                         else None,
-                        invalid_reason=loss["accounting_basis"],
                     ),
                 )
             )
+        for loss in self.unaccounted_parked_intervals():
+            endpoint = number(loss.get("end_energy"))
+            row = dict(
+                loss,
+                kwh=None,
+                start_energy=endpoint + loss["recorded_kwh"]
+                if endpoint is not None
+                else None,
+                invalid_reason=loss["accounting_basis"],
+            )
+            events.append((row["end"], 1, "parked", row))
+            if row["invalid_reason"] == "charging_boundary":
+                defer_boundary("parked", row)
         for transition in self.data["source_transitions"]:
             events.append((transition["t"], -1, "source_transition", transition))
         result = []
         deferred = None
         for _, _, kind, row in sorted(events, key=lambda x: (x[0], x[1])):
             if kind == "deferred_start":
-                segment, overlap = row
+                boundary_kind, segment, overlap = row
+                if (
+                    deferred is None
+                    and boundary_kind == "trip"
+                    and all(c["end"] <= segment["end"] for c in overlap)
+                ):
+                    # Keep the existing completed-overlap carry convention.
+                    # This event may join an earlier parked pool, but must not
+                    # newly impose retained native-START evidence on old trips.
+                    continue
                 start = number(segment.get("start_energy"))
                 end = number(segment.get("end_energy"))
+                window = (boundary_kind, segment["start"], segment["end"])
+                receipts = {c["id"] for c in overlap}
+                valid_endpoints = (
+                    start is not None
+                    and 0 <= start <= capacity
+                    and end is not None
+                    and 0 <= end <= capacity
+                )
                 if deferred is not None:
-                    deferred = None
+                    if (
+                        valid_endpoints
+                        and (
+                            receipts & deferred["receipts"]
+                            or (
+                                segment["start"] >= deferred["settled_at"]
+                                and all(
+                                    c["start"] >= deferred["settled_at"]
+                                    for c in overlap
+                                )
+                            )
+                        )
+                        and (
+                            boundary_kind == "parked"
+                            or not any(k == "trip" for k, _, _ in deferred["windows"])
+                            or any(
+                                segment["start"] < end and segment["end"] > start
+                                for _, start, end in deferred["windows"]
+                            )
+                        )
+                    ):
+                        # Repeated parked rows and delayed arrival belong to
+                        # one episode. Existing receipts are never credited twice.
+                        deferred["remaining"].update(receipts - deferred["receipts"])
+                        deferred["receipts"].update(receipts)
+                        deferred["windows"].add(window)
+                        deferred["settled_at"] = max(
+                            deferred["settled_at"], max(c["end"] for c in overlap)
+                        )
+                    else:
+                        deferred = None
                 elif (
                     0 < stock <= capacity + 1e-6
                     and known_energy >= stock - 1e-6
-                    and start is not None
+                    and valid_endpoints
                     and 0 <= start <= min(stock, capacity) + 1e-6
-                    and end is not None
-                    and 0 <= end <= capacity
                 ):
                     # Nominal available energy/value, NOT physical battery
                     # stock. It may exceed capacity before unknown withdrawals.
@@ -1843,6 +1893,7 @@ class Ledger:
                         "stock": start,
                         "value": start * value / stock,
                         "origin": (segment["start"], segment["end"]),
+                        "windows": {window},
                         "settled_at": max(c["end"] for c in overlap),
                         "remaining": {c["id"] for c in overlap},
                         "receipts": {c["id"] for c in overlap},
@@ -1861,6 +1912,14 @@ class Ledger:
                         deferred["remaining"].remove(row["id"])
                         # Credit this receipt once, without clamping energy
                         # and retaining its full cost in physical stock.
+                        continue
+                    if fully_priced(row) and row["start"] >= deferred["origin"][0]:
+                        # A later fully priced receipt can extend the same
+                        # unsettled book pool before any intervening usage.
+                        deferred["stock"] += row["kwh"]
+                        deferred["value"] += row["cost_eur"]
+                        deferred["receipts"].add(row["id"])
+                        deferred["settled_at"] = max(deferred["settled_at"], row["end"])
                         continue
                     deferred = None
                 kwh = row["kwh"]
@@ -1882,14 +1941,14 @@ class Ledger:
             else:
                 if (
                     deferred is not None
-                    and kind == "trip"
-                    and (row["start"], row["end"]) != deferred["origin"]
+                    and (kind, row["start"], row["end"]) not in deferred["windows"]
                 ):
                     quantity = number(row.get("start_energy"))
                     if (
-                        not deferred["remaining"]
+                        (kind == "trip" or row["kwh"] is not None)
+                        and not deferred["remaining"]
                         and row["start"] >= deferred["settled_at"]
-                        and native_start_after(row, deferred["settled_at"])
+                        and native_start_after(kind, row, deferred["settled_at"])
                         and quantity is not None
                         and 0 <= quantity <= capacity
                         and quantity <= deferred["stock"] + 1e-6
