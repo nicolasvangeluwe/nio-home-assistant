@@ -147,9 +147,16 @@ class ParkedChargingBasisTests(unittest.TestCase):
                     ledger.data["samples"] = [
                         s for s in ledger.data["samples"] if s["t"] != self.t + 1200
                     ]
+                    ledger.data["native_cost_anchors"] = [
+                        p
+                        for p in ledger.data["native_cost_anchors"]
+                        if p["observed_at"] != self.t + 1200
+                    ]
                 elif mutation == "reports":
-                    for report in ledger.data["native_soc_reports"]:
-                        report["t"] = min(report["t"], self.t + 999)
+                    for proof in ledger.data["native_cost_anchors"]:
+                        proof["source_from"] = proof["source_until"] = min(
+                            proof["source_from"], self.t + 999
+                        )
                 elif mutation == "transition":
                     ledger.data["source_transitions"].append(
                         {"t": self.t + 900, "energy": 50, "capacity_kwh": 75}

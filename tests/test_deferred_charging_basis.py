@@ -177,11 +177,16 @@ class DeferredChargingBasisTests(unittest.TestCase):
         ledger.data["samples"] = [
             s for s in ledger.data["samples"] if s["t"] != self.t + 4300
         ]
+        ledger.data["native_cost_anchors"] = [
+            p
+            for p in ledger.data["native_cost_anchors"]
+            if p["observed_at"] != self.t + 4300
+        ]
         self.assertIsNone(ledger.cost_segments()[-1]["cost_eur"])
         ledger = self.fixture()
-        for report in ledger.data["native_soc_reports"]:
-            if report["t"] == self.t + 4300:
-                report["t"] = self.t + 4199
+        for proof in ledger.data["native_cost_anchors"]:
+            if proof["observed_at"] == self.t + 4300:
+                proof["source_from"] = proof["source_until"] = self.t + 4199
         # Odometer START after receipt end with energy's own source clock
         # before receipt end is not independent post-settlement stock evidence.
         self.assertIsNone(ledger.cost_segments()[-1]["cost_eur"])

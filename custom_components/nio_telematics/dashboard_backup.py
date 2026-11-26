@@ -103,6 +103,49 @@ def validate_history(history: object) -> dict | None:
         return None
     if not isinstance(history, dict):
         raise ValueError("History must be an object")
+    anchors = history.get("native_cost_anchors", [])
+    if not isinstance(anchors, list):
+        raise ValueError("Native cost anchors must be a list")
+    for anchor in anchors:
+        keys = {
+            "observed_at",
+            "energy",
+            "capacity_kwh",
+            "source_from",
+            "source_until",
+            "epoch",
+        }
+        if (
+            not isinstance(anchor, dict)
+            or not keys <= set(anchor) <= keys | {"odo", "home_connected"}
+            or any(
+                isinstance(anchor.get(k), bool)
+                or not isinstance(anchor.get(k), (int, float))
+                or not isfinite(anchor[k])
+                for k in keys
+            )
+            or not 0 <= anchor["energy"] <= anchor["capacity_kwh"]
+            or anchor["capacity_kwh"] <= 0
+            or not anchor["observed_at"] - 180
+            <= anchor["source_from"]
+            <= anchor["source_until"]
+            <= anchor["observed_at"]
+            or not 0 <= anchor["epoch"] <= anchor["observed_at"]
+            or (
+                "odo" in anchor
+                and (
+                    isinstance(anchor["odo"], bool)
+                    or not isinstance(anchor["odo"], (int, float))
+                    or not isfinite(anchor["odo"])
+                    or anchor["odo"] <= 0
+                )
+            )
+            or (
+                "home_connected" in anchor
+                and not isinstance(anchor["home_connected"], bool)
+            )
+        ):
+            raise ValueError("Invalid native cost anchor")
     _validate_native_zero_capture(history.get("native_zero_capture"))
     _validate_pending_epoch(history.get("pending_epoch"))
     for key, expected in HISTORY_COLLECTIONS.items():
